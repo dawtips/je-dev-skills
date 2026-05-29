@@ -133,6 +133,8 @@ steps:
     kind: deterministic | agentic
     rationale: "why this classification"     # REQUIRED — enforces simplicity-first
     pattern: chain|route|parallelize|orchestrate|evaluate|none
+    side_effecting: true|false               # declares external side effects → drives the retry check
+    reversible: true|false                   # declares the step can be undone → drives the rollback check
     inputs: [...]
     outputs: [...]
     failure_modes: [...]
@@ -226,8 +228,8 @@ green; non-zero = gaps listed.
   output_format, tools, boundaries all non-empty) plus a non-empty `model` and
   `effort`, and a workflow containing any `subagents` has at least one `agentic`
   step to justify them.
-- Any side-effecting step has `retry` with an `idempotency_key`; any reversible step
-  has `rollback`; any loop or agentic step has a non-empty `termination`.
+- Any step with `side_effecting: true` has `retry.idempotency_key`; any step with
+  `reversible: true` has `rollback`; any `agentic` step has a non-empty `termination`.
 - Each `rubric` has a categorical `scale`, per-level `levels` definitions, and a
   `gate`.
 - Each `outcome` has all three of `given` / `when` / `then`.
