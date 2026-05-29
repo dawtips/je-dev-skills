@@ -16,6 +16,17 @@ report.
 The skills form a lifecycle: **setup → create dataset → run eval (repeat)**, mapping
 onto the framework's generate → run → grade stages.
 
+## Workflow Design skills
+
+| Skill | Invoke | What it does |
+|-------|--------|--------------|
+| `workflow-design-interview` | `/je-dev-skills:workflow-design-interview` | Run a staged discovery interview that turns an idea into a checked `./workflows/<name>.blueprint.md`. |
+| `workflow-design-validate` | `/je-dev-skills:workflow-design-validate` | Run a deterministic completeness check over a workflow blueprint and report the gaps to fix. |
+
+The skills form a lifecycle: **interview → validate (repeat)** — design the blueprint,
+then lint it for completeness until it passes. See the design spec at
+[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md).
+
 ## Design & framework
 
 - **Spec & setup guide:** [docs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
