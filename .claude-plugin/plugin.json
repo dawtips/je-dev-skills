@@ -1,0 +1,12 @@
+{
+  "name": "je-dev-skills",
+  "version": "0.1.0",
+  "description": "Skills for instantiating and running an LLM-graded prompt/agent evaluation framework in any project.",
+  "author": {
+    "name": "dawtips",
+    "email": "dawtips@gmail.com"
+  },
+  "repository": "https://github.com/dawtips/je-dev-skills",
+  "license": "MIT",
+  "keywords": ["evaluation", "evals", "prompt-engineering", "llm-as-judge", "testing", "agents"]
+}

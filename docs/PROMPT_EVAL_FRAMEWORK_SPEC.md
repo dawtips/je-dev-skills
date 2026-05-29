@@ -3,7 +3,7 @@
 A reusable, **invocable** specification for adding LLM-graded prompt/agent evaluation
 to any project. It defines the architecture, the data contracts, the prescribed
 folder layout, the configuration surface, and a step-by-step bootstrap procedure —
-and it ships a working **Python reference implementation** under [`evals/`](../evals/)
+and it ships a working **Python reference implementation** under [`evals/` (bundled)](../skills/setup-prompt-evals/framework/evals/)
 that a new project vendors and adapts.
 
 > **How to use this spec.** If you are an agent setting up evaluation in a new
@@ -61,7 +61,7 @@ one-time) is decoupled from evaluation (cheap, repeated as the prompt is iterate
 ## 3. Core Data Contracts
 
 Stable interfaces. The reference implementation lives in
-[`evals/evaluator/schemas.py`](../evals/evaluator/schemas.py).
+[`evals/evaluator/schemas.py`](../skills/setup-prompt-evals/framework/evals/evaluator/schemas.py).
 
 ### 3.1 `prompt_inputs_spec` (input schema) — REQUIRED
 
@@ -157,8 +157,8 @@ lives. The framework is otherwise agnostic to what it does.
 
 ## 4. The Three Stages in Detail
 
-Reference: [`generate.py`](../evals/evaluator/generate.py),
-[`run.py`](../evals/evaluator/run.py), [`grade.py`](../evals/evaluator/grade.py).
+Reference: [`generate.py`](../skills/setup-prompt-evals/framework/evals/evaluator/generate.py),
+[`run.py`](../skills/setup-prompt-evals/framework/evals/evaluator/run.py), [`grade.py`](../skills/setup-prompt-evals/framework/evals/evaluator/grade.py).
 
 ### Stage 1 — Dataset Generation
 
@@ -298,7 +298,7 @@ dataset — criteria quality directly determines whether scores are meaningful.
 
 ## 8. Configuration Surface
 
-All in [`evals/config.py`](../evals/config.py):
+All in [`evals/config.py`](config.py):
 
 | Setting | Default | Notes |
 |---------|---------|-------|

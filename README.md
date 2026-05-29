@@ -1,17 +1,40 @@
 # je-dev-skills
 
-## Prompt Evaluation Framework
+A Claude Code **plugin** of skills for adding LLM-graded prompt/agent evaluation to
+any project. Generate a diverse test dataset from a plain-English task, run your
+prompt-under-test against it, and grade each output with an LLM judge into a scored
+report.
 
-LLM-graded prompt/agent evaluation: generate a diverse test dataset from a
-plain-English task, run your prompt-under-test against it, and grade each output
-with an LLM judge into a scored report.
+## Skills
+
+| Skill | Invoke | What it does |
+|-------|--------|--------------|
+| `setup-prompt-evals` | `/je-dev-skills:setup-prompt-evals` | One-time init: vendor the eval framework into `./evals`, configure it, verify offline. |
+| `create-eval-dataset` | `/je-dev-skills:create-eval-dataset` | Define a task + input spec + mandatory criteria, generate & freeze a dataset, audit the criteria. |
+| `run-prompt-eval` | `/je-dev-skills:run-prompt-eval` | Wire the prompt/agent under test, run the evaluation, read the report, iterate. |
+
+The skills form a lifecycle: **setup → create dataset → run eval (repeat)**, mapping
+onto the framework's generate → run → grade stages.
+
+## Design & framework
 
 - **Spec & setup guide:** [docs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
-- **Reference implementation (Python):** [evals/](evals/) — see [evals/README.md](evals/README.md)
+- **Reference implementation (Python):** bundled in
+  [skills/setup-prompt-evals/framework/evals/](skills/setup-prompt-evals/framework/evals/),
+  copied into a project by the setup skill.
 
-Verify offline (no API key needed):
+## Install / try locally
 
 ```bash
+claude --plugin-dir /path/to/je-dev-skills
+# then, in a target project:
+/je-dev-skills:setup-prompt-evals
+```
+
+The framework's own tests run offline (no API key):
+
+```bash
+cd skills/setup-prompt-evals/framework
 python -m unittest discover -s evals/tests -t .
 python -m evals.examples.smoke_test
 ```

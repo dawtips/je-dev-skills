@@ -24,6 +24,9 @@ PROMPT_INPUTS_SPEC = {
     "goal": "Goal of the athlete",
 }
 EXTRA_CRITERIA = "Must include a caloric total and a macro breakdown (protein/carbs/fat)."
+# Agentic-only: how the agent should behave (tools, recovery, no needless steps).
+# Leave None for single-shot prompts. Wired through to grading in main() below.
+PROCESS_CRITERIA = None
 DATASET_FILE = f"{config.DATASETS_DIR}/meal_plan.json"
 NUM_CASES = 20
 
@@ -77,6 +80,7 @@ def main(argv: list[str]) -> int:
             run_function=run_prompt,
             dataset_file=DATASET_FILE,
             extra_criteria=EXTRA_CRITERIA,
+            process_criteria=PROCESS_CRITERIA,
         )
         return 0
 
