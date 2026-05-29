@@ -17,7 +17,13 @@ class FakeLLMClient:
         self._fixed_score = fixed_score
 
     def complete_json(
-        self, *, system: str, user: str, temperature: float, tag: str = ""
+        self,
+        *,
+        system: str,
+        user: str,
+        temperature: float,
+        tag: str = "",
+        schema: dict | None = None,
     ) -> Any:
         if tag == "ideas":
             ideas = [

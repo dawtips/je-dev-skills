@@ -6,7 +6,7 @@ from evals import config
 
 from .client import LLMClient
 from .prompts import SYSTEM_GENERATE, load_prompt
-from .schemas import validate_test_case
+from .schemas import test_case_schema, validate_test_case
 from .templates import render
 
 
@@ -59,6 +59,7 @@ def generate_test_case(
             user=user,
             temperature=config.TESTCASE_TEMPERATURE,
             tag="testcase",
+            schema=test_case_schema(allowed_keys),
         )
         try:
             case = validate_test_case(raw, allowed_keys)

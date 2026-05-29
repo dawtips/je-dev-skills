@@ -1,9 +1,14 @@
 """LLM client protocol + the Anthropic reference implementation.
 
-Every framework call returns JSON. We force clean, parseable JSON with the
-assistant-prefill + stop-sequence trick (spec Â§8.2): prefill the assistant turn
-with an opening ```` ```json ```` fence and stop on the closing ```` ``` ````.
-The returned text is the JSON body with no markdown leakage.
+Every framework call returns JSON. We force clean, schema-conformant JSON with
+**structured outputs** (``output_config.format``): the caller passes a JSON
+Schema and the model is constrained to emit exactly that shape. This replaces
+the older assistant-prefill + stop-sequence trick, which returns a 400 on
+Claude Opus 4.7+ (prefilled last assistant turns are no longer supported).
+
+Calls without a ``schema`` (the bare-array idea list, whose shape a structured
+object can't express) fall back to plain generation plus the tolerant parser in
+``jsonio``.
 
 The framework depends only on the ``LLMClient`` protocol, so any provider works:
 implement ``complete_json`` and pass your client into ``PromptEvaluator``.
@@ -20,16 +25,29 @@ class LLMClient(Protocol):
     model: str
 
     def complete_json(
-        self, *, system: str, user: str, temperature: float, tag: str = ""
+        self,
+        *,
+        system: str,
+        user: str,
+        temperature: float,
+        tag: str = "",
+        schema: dict | None = None,
     ) -> Any:
-        """Return parsed JSON for one completion. ``tag`` labels the call site
-        (e.g. "ideas", "testcase", "grade") and is ignored by real providers;
-        test doubles may use it to route canned responses."""
+        """Return parsed JSON for one completion.
+
+        ``schema`` (a JSON Schema object) constrains the output shape when the
+        provider supports structured outputs; pass ``None`` for a free-form
+        JSON response. ``tag`` labels the call site (e.g. "ideas", "testcase",
+        "grade") and is ignored by real providers; test doubles may use it to
+        route canned responses."""
         ...
 
 
-_PREFILL = "```json\n"
-_STOP = "```"
+# Models that reject sampling params (temperature/top_p/top_k) — Claude Opus
+# 4.7 onward. Sending temperature to these returns a 400, so we omit it and let
+# the model self-regulate (temperature=0 never guaranteed identical outputs
+# anyway). Determinism-sensitive grading relies on the model, not this knob.
+_NO_SAMPLING_PREFIXES = ("claude-opus-4-7", "claude-opus-4-8")
 
 
 class AnthropicClient:
@@ -59,19 +77,31 @@ class AnthropicClient:
         self._client = anthropic.Anthropic(api_key=api_key)
 
     def complete_json(
-        self, *, system: str, user: str, temperature: float, tag: str = ""
+        self,
+        *,
+        system: str,
+        user: str,
+        temperature: float,
+        tag: str = "",
+        schema: dict | None = None,
     ) -> Any:
-        response = self._client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            temperature=temperature,
-            system=system,
-            messages=[
-                {"role": "user", "content": user},
-                {"role": "assistant", "content": _PREFILL},
-            ],
-            stop_sequences=[_STOP],
-        )
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
+        # Opus 4.7+ removed sampling params; sending temperature returns 400.
+        if not self.model.startswith(_NO_SAMPLING_PREFIXES):
+            kwargs["temperature"] = temperature
+        # Structured outputs constrain the response to the given JSON Schema,
+        # so no markdown fence or prefill is needed to get clean JSON.
+        if schema is not None:
+            kwargs["output_config"] = {
+                "format": {"type": "json_schema", "schema": schema}
+            }
+
+        response = self._client.messages.create(**kwargs)
         text = "".join(
             block.text for block in response.content if getattr(block, "type", "") == "text"
         )

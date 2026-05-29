@@ -26,6 +26,11 @@ API_KEY_ENV = "ANTHROPIC_API_KEY"
 MAX_TOKENS = 2048
 
 # --- Temperatures (see spec Â§Recommended model settings) ---------------------
+# Applied only to models that accept sampling params. Claude Opus 4.7+ removed
+# temperature/top_p/top_k (sending them 400s), so the reference client omits it
+# for those models — see evaluator/client.py. With the default JUDGE_MODEL
+# (Opus 4.8) GRADING_TEMPERATURE is therefore ignored; pick a Sonnet/Haiku judge
+# if you need an explicit grading temperature.
 IDEA_TEMPERATURE = 1.0      # maximize scenario diversity
 TESTCASE_TEMPERATURE = 0.7  # realistic but varied
 GRADING_TEMPERATURE = 0.0   # deterministic, reproducible scores

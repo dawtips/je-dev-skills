@@ -7,7 +7,7 @@ from evals import config
 from .client import LLMClient
 from .prompts import SYSTEM_JUDGE, load_prompt
 from .run import format_transcript
-from .schemas import Trajectory, validate_verdict
+from .schemas import Trajectory, validate_verdict, verdict_schema
 
 _NONE = "None (no mandatory criteria)"
 
@@ -45,6 +45,7 @@ def grade(
         user=user,
         temperature=config.GRADING_TEMPERATURE,
         tag="grade",
+        schema=verdict_schema(),
     )
     return validate_verdict(verdict)
 

@@ -103,3 +103,42 @@ def validate_verdict(verdict: dict) -> dict:
     verdict.setdefault("strengths", [])
     verdict.setdefault("weaknesses", [])
     return verdict
+
+
+# --- Structured-output schemas (spec Â§8) -------------------------------------
+# JSON Schemas handed to the provider's structured-output mode so generation and
+# grading return exactly the shapes validate_* expect — replacing the old
+# prefill trick. Kept free of keywords structured outputs doesn't support
+# (no min/maxItems, no minLength); count/range checks stay in the validators.
+def test_case_schema(allowed_keys: list[str]) -> dict:
+    """Schema for a generated test case (spec Â§3.2): the closed-key set
+    ``prompt_inputs`` object plus a ``solution_criteria`` string array."""
+    return {
+        "type": "object",
+        "properties": {
+            "prompt_inputs": {
+                "type": "object",
+                "properties": {k: {"type": "string"} for k in allowed_keys},
+                "required": list(allowed_keys),
+                "additionalProperties": False,
+            },
+            "solution_criteria": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["prompt_inputs", "solution_criteria"],
+        "additionalProperties": False,
+    }
+
+
+def verdict_schema() -> dict:
+    """Schema for a judge verdict (spec Â§3.3), fields in reason-first order."""
+    return {
+        "type": "object",
+        "properties": {
+            "strengths": {"type": "array", "items": {"type": "string"}},
+            "weaknesses": {"type": "array", "items": {"type": "string"}},
+            "reasoning": {"type": "string"},
+            "score": {"type": "integer"},
+        },
+        "required": ["strengths", "weaknesses", "reasoning", "score"],
+        "additionalProperties": False,
+    }

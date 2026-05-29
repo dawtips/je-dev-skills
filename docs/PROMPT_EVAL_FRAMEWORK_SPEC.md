@@ -191,7 +191,7 @@ For each `(test_case, trajectory)`, a judge call scores **1–10** against:
 Judge design principles encoded in the prompts:
 - **Grade only against listed criteria.** No invented requirements; no penalty for "only" meeting them.
 - **Use the full scale.** Explicit bands (1–3 fail mandatory, 4–6 meets mandatory/weak secondary, 7–8 minor issues, 9–10 full).
-- **Determinism.** Judge runs at `temperature=0.0`.
+- **Determinism.** Judge runs at `temperature=0.0` on models that accept it. The default judge (Opus 4.8) removed sampling params, so the client omits temperature there and determinism rests on the model (see §8).
 - **Reason before score.** Field order is strengths → weaknesses → reasoning → score.
 - **Score clamped** to 1–10 in code (`validate_verdict`).
 
@@ -313,10 +313,15 @@ All in [`evals/config.py`](config.py):
 | `COLOR_GREEN_MIN` / `COLOR_YELLOW_MIN` | 8 / 6 | HTML report color bands. |
 
 To use a different provider, implement the tiny `LLMClient` protocol
-(`complete_json(system, user, temperature, tag)`) in `client.py` and pass an
-instance to `PromptEvaluator`. The reference client uses the **assistant-prefill +
-stop-sequence JSON trick**: prefill the assistant turn with an opening ` ```json `
-fence and stop on the closing ` ``` `, then parse the body.
+(`complete_json(system, user, temperature, tag, schema=None)`) in `client.py` and
+pass an instance to `PromptEvaluator`. The reference client forces clean JSON with
+**structured outputs** (`output_config.format` + a JSON Schema): generation and
+grading pass the schema from `schemas.py`, so the model is constrained to the exact
+shape. The schema-less idea-list call falls back to the tolerant parser in
+`jsonio.py`. (This replaces the older assistant-prefill + stop-sequence trick,
+which 400s on Claude Opus 4.7+.) Two model-conditional notes: prefilled last
+assistant turns and the sampling params `temperature`/`top_p`/`top_k` both 400 on
+Opus 4.7+, so the client omits temperature for those models.
 
 ---
 

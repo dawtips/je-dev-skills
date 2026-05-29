@@ -1,9 +1,10 @@
 """Robust-ish JSON extraction for LLM output.
 
-The framework forces clean JSON with the assistant-prefill + stop-sequence trick
-(see client.py), but model output is never fully trusted. ``parse_json`` strips
-stray markdown fences and, on failure, attempts a single bracket-slice repair
-before raising a descriptive error.
+The framework forces clean JSON with structured outputs (see client.py), but
+model output is never fully trusted — and the schema-less idea-list call has no
+structured-output guarantee at all. ``parse_json`` strips stray markdown fences
+and, on failure, attempts a single bracket-slice repair before raising a
+descriptive error.
 """
 
 import json
