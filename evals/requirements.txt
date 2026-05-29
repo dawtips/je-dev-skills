@@ -1,0 +1,3 @@
+# Runtime dependency for the Anthropic reference client.
+# The pure-logic modules and the offline smoke test need none of this.
+anthropic>=0.40.0

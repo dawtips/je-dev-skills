@@ -1,20 +1,36 @@
-# Prompt Evaluation Framework — Implementation Spec
+# Prompt Evaluation Framework — Specification & Setup Guide
 
-A reusable specification for building LLM-graded prompt evaluation into any application. It describes the architecture, the data contracts, what is required vs. optional, and what separates high-quality from low-quality inputs — independent of any particular task or dataset.
+A reusable, **invocable** specification for adding LLM-graded prompt/agent evaluation
+to any project. It defines the architecture, the data contracts, the prescribed
+folder layout, the configuration surface, and a step-by-step bootstrap procedure —
+and it ships a working **Python reference implementation** under [`evals/`](../evals/)
+that a new project vendors and adapts.
+
+> **How to use this spec.** If you are an agent setting up evaluation in a new
+> project, follow §11 (Bootstrap Procedure). It is the runbook. Everything before
+> it is the reference you consult while doing so.
 
 ---
 
 ## 1. Purpose
 
-The framework answers one question: **"Is my prompt good enough?"** — at scale, repeatably, and without hand-writing test cases or hand-grading outputs.
+The framework answers one question: **"Is my prompt good enough?"** — at scale,
+repeatably, and without hand-writing test cases or hand-grading outputs.
 
-It does this with three model-driven stages:
+Three model-driven stages:
 
 1. **Generate** a diverse test dataset from a plain-English task description.
 2. **Run** the prompt-under-test against every test case.
 3. **Grade** each output with an LLM judge against per-case criteria, and produce a scored report.
 
-The key idea: **the LLM builds the test data, and a separate LLM call grades the results.** The human only supplies (a) a task description, (b) an input schema, (c) the prompt to test, and optionally (d) global pass/fail criteria.
+The key idea: **the LLM builds the test data, and a separate LLM call grades the
+results.** The human supplies only (a) a task description, (b) an input schema,
+(c) the prompt/agent to test, and optionally (d) global pass/fail criteria.
+
+**Scope.** The base layer evaluates **single-shot prompts** (`inputs -> str`). An
+**agentic extension layer** (§3.5) evaluates **multi-step agents** that return a
+trajectory of turns and tool calls. This is a **dev-time iteration tool**, not a
+CI gate — runs produce versioned artifacts you diff by hand.
 
 ---
 
@@ -22,28 +38,30 @@ The key idea: **the LLM builds the test data, and a separate LLM call grades the
 
 ```
 Human inputs:  task_description, prompt_inputs_spec, num_cases,
-               run_prompt_function, extra_criteria
+               run_function, extra_criteria
                                  |
         +------------------------+------------------------+
         v                        v                        v
   +-----------+          +---------------+         +--------------+
-  | STAGE 1   | ideas[]  |  STAGE 1b     | dataset |  STAGE 2+3   |
+  | STAGE 1a  | ideas[]  |  STAGE 1b     | dataset |  STAGE 2+3   |
   | Generate  | -------> |  Generate     | ------> |  Run + Grade |
   | Ideas     |          |  Test Cases   |  []     |  Each Case   |
   +-----------+          +---------------+         +--------------+
    (1 LLM call)          (N parallel calls)        (2N parallel calls)
                                  |                        |
                                  v                        v
-                            dataset.json          output.json + output.html
+                        datasets/<name>.json     runs/<timestamp>/{output.json,output.html}
 ```
 
-Each stage is an independent unit and can be run separately. Datasets are persisted to disk so generation (expensive, one-time) is decoupled from evaluation (run repeatedly as the prompt is iterated).
+Each stage is independent. Datasets persist to disk so generation (expensive,
+one-time) is decoupled from evaluation (cheap, repeated as the prompt is iterated).
 
 ---
 
 ## 3. Core Data Contracts
 
-These are the stable interfaces. An implementation in any language must preserve these shapes.
+Stable interfaces. The reference implementation lives in
+[`evals/evaluator/schemas.py`](../evals/evaluator/schemas.py).
 
 ### 3.1 `prompt_inputs_spec` (input schema) — REQUIRED
 
@@ -57,15 +75,17 @@ A map of `input_key -> human description of that input`.
 }
 ```
 
-- The **keys** define the exact set of variables the prompt-under-test consumes. They are treated as a closed set — generation is instructed to use *only* these keys and *all* of these keys.
-- The **values** are natural-language descriptions used to steer the LLM toward realistic values. They are documentation for the model, not type enforcement.
+- The **keys** define the exact set of variables the prompt consumes. They are a
+  **closed set** — generation must use *only* these keys and *all* of them.
+- The **values** are natural-language descriptions that steer the model toward
+  realistic values. Documentation, not type enforcement.
 
 ### 3.2 Test Case — produced by Stage 1, consumed by Stage 2/3
 
 ```json
 {
-  "task_description": "string - copied from the run config",
-  "scenario":         "string - the idea this case was generated from",
+  "task_description": "string - injected by framework",
+  "scenario":         "string - the idea this case came from",
   "prompt_inputs":    { "<key from spec>": "concrete value" },
   "solution_criteria": ["criterion 1", "criterion 2"]
 }
@@ -73,217 +93,365 @@ A map of `input_key -> human description of that input`.
 
 | Field | Origin | Required | Notes |
 |-------|--------|----------|-------|
-| `prompt_inputs` | LLM-generated | Yes | Must contain exactly the keys from the spec. |
-| `solution_criteria` | LLM-generated | Yes | 1-4 concise, measurable criteria scoped to the task. |
-| `task_description` | injected by framework | Yes | Carried so grading is self-contained. |
-| `scenario` | injected by framework | Yes | The originating idea; used for reporting + diversity. |
+| `prompt_inputs` | LLM-generated | Yes | Must contain **exactly** the keys from the spec (validated). |
+| `solution_criteria` | LLM-generated | Yes | 1–4 concise, measurable criteria scoped to the task. |
+| `task_description` | injected | Yes | Carried so grading is self-contained. |
+| `scenario` | injected | Yes | Originating idea; used for reporting + diversity. |
 
-### 3.3 Result — produced by Stage 3
+### 3.3 Judge Verdict — produced by Stage 3
+
+```json
+{ "strengths": ["..."], "weaknesses": ["..."], "reasoning": "...", "score": 7 }
+```
+
+Field order is deliberate: the judge writes strengths/weaknesses/reasoning
+**before** committing to a number. The **full verdict is persisted** (not just the
+score) — strengths/weaknesses are the most useful debugging signal.
+
+### 3.4 Result — one row of the report
 
 ```json
 {
-  "output":    "raw text the prompt-under-test produced",
-  "test_case": { "...the full test case..." },
-  "score":     7,
-  "reasoning": "judge's concise explanation"
+  "output": "raw final text the system under test produced",
+  "trajectory": { "final_output": "...", "steps": [ ... ] },
+  "test_case": { "...": "..." },
+  "score": 7,
+  "reasoning": "judge's concise explanation",
+  "verdict": { "strengths": [], "weaknesses": [], "reasoning": "...", "score": 7 }
 }
 ```
 
-The judge actually returns `{strengths[], weaknesses[], reasoning, score}`; only `score` and `reasoning` are propagated into the result, but the richer object is available if you choose to persist it.
-
-### 3.4 `run_prompt_function` (the prompt-under-test) — REQUIRED
-
-A callable with the signature:
+### 3.5 `run_function` (the system under test) — REQUIRED
 
 ```
-(prompt_inputs: dict) -> str
+single-shot:  (prompt_inputs: dict) -> str
+agentic:      (prompt_inputs: dict) -> Trajectory
 ```
 
-It receives one test case's `prompt_inputs` and returns the **raw model output** as a string. This is the only piece that is fully user-owned and where the prompt being evaluated lives. The framework is otherwise agnostic to what it does.
+`Trajectory` carries the final answer **and** the process that produced it:
+
+```python
+@dataclass
+class Step:
+    role: str                  # "assistant" | "tool"
+    content: str = ""
+    tool_name: str | None = None
+    tool_input:  Any = None
+    tool_output: Any = None
+
+@dataclass
+class Trajectory:
+    final_output: str
+    steps: list[Step]          # empty => treated as single-shot
+```
+
+A bare `str` is normalized to a steps-less `Trajectory`, so both paths share one
+grading pipeline. When `steps` is non-empty, the **trajectory grading** prompt is
+used and `process_criteria` (if supplied) judge *how* the agent worked, not just
+the final answer.
+
+This is the only fully user-owned piece — where the prompt/agent being evaluated
+lives. The framework is otherwise agnostic to what it does.
 
 ---
 
 ## 4. The Three Stages in Detail
 
+Reference: [`generate.py`](../evals/evaluator/generate.py),
+[`run.py`](../evals/evaluator/run.py), [`grade.py`](../evals/evaluator/grade.py).
+
 ### Stage 1 — Dataset Generation
 
-Two sub-steps, both LLM-driven:
+**1a. Idea generation** (single call, temp ~1.0). Returns a JSON array of
+`num_cases` short, *distinct* scenario descriptions. Each idea must be: distinct
+(diversity), relevant, specific, quick to solve, and bounded (~400-token output).
 
-**1a. Idea generation** (single call). Given the task description and input spec, the model returns a JSON array of `num_cases` short, *distinct* scenario descriptions. The prompt explicitly requires each idea to be:
-- clearly distinct from the others (diversity),
-- relevant to the task,
-- specific enough to drive a full test case,
-- quick to solve (no multi-step computation),
-- solvable within a bounded output budget (~400 tokens).
+**1b. Test-case generation** (one call per idea, parallel, temp ~0.7). Each idea
+becomes a full test case. Guardrails baked into the prompt **and** enforced in
+code (`validate_test_case`):
+- **Closed key set** — uses only and all the allowed input keys (validated; one retry on violation).
+- **Criteria minimalism** — 1–4 criteria addressing only the core task, with a worked example in the prompt.
+- **No extra fields** — shape is locked.
 
-**1b. Test-case generation** (one call per idea, run in parallel). Each idea is expanded into a full test case with realistic `prompt_inputs` and 1-4 `solution_criteria`.
+Output → `datasets/<name>.json`, including a **provenance** block (generator model,
+num_cases, the input spec, UTC timestamp). **Generate once, evaluate many times.**
 
-Critical guardrails baked into this step:
-- **Closed key set** — the model MUST use only and all the allowed input keys.
-- **Criteria minimalism** — criteria must address *only* the core task; over-specification is explicitly discouraged. (The prompt includes a worked example showing a single, tight criterion as the ideal.)
-- **No extra fields** — output shape is locked.
+### Stage 2 — Execution
 
-Output is written to `dataset.json`. **Generate once, evaluate many times.**
-
-### Stage 2 — Prompt Execution
-
-For each test case, the framework calls `run_prompt_function(test_case["prompt_inputs"])` and captures the raw string output. Runs in parallel across cases.
+For each test case, the framework calls `run_function(prompt_inputs)` and
+normalizes the result to a `Trajectory`. Runs in parallel across cases.
 
 ### Stage 3 — Grading (LLM-as-judge)
 
-For each `(test_case, output)` pair, a judge LLM call scores the output **1-10** against:
-- the case's own `solution_criteria` (secondary criteria), and
-- the global `extra_criteria` (mandatory criteria — any violation forces score <= 3).
+For each `(test_case, trajectory)`, a judge call scores **1–10** against:
+- the case's `solution_criteria` (secondary), and
+- the global `extra_criteria` (mandatory — any violation forces score ≤ 3), and
+- for agentic runs, the `process_criteria` (how the agent behaved).
 
-Judge design principles encoded in the grading prompt:
-- **Grade only against listed criteria.** The judge is explicitly told not to invent new requirements and not to penalize a solution for "only" meeting the criteria.
-- **Use the full scale.** Explicit scoring bands (1-3 fail mandatory, 4-6 meets mandatory/weak secondary, 7-8 minor issues, 9-10 full).
+Judge design principles encoded in the prompts:
+- **Grade only against listed criteria.** No invented requirements; no penalty for "only" meeting them.
+- **Use the full scale.** Explicit bands (1–3 fail mandatory, 4–6 meets mandatory/weak secondary, 7–8 minor issues, 9–10 full).
 - **Determinism.** Judge runs at `temperature=0.0`.
-- **Structured verdict.** Returns `strengths`, `weaknesses`, `reasoning`, `score` in a fixed order (ordering before the score nudges the model to reason before committing to a number).
+- **Reason before score.** Field order is strengths → weaknesses → reasoning → score.
+- **Score clamped** to 1–10 in code (`validate_verdict`).
 
 ---
 
-## 5. Required vs. Optional Inputs
+## 5. Prescribed Folder Structure
+
+A project that invokes this spec ends up with exactly this tree:
+
+```
+evals/
+  evaluator/            # framework package (vendored, rarely edited)
+    __init__.py         #   exports PromptEvaluator, AnthropicClient, Trajectory, Step
+    client.py           #   LLMClient protocol + Anthropic reference client
+    templates.py        #   {placeholder} renderer with {{ }} escaping
+    jsonio.py           #   tolerant JSON extraction
+    schemas.py          #   contracts + validation (closed key set, verdict clamp)
+    prompts.py          #   loads prompt templates from prompts/
+    generate.py         #   Stage 1
+    run.py              #   Stage 2
+    grade.py            #   Stage 3
+    report.py           #   output.json + escaped output.html
+    evaluator.py        #   PromptEvaluator orchestration (bounded worker pool)
+  prompts/              # THE FRAMEWORK PROMPTS — tune these, not the code
+    idea_generation.md
+    test_case_generation.md
+    grading.md
+    trajectory_grading.md
+  prompts_under_test/   # your versioned prompt/agent definitions
+  datasets/             # frozen *.json (+ provenance). git-ignored
+  runs/                 # timestamped results (json + html). git-ignored
+  examples/             # fake_client.py + smoke_test.py (offline)
+  tests/                # stdlib unittest suite for the pure logic
+  config.py             # models, temperatures, thresholds, paths
+  run_eval.py           # copy-and-edit entrypoint
+  requirements.txt
+  README.md
+```
+
+---
+
+## 6. Required vs. Optional Inputs
 
 ### Required
 | Input | Used by | Purpose |
 |-------|---------|---------|
-| `task_description` | Stages 1 & 3 | Plain-English goal of the prompt. Anchors generation and grading. |
-| `prompt_inputs_spec` | Stages 1 & 2 | Defines the closed set of input variables. |
-| `run_prompt_function` | Stage 2 | The prompt-under-test. |
-| `dataset_file` path | Stages 1 & 3 | Where the dataset is persisted / loaded. |
+| `task_description` | Stages 1 & 3 | Plain-English goal. Anchors generation and grading. |
+| `prompt_inputs_spec` | Stages 1 & 2 | The closed set of input variables. |
+| `run_function` | Stage 2 | The prompt/agent under test. |
+| `dataset_file` | Stages 1 & 3 | Where the dataset is persisted / loaded. |
 
-### Optional (have sensible defaults)
+### Optional (sensible defaults)
 | Input | Default | Effect |
 |-------|---------|--------|
-| `num_cases` | 1 | Number of test cases to generate. Higher = better coverage, more cost. |
-| `extra_criteria` | `None` | Global mandatory requirements applied to *every* case; violations cap the score at 3. The lever for enforcing non-negotiable output structure. |
-| `max_concurrent_tasks` | 3 | Thread-pool width for generation and grading. Trade speed vs. rate limits. |
-| `json_output_file` / `html_output_file` | `output.json` / `output.html` | Where results + report are written. |
-| judge model / executor model | implementation choice | Can differ; judge benefits from a strong model at temp 0. |
+| `num_cases` | 1 | Number of test cases. Higher = better coverage, more cost. |
+| `extra_criteria` | `None` | Global **mandatory** requirements; violations cap the score at 3. |
+| `process_criteria` | `None` | Agentic only: how the agent should behave (tools, recovery, no needless steps). |
+| `max_concurrent_tasks` | 3 | Worker-pool width. Speed vs. rate limits. |
+| `run_label` | UTC timestamp | Names the `runs/<label>/` directory. |
+| judge / executor / generator model | see `config.py` | Judge benefits from a strong model at temp 0, **different** from the executor. |
 
 ---
 
-## 6. High-Quality vs. Low-Quality Inputs
+## 7. High-Quality vs. Low-Quality Inputs
 
-This is where eval quality is won or lost. The framework's effectiveness depends on the *human-supplied* inputs.
+Eval quality is won or lost here. The framework's effectiveness depends on the
+*human-supplied* inputs.
 
 ### `task_description`
 | High quality | Low quality |
 |--------------|-------------|
 | One clear, bounded objective ("Write a compact 1-day meal plan for one athlete"). | Vague or compound ("Help users with health"). |
 | Names the deliverable and its scope. | Leaves the deliverable implicit. |
-| Scoped so a case is solvable in a small output budget. | Open-ended tasks needing multi-step reasoning or huge outputs. |
+| Solvable in a small output budget. | Open-ended, needs multi-step reasoning or huge outputs. |
 
 ### `prompt_inputs_spec`
 | High quality | Low quality |
 |--------------|-------------|
-| Keys map 1:1 to variables the prompt actually consumes. | Keys the prompt ignores, or variables used but not declared. |
-| Descriptions include units/format ("height in cm"). | Bare keys with no description ("height"). |
+| Keys map 1:1 to variables the prompt actually consumes. | Keys the prompt ignores, or undeclared variables. |
+| Descriptions include units/format ("height in cm"). | Bare keys with no description. |
 | Minimal, orthogonal inputs. | Overlapping or redundant inputs that confuse generation. |
 
-### `solution_criteria` (generated, but you should review them)
+### `solution_criteria` (generated — but review them)
 | High quality | Low quality |
 |--------------|-------------|
-| 1-4 concise, measurable, task-scoped checks. | Long lists that drift beyond the task. |
-| "Includes all topics mentioned." | "Is engaging, creative, well-formatted, insightful, and concise." (subjective, unbounded) |
+| 1–4 concise, measurable, task-scoped checks. | Long lists that drift beyond the task. |
+| "Includes all topics mentioned." | "Is engaging, creative, well-formatted, insightful, and concise." |
 | Tests the fundamental requirement. | Tests stylistic preferences the task never asked for. |
 
-If generated criteria are too strict or off-scope, regenerate or hand-edit the dataset — criteria quality directly determines whether scores are meaningful.
+If generated criteria are too strict or off-scope, regenerate or hand-edit the
+dataset — criteria quality directly determines whether scores are meaningful.
 
 ### `extra_criteria`
 | High quality | Low quality |
 |--------------|-------------|
-| A short, concrete list of structural must-haves ("must include caloric total, macro breakdown, per-meal timing"). | Soft preferences that shouldn't be pass/fail. |
-| Things whose absence genuinely means failure. | Aspirational quality bars (these belong in per-case criteria, not mandatory gates). |
+| Short, concrete structural must-haves ("must include caloric total, macro breakdown, per-meal timing"). | Soft preferences that shouldn't be pass/fail. |
+| Things whose absence genuinely means failure. | Aspirational quality bars (put those in per-case criteria). |
 
 ### Dataset size / diversity
-- **High quality:** enough cases (often 10-50+) to cover edge cases, varied input combinations, and adversarial scenarios; each `scenario` genuinely distinct.
-- **Low quality:** 1-2 cases (fine for a smoke test, not for confidence), or many near-duplicate scenarios that inflate the count without adding coverage.
+- **High quality:** enough cases (often 10–50+) to cover edge cases, varied input combinations, and adversarial scenarios; each `scenario` genuinely distinct.
+- **Low quality:** 1–2 cases (smoke test only), or many near-duplicates that inflate the count without adding coverage.
 
 ---
 
-## 7. Output & Reporting
+## 8. Configuration Surface
 
-Two artifacts per run:
+All in [`evals/config.py`](../evals/config.py):
 
-1. **`output.json`** — full machine-readable results array (every output, test case, score, reasoning). Use this for diffing prompt versions and regression tracking.
-2. **`output.html`** — a self-contained human-readable report with:
-   - **Summary header:** total test cases, average score (`/10`), and **pass rate** (% of cases scoring >= 7).
-   - **Per-case table:** scenario, inputs, criteria, raw output, color-coded score (green >= 8, yellow 6-7, red <= 5), and the judge's reasoning.
+| Setting | Default | Notes |
+|---------|---------|-------|
+| `PROVIDER` | `"anthropic"` | Swap by implementing `LLMClient` and passing your client in. |
+| `GENERATOR_MODEL` | `claude-sonnet-4-6` | Builds ideas + test cases. |
+| `EXECUTOR_MODEL` | `claude-haiku-4-5-...` | Default for the system under test. |
+| `JUDGE_MODEL` | `claude-opus-4-8` | Strong, and different from executor (reduces self-grading bias). |
+| `API_KEY_ENV` | `ANTHROPIC_API_KEY` | Where the client reads the key. |
+| `IDEA/TESTCASE/GRADING_TEMPERATURE` | 1.0 / 0.7 / 0.0 | Diversity / realism / determinism. |
+| `MAX_CONCURRENT_TASKS` | 3 | Worker-pool width. |
+| `PASS_THRESHOLD` | 7 | A case passes if score ≥ this. |
+| `COLOR_GREEN_MIN` / `COLOR_YELLOW_MIN` | 8 / 6 | HTML report color bands. |
 
-The pass threshold (>= 7) and the high/low color bands are the framework's notion of "good." Adjust these constants to match your application's bar.
-
----
-
-## 8. Implementation Requirements
-
-To reimplement in another stack, you need:
-
-1. **An LLM client** with: system prompt support, temperature control, and stop sequences.
-2. **The assistant-prefill + stop-sequence JSON trick.** Each generation/grading call:
-   - prefills the assistant turn with an opening ```` ```json ```` fence,
-   - sets a stop sequence of ```` ``` ````,
-   - parses the returned text as JSON.
-   This forces clean, parseable JSON without markdown fences leaking in. Replicate this (or use native structured-output / JSON mode) in your stack.
-3. **A tiny template renderer.** Substitutes `{placeholder}` tokens and supports literal braces via `{{`/`}}` escaping. (Needed because prompts contain JSON examples with real braces.)
-4. **Concurrency** with a bounded worker pool (the `max_concurrent_tasks` knob) plus progress reporting at milestones (e.g., every 20%).
-5. **Disk persistence** of the dataset (JSON) so generation and evaluation are decoupled.
-6. **Three carefully-worded prompts** — idea generation, test-case generation, and grading. These prompts *are* the framework; port their constraints faithfully:
-   - closed key set enforcement,
-   - criteria minimalism with a worked example,
-   - judge "grade only against listed criteria / use full scale / mandatory -> <=3" rules,
-   - reason-before-score field ordering.
-
-### Recommended model settings
-| Call | Temperature | Why |
-|------|-------------|-----|
-| Idea generation | ~1.0 | Maximize diversity of scenarios. |
-| Test-case generation | ~0.7 | Realistic but varied. |
-| Grading (judge) | 0.0 | Deterministic, reproducible scores. |
+To use a different provider, implement the tiny `LLMClient` protocol
+(`complete_json(system, user, temperature, tag)`) in `client.py` and pass an
+instance to `PromptEvaluator`. The reference client uses the **assistant-prefill +
+stop-sequence JSON trick**: prefill the assistant turn with an opening ` ```json `
+fence and stop on the closing ` ``` `, then parse the body.
 
 ---
 
-## 9. Known Limitations & Hardening Suggestions
+## 9. Output, Reporting & Provenance
 
-The reference implementation is a teaching scaffold. For production, consider:
+Per run, written to `runs/<label>/`:
 
-- **JSON parse robustness.** Direct `json.loads` will throw on malformed output. Add retries / repair / validation against the expected schema.
-- **Input value escaping.** Values are interpolated into prompts with naive `\n` escaping; richer escaping (or true structured inputs) avoids prompt-injection-style breakage and quote collisions.
-- **HTML escaping in the report.** Outputs are injected into HTML unescaped — escape them to avoid layout breakage and XSS if reports are shared.
-- **Single-judge variance.** One judge call per case. For higher confidence, use a judge panel (majority vote) or multiple samples and average.
-- **Judge/executor model leakage.** Grading with the same model that produced the output can bias scores upward; consider a different (often stronger) judge model.
-- **Criteria audit.** Always spot-check generated `solution_criteria` before trusting aggregate scores — bad criteria silently corrupt every metric downstream.
-- **Cost/coverage tuning.** Total LLM calls = `1 + num_cases (generation) + 2 x num_cases (run + grade)`. Budget accordingly.
+1. **`output.json`** — `{meta, summary, results}`. The full machine-readable record
+   (every output, trajectory, test case, **full judge verdict**, score, reasoning).
+   Diff this across prompt versions for regression tracking.
+2. **`output.html`** — a self-contained report with:
+   - **Summary header:** total cases, average score (`/10`), **pass rate** (% scoring ≥ `PASS_THRESHOLD`).
+   - **Per-case table:** scenario, inputs, criteria, raw output, color-coded score, judge reasoning. **All values are HTML-escaped.**
+
+Runs are written to **timestamped directories** (or `run_label`), so re-running
+never overwrites a prior run — you accumulate a comparable history. Datasets embed
+a **provenance** block (generator model, timestamp, num_cases, spec) so a frozen
+dataset is auditable even though generation is non-deterministic.
+
+Adjust `PASS_THRESHOLD` and the color bands to match your application's bar.
 
 ---
 
-## 10. Minimal Usage Flow (any implementation)
+## 10. Minimal Usage Flow
 
-```
-evaluator = PromptEvaluator(max_concurrent_tasks=N)
+```python
+from evals import config
+from evals.evaluator import AnthropicClient, PromptEvaluator
 
-# 1. Generate dataset (once)
+evaluator = PromptEvaluator(
+    client=AnthropicClient(config.GENERATOR_MODEL),
+    judge_client=AnthropicClient(config.JUDGE_MODEL),   # strong, distinct judge
+    max_concurrent_tasks=config.MAX_CONCURRENT_TASKS,
+)
+
+# 1. Generate the dataset (once)
 evaluator.generate_dataset(
-    task_description = "<bounded plain-English goal>",
-    prompt_inputs_spec = { "<key>": "<description w/ units>" },
-    num_cases = 20,
-    output_file = "dataset.json",
+    task_description="<bounded plain-English goal>",
+    prompt_inputs_spec={"<key>": "<description w/ units>"},
+    num_cases=20,
+    output_file="evals/datasets/mytask.json",
 )
 
-# 2. Define the prompt-under-test
+# 2. Define the prompt under test (single-shot here; return a Trajectory for agents)
 def run_prompt(prompt_inputs):
-    # build prompt from prompt_inputs, call the model, return raw text
-    ...
+    ...  # build prompt, call model, return raw text
 
-# 3. Evaluate (repeatedly, as you iterate the prompt)
+# 3. Evaluate (repeatedly, as you iterate the prompt) against the FROZEN dataset
 evaluator.run_evaluation(
-    run_prompt_function = run_prompt,
-    dataset_file = "dataset.json",
-    extra_criteria = "<global mandatory requirements>",
-    json_output_file = "output.json",
-    html_output_file = "output.html",
+    run_function=run_prompt,
+    dataset_file="evals/datasets/mytask.json",
+    extra_criteria="<global mandatory requirements>",
 )
 ```
 
-Iterate step 2 and re-run step 3 against the **same frozen dataset** to compare prompt versions apples-to-apples. Regenerate the dataset only when the task or input schema changes.
+Iterate step 2 and re-run step 3 against the **same frozen dataset** to compare
+prompt versions apples-to-apples. Regenerate only when the task or schema changes.
+
+---
+
+## 11. Bootstrap Procedure (the runbook)
+
+To stand the framework up in a new project:
+
+1. **Detect the stack.** This reference targets **Python 3.10+**. (For another
+   language, port §3–§9 faithfully; the prompts in `evals/prompts/` are the asset
+   to preserve verbatim.)
+2. **Vendor the package.** Copy the `evals/` tree (§5) into the project root.
+   Ensure `evals/` and `evals/evaluator/` are importable from the repo root
+   (run modules as `python -m evals.<...>`).
+3. **Wire configuration.** Edit `evals/config.py`: set models, `API_KEY_ENV`, and
+   `PASS_THRESHOLD`. Keep the judge model strong and distinct from the executor.
+4. **Ignore generated artifacts.** Add `evals/datasets/*` and `evals/runs/*`
+   (except `.gitkeep`) plus `__pycache__/` to `.gitignore`.
+5. **Verify offline (no API key):**
+   ```bash
+   python -m unittest discover -s evals/tests -t .
+   python -m evals.examples.smoke_test
+   ```
+   Both must pass. This proves the pipeline (generate → run → grade → report) and
+   both single-shot and agentic grading paths, using a fake client.
+6. **Define the real task.** Copy `evals/run_eval.py`, then set `TASK`,
+   `PROMPT_INPUTS_SPEC`, `EXTRA_CRITERIA`, and implement `run_prompt`
+   (return a `Trajectory` for agents).
+7. **Generate + freeze the dataset:**
+   ```bash
+   pip install -r evals/requirements.txt
+   export ANTHROPIC_API_KEY=sk-...
+   python -m evals.run_eval generate
+   ```
+8. **Audit the dataset.** Open `datasets/<name>.json` and spot-check
+   `solution_criteria` — bad criteria silently corrupt every downstream metric.
+9. **Evaluate + read the report.**
+   ```bash
+   python -m evals.run_eval evaluate
+   ```
+   Open the newest `runs/<timestamp>/output.html`.
+
+**Definition of done:** unit tests + smoke test green; a frozen dataset exists with
+audited criteria; an `evaluate` run produced a rendered `output.html`.
+
+---
+
+## 12. Glossary
+
+| Term | Means |
+|------|-------|
+| **Secondary criteria** | A test case's `solution_criteria` — what a good answer should do. |
+| **Mandatory criteria** | The global `extra_criteria` — non-negotiable; any violation caps the score at 3. |
+| **Process criteria** | Agentic-only: how the agent should behave (`process_criteria`). |
+| **Trajectory** | An agent run: `final_output` + ordered `steps` (turns and tool calls). |
+| **Provenance** | Metadata embedded in a dataset recording how/when/with-what it was generated. |
+| **Run** | One `runs/<label>/` directory: `output.json` + `output.html`. |
+
+---
+
+## 13. Known Limitations & Hardening
+
+The reference implementation handles several pitfalls the original scaffold left
+open (JSON-fence stripping + bracket-slice repair in `jsonio.py`; closed-key-set
+validation with retry; verdict score clamping; HTML escaping; full-verdict
+persistence; timestamped non-overwriting runs; dataset provenance). Still consider:
+
+- **Single-judge variance.** One judge call per case. For higher confidence, use a
+  judge panel (majority vote) or multiple samples and average.
+- **Judge/executor leakage.** Grading with the same model that produced the output
+  biases scores upward; the default config uses a distinct, stronger judge — keep it that way.
+- **Prompt injection via generated values.** Generated inputs are interpolated into
+  prompts; for untrusted-data tasks, sandbox `run_function` and prefer structured inputs.
+- **Criteria audit.** Always spot-check generated `solution_criteria` before
+  trusting aggregate scores.
+- **No CI gate (by design).** This is a dev-time tool. If you later want regression
+  gating, diff `output.json` against a saved baseline and fail on a pass-rate drop.
+
+### Cost
+Total LLM calls ≈ `1 + num_cases (generation) + 2 × num_cases (run + grade)`.
+Generation is one-time per frozen dataset; only the `2 × num_cases` run+grade cost
+recurs each evaluation. Budget accordingly.

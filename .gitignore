@@ -2,6 +2,18 @@
 node_modules/
 vendor/
 
+# Generated eval artifacts (keep the dirs via .gitkeep, ignore contents)
+evals/datasets/*
+!evals/datasets/.gitkeep
+evals/runs/*
+!evals/runs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # Build output
 dist/
 build/
