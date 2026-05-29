@@ -77,6 +77,7 @@ skills/
       dimensions.md            # normative coverage checklist (starting list ∪ Section 7)
       question-bank.md         # per-stage elicitation prompts
       patterns.md              # Building-Effective-Agents catalog + when to escalate
+      model-selection.md       # Claude model + effort guidelines (routing, effort-scaling)
       rubric-templates.md      # rubric shapes: categorical scales, level defs, gates
       citations.md             # dated source URLs; volatile Claude-Code details live here
     assets/
@@ -222,8 +223,9 @@ green; non-zero = gaps listed.
   (e.g. `12/12 dimensions accounted for`).
 - Each `step` has a `kind` *and* a non-empty `rationale`.
 - Every entry in `subagents` has the **full four-part contract** (objective,
-  output_format, tools, boundaries all non-empty), and a workflow containing any
-  `subagents` has at least one `agentic` step to justify them.
+  output_format, tools, boundaries all non-empty) plus a non-empty `model` and
+  `effort`, and a workflow containing any `subagents` has at least one `agentic`
+  step to justify them.
 - Any side-effecting step has `retry` with an `idempotency_key`; any reversible step
   has `rollback`; any loop or agentic step has a non-empty `termination`.
 - Each `rubric` has a categorical `scale`, per-level `levels` definitions, and a
@@ -271,7 +273,12 @@ Modeled on rigorous BA / solution-architect elicitation.
    design subagents with the four-part contract. Enforces **simplicity-first**:
    recommend the simplest sufficient architecture and *justify every escalation* to
    a subagent or loop (citing the ~15× multi-agent token cost); honor the
-   one-level-nesting constraint. Loads `references/patterns.md`.
+   one-level-nesting constraint. For each agentic step / subagent, recommend a
+   Claude `model` and `effort` level **with a rationale**, guided by desired output,
+   task complexity, and cost/token minimization (easy → Haiku, harder →
+   Sonnet/Opus; effort scales with task depth). Loads `references/patterns.md` and
+   `references/model-selection.md`. Claude models only for now; model IDs live in
+   `references/citations.md` so they update as the lineup changes.
 5. **Dimension sweep** — walk every Section-7 dimension (failure handling,
    retry/idempotency, human-in-the-loop gates, state/artifact passing, context
    management, observability, guardrails/permissions, budgets, termination,
@@ -335,16 +342,13 @@ Each elicited requirement maps onto blueprint elements:
   downstream inputs). Reuses the existing `prompt-evals-*` grading machinery
   (LLM-as-judge, categorical scales, chain-of-thought). Non-deterministic and
   subject to judge bias, so it advises — it never replaces the deterministic gate.
-- **Model-selection advisor** — recommend which Claude model (and `effort` level)
-  to use for each agentic step / subagent based on explicit guidelines rather than
-  author guesswork. Inputs to the recommendation: desired output (structure,
-  fidelity), task complexity, and minimizing cost / token usage. Grounded in the
-  routing pattern (easy → Haiku, harder → Sonnet/Opus) and the effort-scaling
-  heuristics from the multi-agent research post (simple fact-finding → 1 agent,
-  3–10 tool calls; comparisons → 2–4 subagents; complex → 10+). Fills the §4.1
-  `model` / `effort` fields, which v0.1 captures manually. **Claude models only for
-  now** — the advisor's guideline set and model IDs live in `references/citations.md`
-  so they update as the model lineup changes, never hardcoded into skill prose.
+- **Automated model-selection advisor** — the *guideline* form ships in v0.1 (§6,
+  stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
+  subagent, with rationale, from `references/model-selection.md`). v0.2 considers
+  only the *automated* form: a script that scores a task (desired output, complexity,
+  cost/token budget) and emits a model+effort recommendation programmatically.
+  Pursued only if the v0.1 guideline proves insufficient — it may not be needed.
+  Claude models only.
 - **Visual viewer** — render a blueprint visually: the step **flow** (a DAG showing
   ordering, parallel sections, approval gates, and deterministic-vs-agentic coloring)
   plus **drill-down** into each step's and subagent's details. Two tiers, cheapest
@@ -401,8 +405,8 @@ Anthropic-reported.
 - `workflow-design-interview` + `workflow-design-validate` skills exist with
   discovery-optimized descriptions.
 - `references/` complete: blueprint schema + annotated example, normative dimensions
-  checklist, per-stage question bank, BEA pattern catalog, rubric templates, dated
-  citations.
+  checklist, per-stage question bank, BEA pattern catalog, model-selection
+  guidelines, rubric templates, dated citations.
 - `validate_blueprint.py` + offline tests green.
 - `docs/WORKFLOW_DESIGN_SPEC.md` (this document) written and committed.
 - `README.md` + `plugin.json` updated for the new group.
