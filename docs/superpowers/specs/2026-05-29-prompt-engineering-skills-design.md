@@ -1,350 +1,448 @@
-# Design: Prompt-Engineering Skills (`prompt-author` + `prompt-improve`)
+# Design: Prompt-Engineering Skills (`prompt-engineering-author` + `prompt-engineering-improve`)
 
 **Date:** 2026-05-29
-**Status:** Approved design (review-seam cleanup folded in) — ready for implementation planning
+**Status:** Approved design — **revised twice on 2026-05-29**: first after the critical review
+(determinism, token-efficiency, seam-correctness, composition), then after adversarial verification
+caught an execution-model error (in-process Python cannot dispatch subagents). Ready for
+implementation planning.
 **Plugin:** `je-dev-skills`
+
+> **Revision note.** Three locked decisions drive this revision: (1) the two skills are renamed to
+> the group-verb convention `prompt-engineering-author` / `prompt-engineering-improve`; (2) execution
+> is **in-Claude-Code, no direct API calls on the interactive path** — the prompt-under-test runs by
+> **subagent dispatch driven by the skill**, with a keyed client retained only as a headless/CI
+> fallback; (3) the runtime/orchestration gap (turning a design + prompts into a *running* agent) is
+> owned by the new **`agent-build-*`** group. The execution substrate, the framework paths, and the
+> composition invariant are defined in the companion **architecture spec**
+> ([`2026-05-29-agent-build-and-execution-spec.md`](./2026-05-29-agent-build-and-execution-spec.md));
+> this spec **consumes** it and does not redefine it.
 
 ## 1. Purpose
 
-Add a **prompt-engineering lifecycle** to the plugin: two skills that help a user
-write an excellent prompt and then improve it through measured, evaluation-driven
-iteration. They sit *on top of* the existing `prompt-evals-*` lifecycle (the
-measurement substrate) rather than reimplementing any of it.
+Add a **prompt-engineering lifecycle** to the plugin: two skills that help a user write an excellent
+prompt and then improve it through measured, evaluation-driven iteration. They sit *on top of* the
+existing `prompt-evals-*` lifecycle (the measurement substrate) rather than reimplementing any of it.
 
-- **`prompt-author`** — author a strong single-shot prompt from a task description,
-  or refactor an existing prompt against best practices. Standalone, eval-free.
-- **`prompt-improve`** — drive an iterate → measure → diagnose → rewrite loop that
-  uses the existing eval framework to make a prompt measurably better, with explicit
-  stopping rules.
+- **`prompt-engineering-author`** — author a strong single-shot prompt from a task description, or
+  refactor an existing prompt against best practices. Standalone, eval-free.
+- **`prompt-engineering-improve`** — drive an iterate → measure → diagnose → rewrite loop that uses
+  the existing eval framework to make a prompt measurably better, with explicit stopping rules.
+  Every numeric decision in the loop is computed by a **deterministic helper script** (§6).
 
-This realizes the user's two-part framing — "write an excellent prompt" and
-"orchestrate end-to-end improvement through evals" — while making explicit three
-pieces that were implicit in that framing: (a) the success target lives in the
-existing `prompt-evals-create-dataset` skill, (b) the loop's intelligence is the
-diagnosis→technique mapping, and (c) the loop needs explicit stopping criteria.
+This realizes the user's two-part framing — "write an excellent prompt" and "orchestrate end-to-end
+improvement through evals" — while making explicit three pieces: (a) the success target lives in
+`prompt-evals-create-dataset`, (b) the loop's intelligence is the diagnosis→technique mapping, and
+(c) the loop needs explicit, deterministically-evaluated stopping criteria.
 
-## 2. Locked decisions (from brainstorming + design review)
+**Where this sits in the plugin (scope boundary).** This group **authors** and **measurably improves**
+prompts. It does **not** stand up the running agent — that is the `agent-build-*` group's job
+(architecture spec). The single lifecycle:
+
+```
+workflow-design-*  →  prompt-engineering-author  →  agent-build-*  →  prompt-evals-*  →  prompt-engineering-improve
+   (design)              (author prompts)            (build + run)       (measure)            (improve, looped)
+   (interactive path: in Claude Code on session auth, no API key · headless/CI: keyed fallback)
+```
+
+## 2. Locked decisions
 
 | Decision | Choice | Why |
 |---|---|---|
 | Structure | **Two skills**, reuse `prompt-evals-*` | Matches the repo's composable-skill pattern; narrow `description`s trigger accurately; each skill stays small; no duplicate eval engine. |
-| Author ↔ improve interface | **Shared references, follow procedure**: `prompt-improve` reads `prompt-author`'s technique references by `${CLAUDE_PLUGIN_ROOT}` path and runs the Mode B rewrite procedure inline | No dependency on runtime skill-invocation semantics. The catalogue has a **single physical home** (`prompt-author/references/`) with **two readers**. |
-| Artifact scope | **Single-shot prompts**, structured to extend to agentic later | Coherent technique ladder; most common case; maps to the eval framework's base layer. Agentic = an additive future layer. |
-| `prompt-author` modes | **Both**: generate (task → prompt) and improve-existing (prompt → refactor) | Shared catalogue makes mode B a small delta; covers the two most common eval-free requests; mode B is what the loop follows. |
-| Loop control | **Hybrid (configurable)** | Checkpointed by default (human controls cost/direction); opt into "auto, up to N rounds" that streams deltas and stops early on threshold/regression. |
+| Naming | **`prompt-engineering-author` / `prompt-engineering-improve`** (group-verb) | Restores the repo convention; removes the `prompt-*` prefix collision with `prompt-evals-*`. |
+| Author ↔ improve interface | **Shared references, follow procedure**: `prompt-engineering-improve` reads the technique references **and a shared rewrite-procedure reference** by `${CLAUDE_PLUGIN_ROOT}` path and runs the rewrite inline | No runtime skill-invocation dependency. **Both the catalogue and the rewrite procedure have a single physical home with two readers** (§5; cross-skill coupling noted in §7). |
+| Execution | **In-Claude-Code, no API key on the interactive path** | The prompt-under-test runs by **subagent dispatch driven by the skill** (architecture spec), not the `anthropic` SDK. A keyed client (`AnthropicClient`) is a **headless/CI fallback only**. The no-key interactive eval path supports **single-shot** prompts (the no-subagent-nesting rule — see §4 and architecture spec §2). |
+| Determinism | **All numeric loop logic is a deterministic helper** (`improve_step.py`) with offline tests | The plugin's north star is "deterministic over non-deterministic where possible." Stopping math, deltas, best-version selection, the diagnosis tally, and the `EXTRA_CRITERIA` freeze are closed-form — code, not prose. Mirrors `workflow-design-validate`. |
+| Artifact scope | **Single-shot prompts**, structured to extend to agentic later | Coherent ladder; most common case; **and it matches the no-key interactive eval path's single-shot limit**. A deliberate v1 cut, not a substrate limitation — the eval framework is already agentic-capable (Trajectory) on the keyed path; agentic *authoring* + agentic-app eval are the named additive layer (§8). |
+| Loop control | **Hybrid (configurable)** | Checkpointed by default; opt into "auto, up to N rounds". |
 
 ## 3. Architecture & composition
 
 ```
-prompt-author        ──────────────►  a prompt (eval-free, single-shot)
+prompt-engineering-author ─────────►  a prompt (eval-free, single-shot)
   mode A: generate (task desc → prompt)
   mode B: improve  (existing prompt → refactored prompt)
         │
         │ (optional: take the authored prompt into a measured loop)
         ▼
-prompt-improve       ──────────────►  a measurably-better prompt + trace
+prompt-engineering-improve ────────►  a measurably-better prompt + trace
   preconditions: ./evals exists + a frozen dataset exists
-  loop (hybrid control):
+  loop (hybrid control; numeric decisions via improve_step.py):
      prompt-evals-run  ──►  scored report (output.json)
-        │                       ▲
-        ▼                       │ re-measure on the SAME frozen dataset
-     diagnose weaknesses        │
-        │                       │
-        ▼                       │
-     follow prompt-author       │   (Mode B rewrite, using the SHARED
-     Mode B (shared refs)  ─────┘    technique references + the diagnosis)
+        │   [no-key: skill dispatches execute+grade subagents per case → deterministic glue aggregates]
+        ▼
+     diagnose weaknesses (deterministic tally + model names the theme)
+        │
+        ▼
+     follow shared rewrite-procedure (+ techniques/anti-patterns refs) + the diagnosis → prompt vN+1
+        │   → copy into <name>.current.md → re-measure on the SAME frozen dataset
+        ▼
+     delta + best + continue/stop verdict (improve_step.py)
 ```
 
 **Boundaries:**
-- `prompt-author` is **standalone and eval-free** — needs only a task description
-  (mode A) or an existing prompt (mode B). No `./evals`, no dataset, no API loop, and
-  it **never touches `./evals`**. Ships value on its own.
-- `prompt-improve` **orchestrates, never reimplements**. It calls `prompt-evals-run`
-  to measure and performs each rewrite by **following `prompt-author`'s Mode B
-  procedure against the shared technique references** (read by `${CLAUDE_PLUGIN_ROOT}`
-  path) — not via a runtime skill call. The only new machinery it owns is diagnose →
-  select technique → decide continue/stop. It also owns wiring the thin `run_prompt`
-  loader into `./evals` (see §4).
-- `prompt-improve` **does not define success criteria or build datasets** — that is
-  `prompt-evals-create-dataset`'s job. Missing `./evals`/dataset → stop and route the
-  user there (the precondition pattern `prompt-evals-run` already uses).
+- `prompt-engineering-author` is **standalone and eval-free**; needs only a task description (mode A)
+  or an existing prompt (mode B). **Never touches `./evals`**. `allowed-tools: Read, Write, Edit, Glob`.
+- `prompt-engineering-improve` **orchestrates, never reimplements** the eval engine. It calls
+  `prompt-evals-run` to measure and rewrites by **following the shared rewrite-procedure reference
+  against the shared technique references** (read by `${CLAUDE_PLUGIN_ROOT}` path) — not a runtime
+  skill call. New machinery it owns: the **deterministic `improve_step.py`** and the
+  diagnosis→technique mapping. It also owns wiring `run_prompt` for the keyed path and the
+  prompt-prep glue for both paths (§4).
+- **`prompt-evals-run` vs. `prompt-engineering-improve` boundary.** `prompt-evals-run`'s "Diagnose and
+  iterate" step is re-scoped to a **single-pass** diagnosis ("here's what's wrong; fix and re-run,
+  **or invoke `prompt-engineering-improve` to automate the loop**"). The multi-round loop, stopping
+  rules, and versioning belong to `prompt-engineering-improve`. The criteria-vs-prompt guard and
+  mandatory-criterion-first rule live in **one shared `references/diagnosis.md`** that both skills
+  cite. **Note (cross-group edit):** `prompt-evals-run/SKILL.md` is *also* edited by the architecture
+  spec (its run procedure becomes the subagent-dispatch path). Both edits land in one coherent
+  SKILL.md; the architecture spec owns the run-procedure rewrite and this spec owns the §4-diagnosis
+  re-scope — see the architecture spec's DoD for the merge.
+- `prompt-engineering-improve` **does not define success criteria or build datasets** — that is
+  `prompt-evals-create-dataset`. Missing `./evals`/dataset → stop and route the user there.
 
-## 4. The file seam — prompt text vs. harness glue
+## 4. The file seam — prompt text · deterministic glue · two execution paths
 
-There are two layers; only one is the prompt.
+There are three layers; only the first is the prompt, and execution has **two paths**.
 
-1. **The prompt itself (the engineered artifact) is text → a text file.** The
-   currently-active prompt is always at a stable path,
-   `evals/prompts_under_test/<name>.current.md`, with each round's candidate kept as
-   `evals/prompts_under_test/<name>.vN.md`. It is what `prompt-author` emits and what
-   a human reviews; it diffs cleanly across rounds (the readable record of which
-   technique each round added); it is editable without touching code.
-2. **The harness glue (`run_prompt` in `evals/run_eval.py`) is a few lines of code.**
-   The framework invokes the prompt-under-test as a Python callable
-   `run_function(prompt_inputs) -> str`, so an adapter must exist in code. It always
-   loads the **stable active path**, renders the placeholders safely, calls the model,
-   returns the text:
+**Layer 1 — the prompt is text → a text file.** The active prompt is always at a stable path,
+`evals/prompts_under_test/<name>.current.md`, with each round's candidate at `<name>.vN.md`. It is
+what `prompt-engineering-author` emits and what a human reviews; it diffs cleanly across rounds; it is
+editable without touching code.
 
-   ```python
-   from evals.evaluator.templates import render   # framework's {placeholder} renderer
+**Layer 2 — deterministic prompt-prep glue (both paths).** A small helper renders the active prompt
+with a case's `prompt_inputs` and checks placeholders. It lives in the **vendored `evals/` layer** —
+in `evals/run_eval.py` (the per-project, editable copy) or a small module beside it under `evals/` —
+so the keyed Path B's in-process `run_evaluation` can import it; **never** in `evals/evaluator/`
+(frozen by the composition invariant) and **never** under `skills/` (not importable from `evals/`).
+It uses the framework's existing `render()`:
+- `render()` (`evals/evaluator/templates.py`) is **reused as-is**: `{placeholder}` substitution,
+  `{{ }}` escaping of literal braces, **raises `KeyError` on a missing placeholder** (the hard
+  backstop). It **ignores extra values** by design.
+- The helper adds what `render()` does not: a pre-flight `check_placeholders(template, prompt_inputs)
+  -> {declared, unused, missing}` that **fails on a missing placeholder** (before `render()`'s
+  backstop, producing a structured report), **warns on unused inputs**, and **reports the detected
+  placeholders** so the human can reconcile them against `create-dataset`'s hand-edited
+  `PROMPT_INPUTS_SPEC` (there is **no** automatic sync consumer; closed-key-set agreement is enforced
+  separately at generation time by `schemas.validate_test_case`). `check_placeholders` is
+  intentionally redundant with `render()`'s `KeyError` so the warn/report path runs first. Ships with
+  offline tests (§9).
 
-   def run_prompt(prompt_inputs: dict) -> str:
-       template = Path("evals/prompts_under_test/<name>.current.md").read_text()
-       prompt = render(template, **prompt_inputs)   # brace-safe; {{ }} escapes literals
-       return call_model(prompt)                    # the model call
-   ```
+**Layer 3 — execution has two paths (architecture spec defines the substrate):**
 
-   **Brace safety (review item 3):** prompts are full of literal `{}` (JSON, schemas),
-   so naive `str.format()` is forbidden. Use the framework's existing `render()`
-   (`{placeholder}` with `{{ }}` escaping of literal braces) — or `string.Template`
-   (`$var`, which sidesteps brace collisions entirely; preferable for JSON-heavy
-   prompts). The chosen mechanism is an implementation detail, but it **must**:
-   - fail if a declared placeholder is missing from `prompt_inputs`;
-   - warn if `prompt_inputs` carries fields the template never uses;
-   - record the detected placeholders as prompt metadata (so `create-dataset`'s
-     `prompt_inputs_spec` and the template stay in sync).
+1. **No-key path (canonical, interactive).** `prompt-evals-run` (the skill, in an interactive Claude
+   Code session) drives measurement itself: for each case it renders the prompt (Layer 2), then **the
+   orchestrating Claude dispatches an execute-subagent** (runs the single-shot prompt) and a
+   **grade-subagent** (emits the verdict JSON) via the Agent/Task tool — **session auth, no API key**.
+   A **deterministic aggregation helper (no model calls)** — `evals/aggregate.py`, defined by the
+   architecture spec — collects the verdict JSONs and writes
+   `evals/runs/<run_label>/{output.json,output.html}` via the framework's report writers
+   (`from evals.evaluator.report import summarize, write_json, write_html`). There is **no `run_prompt`
+   model call and no `run_evaluation` loop** on this path — a
+   synchronous Python function cannot dispatch a subagent, so the skill (not code) drives it. Limited
+   to **single-shot** prompts (a multi-subagent app would require nesting, which the runtime forbids —
+   architecture spec §2/§3).
+2. **Keyed fallback path (headless/CI).** The existing `evals/run_eval.py evaluate` →
+   `PromptEvaluator.run_evaluation` in-process loop with `AnthropicClient` for executor **and** judge.
+   Here `run_prompt(prompt_inputs) -> str` is the executor seam (loads `<name>.current.md`, runs
+   Layer-2 glue, calls the keyed model). Requires `ANTHROPIC_API_KEY`; supports agentic `Trajectory`;
+   structured grading via the SDK's `output_config` (real, `client.py`). Selected by
+   `EXECUTION_MODE=anthropic_api` (config owned by the architecture spec).
 
-**Versioning & active selection (review item 1):** `run_prompt` always loads
-`<name>.current.md`. Each improvement round writes its candidate as the next
-`<name>.vN.md`, then copies the chosen candidate into `<name>.current.md` *before*
-running evals. The final report records every version evaluated and identifies the
-best-scoring one.
+**`run_prompt` migration on first use (review fix 5a, corrected).** The bundled `run_prompt`
+(`run_eval.py:35-54`) does **not** merely inline a prompt string — it instantiates
+`AnthropicClient(EXECUTOR_MODEL)` and calls `messages.create(..., max_tokens=600)` directly. So
+migration is path-aware:
+- The **prompt text** is always extracted into `<name>.current.md` (the durable artifact).
+- **Call-logic knobs** divide: system text / extra user content **map** onto subagent dispatch; raw
+  `messages.create`, `max_tokens`, and tool wiring **do not** (subagent frontmatter has no such
+  knobs — architecture spec §2). The shipped template's `messages.create(max_tokens=600)` is **exactly
+  the case that cannot be preserved on the no-key path**: migration either rewrites it to the
+  executor's supported options or **routes that prompt to the keyed fallback path** (where `run_prompt`
+  keeps its custom call logic verbatim).
+- Either way, **show the diff and get explicit confirmation** before the first eval (acceptance
+  criterion §9).
 
-**Consequence:** `run_prompt` is written **once** (thin loader; rarely changes). What
-changes each round is the **text file**. `prompt-author` emits the text file and its
-declared placeholders and **never touches `./evals`**; wiring the thin loader into
-`./evals` is `prompt-improve`'s responsibility; `prompt-improve` versions and diffs the
-text files and never rewrites code mid-loop.
+The bundled `run_eval.py` and `prompt-evals-run/SKILL.md` are updated to demonstrate the file-backed
+`<name>.current.md` + `render()` + check-placeholders pattern as the **default**.
 
-## 5. `prompt-author` (Part 1)
+**Versioning & active selection.** `run_prompt`/the no-key skill always uses `<name>.current.md`. Each
+round writes its candidate `<name>.vN.md`, then copies the chosen candidate into `<name>.current.md`
+*before* measuring. `improve_step.py` names the best-scoring version (§6).
 
-**Purpose:** turn a task (or an existing prompt) into a well-built single-shot prompt
-applying best practices. Standalone, eval-free, fast. Never touches `./evals`.
+## 5. `prompt-engineering-author` (Part 1)
+
+**Purpose:** turn a task (or existing prompt) into a well-built single-shot prompt. Standalone,
+eval-free, fast. Never touches `./evals`.
+
+**Progressive disclosure.** The SKILL.md body is a table of contents; each `references/` file loads
+**only when its step is reached** — never all up front (the `workflow-design-interview` discipline).
 
 **Modes (one shared technique catalogue):**
-- **Mode A — generate:** task description (+ optional input variables / output
-  expectations) → a new prompt.
-- **Mode B — improve:** an existing prompt (+ optional known issues, or a failure
-  diagnosis supplied by `prompt-improve`) → a refactored prompt plus a short changelog
-  of which techniques it applied and why.
+- **Mode A — generate:** task description (+ optional input variables / output expectations) → a new prompt.
+- **Mode B — improve:** an existing prompt (+ optional issues, or a diagnosis from
+  `prompt-engineering-improve`) → a refactored prompt plus a short changelog of techniques applied.
 
-**Technique catalogue** — `references/techniques.md`, an **escalation ladder**
-(cheapest/highest-leverage first):
+**Technique catalogue** — `references/techniques.md`, an **escalation ladder** (cheapest/
+highest-leverage first): (1) clear & direct; (2) output guidelines + process steps; (3) examples
+(one-/multishot, `<example>` tags, diverse, corner cases); (4) XML structure (separate instructions
+from data); (5) role framing (**in-text** for v1); (6) adaptive thinking / reasoning scaffolding;
+(7) chaining (the boundary of single-shot — flagged); (8) long-context tips (docs first, query last).
 
-1. Be clear and direct (lead with the action; state task + key constraints)
-2. Output guidelines + process steps (length, format, tone; ordered steps for complex tasks)
-3. Examples (one-/multishot; `<example>` tags; diverse; corner cases)
-4. XML structure (descriptive tags; separate instructions from data)
-5. Role framing (see note below)
-6. Adaptive thinking + reasoning scaffolding (for genuine multi-step reasoning tasks; "CoT" is the classic name)
-7. Chaining (linked subtasks — the boundary of single-shot; flagged as such)
-8. Long-context tips (docs first, query last, quote-first)
+**Shared rewrite procedure (the seam, not just the catalogue).** The application constraints that
+shape a rewrite — "**pick the minimum rungs to fix the diagnosed weakness; do not max out**," obey
+the anti-patterns, prefer adaptive thinking, soften imperatives, emit prompt + changelog — live in
+**`references/rewrite-procedure.md`**. Both `prompt-engineering-author` Mode B **and**
+`prompt-engineering-improve`'s rewrite step read this file by `${CLAUDE_PLUGIN_ROOT}` path, so the
+procedure (not only the catalogue) has a single home with two readers.
 
-**v1 "role" means in-text role framing (review item 4).** Because v1 targets a single
-text prompt, rung 5 is *role framing inside the prompt text*, not a separate API
-`system` message. (A frontmatter `system:` / `user_template:` split that the loader
-maps to real system/user messages is noted as a future option in §8, not v1.)
+**`references/anti-patterns.md`:** say what to do; no over-prompting (`CRITICAL: YOU MUST…`); keep
+examples consistent with edited instructions; concrete ranges over "be concise"; **don't ask the LLM
+to do what code should** (the plugin's north-star thesis, shared with `workflow-design`); resolve
+conflicting rules; prefer private reasoning over forced *exposed* chain-of-thought. Best-practice-only
+/ model-aware by construction: no assistant prefill; no manual `budget_tokens`; prefer adaptive
+thinking + `effort`.
 
-**Picks rungs; does not max out.** Greenfield authoring applies the high-leverage
-baseline (1–2 plus light structure) and adds examples/role/CoT only when the task
-warrants. Stacking all eight rungs is the over-engineering anti-pattern.
+**Output:** the prompt as a text file (Layer 1) + its declared `{placeholder}` variables. Standalone
+use writes/prints to a path the user chooses and does not modify `./evals`.
+`allowed-tools: Read, Write, Edit, Glob`.
 
-**`references/anti-patterns.md`:** say what to do (not what not to do); no
-shouting/over-prompting (`CRITICAL: YOU MUST…`); keep examples consistent with edited
-instructions; concrete ranges over "be concise"; don't ask the LLM to do what code
-should; resolve conflicting/ambiguous rules; prefer adaptive thinking / private
-reasoning over forcing *exposed* chain-of-thought.
+## 6. `prompt-engineering-improve` (Part 2 — the loop)
 
-**Best-practice-only / model-aware by construction:** no assistant prefill; no manual
-`budget_tokens`; prefer adaptive thinking + `effort`; soften imperatives. (Same
-principles as the prefill→structured-outputs fix already applied to the eval
-framework.)
+**Preconditions** (same as `prompt-evals-run`): `./evals` exists and a frozen dataset exists. Else
+stop and route to `prompt-evals-setup` / `prompt-evals-create-dataset`. Owns no eval engine. On first
+use it migrates `run_prompt`/wires the prompt-prep glue (§4).
 
-**Output:** the prompt as a text file (per §4) plus its declared `{placeholder}`
-variables. Standalone use writes/prints the prompt to a path the user chooses and does
-not modify `./evals`. `allowed-tools: Read, Write, Edit, Glob`.
+**Progressive disclosure.** Load each reference only at its step: `diagnosis.md` at the diagnose step;
+`rewrite-procedure.md` + `techniques.md` + `anti-patterns.md` at the rewrite step. Never all four up
+front.
 
-## 6. `prompt-improve` (Part 2 — the loop)
+**Determinism: `scripts/improve_step.py` (the headline change).** Mirroring
+`workflow-design-validate/scripts/validate_blueprint.py`, the loop ships a **deterministic CLI** with
+**offline `unittest` fixtures**. It ingests the round's `evals/runs/<label>/output.json` + a small
+loop-state file and **emits**:
+- per-round **delta** and the running **best** version id (`argmax`);
+- the **stopping verdict** (`continue | stop:<rule>`, nonzero-exit convention) over threshold /
+  pass-rate / diminishing-returns(K) / regression-band / max-rounds;
+- the **diagnosis tally** — count of cases failing a mandatory criterion (judge score ≤ 3, per
+  `grading.md`) and %-of-cases per weakness theme — list comprehensions over the verdict JSON;
+- the **`EXTRA_CRITERIA` freeze guard** — a hash of `EXTRA_CRITERIA` snapshotted at loop start,
+  asserted unchanged for the held-out run and stamped into `final-report.json` (deterministic
+  enforcement of the freeze, not a prose reminder);
+- the assembled `delta.json` and final-report payload (deterministic serialization).
 
-**Preconditions** (same pattern as `prompt-evals-run`): `./evals` exists and a frozen
-dataset exists. If not, stop and route to `prompt-evals-setup` /
-`prompt-evals-create-dataset`. Owns no eval engine. On first use it wires the thin
-`run_prompt` loader (§4) to load `<name>.current.md`.
+The SKILL.md prose **calls this script and acts on its verdict; it never does the float math, the
+argmax, the tally, the freeze check, or the serialization itself.** What stays with the model:
+**naming the dominant failure theme** and **the rewrite**. The theme→rung mapping and the
+priority/tie-break ladder are a **table the script applies once the theme is named**.
 
 **One round:**
 ```
-baseline:  prompt-evals-run → output.json (avg score, pass rate, per-case verdicts)
-diagnose:  aggregate the judge's weaknesses across cases → dominant failure theme(s)
-   ├─ criteria problem? (see guard below) → STOP, route to create-dataset
-select:    map theme → next ladder rung (priority below)
-rewrite:   follow prompt-author Mode B (shared refs) + the diagnosis → prompt vN+1
-           → copy candidate into <name>.current.md
+baseline:  prompt-evals-run → output.json   [no-key: skill dispatches execute+grade subagents; glue aggregates]
+diagnose:  improve_step.py tallies weaknesses/mandatory-fails  →  model names the dominant theme(s)
+   ├─ criteria problem? (guard below) → STOP, route to create-dataset
+select:    map theme → next ladder rung (improve_step.py applies the priority table)
+rewrite:   follow rewrite-procedure.md + diagnosis → prompt vN+1 → copy into <name>.current.md
 re-eval:   prompt-evals-run on the SAME frozen dataset → new output.json
-delta:     e.g. 6.2 → 7.8 (+1.6); weaknesses resolved / remaining
+delta:     improve_step.py → delta + best + continue/stop verdict
 ```
 
-**Diagnosis → technique mapping** (`references/diagnosis.md`):
+**Token cost & cheap inner loop.** On a single-shot prompt one full evaluation costs **2N** model
+calls (N execute + N grade). A loop is **baseline + N rewrite re-evals + 1 held-out = (N+2) full
+evaluations**, i.e. ≈ `(N+2) × 2N` calls at default `max_rounds = N = 3`. (For agentic prompts on the
+keyed path the execute side is unbounded per case, so 2N is a single-shot figure.) To cut recurring
+cost, mid-loop **diagnosis** may run against a **deterministically sampled K-case subset** that a
+helper writes from the frozen dataset and passes as `dataset_file` — **not** `datasets/smoke.json`
+(that is a 3-case offline fixture for the framework's own tests, not a sample of the user's data). The
+**full frozen dataset** is run at every decision point (delta/stop verdict, version selection,
+checkpoint).
+
+**Diagnosis → technique mapping** (`references/diagnosis.md` — shared with `prompt-evals-run`):
 
 | Dominant failure theme | Next rung to escalate to |
 |---|---|
-| Mandatory-criterion failures (score capped ≤ 3) | Fix that gate **first** — explicit instruction/structure for the must-have |
+| Mandatory-criterion failures (score capped ≤ 3) | Fix that gate **first** |
 | Missing required content | Process steps; examples showing the requirement |
-| Format / structure drift, inconsistency across cases | XML structure + multishot examples |
-| Shallow or wrong reasoning on hard cases | Adaptive thinking / reasoning scaffolding |
+| Format / structure drift, inconsistency | XML structure + multishot examples |
+| Shallow / wrong reasoning on hard cases | Adaptive thinking / reasoning scaffolding |
 | Tone / style off | Role framing + output guidelines + examples |
 | Conflicting / ambiguous instructions | Resolve the conflict (anti-pattern), don't add more |
 
-**Diagnosis priority + tie-break (review item 7).** When several themes co-occur,
-address them in this order:
+**Diagnosis priority + tie-break** (applied by `improve_step.py`): (1) mandatory-criterion failures;
+(2) failures across ≥ 30% of cases; (3) largest score-impacting weakness; (4) format/structure;
+(5) tone/style. Ties → earliest item unless the user overrides.
 
-1. Mandatory-criterion failures
-2. Failures recurring across ≥ 30% of cases
-3. Largest score-impacting weakness
-4. Format / structure failures
-5. Tone / style refinements
+**Criteria-vs-prompt guard.** Route to `create-dataset` when the judge complains about content not in
+the inputs, the rubric demands an unstated style/format, the rationale conflicts with the rubric, or
+the answer needs hidden domain knowledge. Investigate (possible prompt non-determinism) when failures
+are inconsistent across similar cases. Do **not** route when the prompt omitted instructions, ignored
+a stated format, or failed recurring reasoning steps.
 
-Ties resolve to the earliest item in this order unless the user overrides.
+**Hybrid control.** Checkpointed by default — pause each round with diagnosis + technique + delta +
+remaining weaknesses; ask continue/stop/adjust. Opt into "auto, up to N rounds": stream each delta,
+stop early on threshold/regression, then return to checkpointed. **Auto mode is no-key only while
+driven by an interactive Claude Code session** (subagent dispatch); a genuinely unattended/CI
+auto-loop runs through the keyed `AnthropicClient` fallback and requires `ANTHROPIC_API_KEY`. In auto
+mode the deterministic `improve_step.py` verdict gates each iteration (the human is not eyeballing the
+arithmetic — exactly why it must be code).
 
-**Criteria-vs-prompt guard (review item 8).** Before escalating a technique, decide
-whether the weakness is a *prompt* problem or a *criteria/dataset* problem.
-
-- **Route to `create-dataset`** when: the judge complains about content not represented
-  in the task inputs; the rubric demands a style/format never stated in the success
-  criteria; the score rationale conflicts with the rubric; or the expected answer
-  depends on hidden domain knowledge absent from the inputs.
-- **Investigate (could be prompt non-determinism, not just bad criteria)** when:
-  failures are inconsistent across semantically similar cases.
-- **Do NOT route — it's a prompt problem** when: the prompt omitted required
-  instructions; the model ignored a clearly-stated output format; or the model failed
-  recurring reasoning steps.
-
-**Hybrid control:** checkpointed by default — pause each round with diagnosis +
-proposed technique + delta + remaining weaknesses; ask continue/stop/adjust. User can
-opt into "auto, up to N rounds": streams each round's delta, stops early on threshold
-or regression, then returns to checkpointed.
-
-**Loop parameters (defaults; all tunable).**
+**Loop parameters — one declared home (review fix 5c).** The five new params live as a **constants
+block at the top of the per-project `run_eval.py`** (the existing edit surface for `TASK`/`SPEC`/
+`EXTRA_CRITERIA`); `pass_threshold` is the one intentional reference back to `config.PASS_THRESHOLD`.
+(They do **not** go in `config.py`, which the architecture spec edits for `EXECUTION_MODE` — keeping
+the two specs' config edits from colliding.) `improve_step.py` reads them and **stamps the resolved
+values into each `delta.json` + the final report**.
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `pass_threshold` | **`config.PASS_THRESHOLD` (currently 7)** — reused, not redefined | Avg-score bar for "good enough" |
+| `pass_threshold` | **`config.PASS_THRESHOLD` (7)** — referenced, not redefined | Avg-score bar |
 | `pass_rate_target` | 0.80 | Fraction of cases ≥ threshold to target |
 | `max_rounds` (N) | 3 | Hard cap on improvement rounds |
-| `epsilon` (ε) | 0.25 | Minimum per-round avg-score gain that counts as progress |
+| `epsilon` (ε) | 0.25 | Min per-round avg-score gain that counts as progress |
 | `diminishing_return_rounds` (K) | 2 | Consecutive sub-ε rounds before stopping |
-| `regression_tolerance` | 0.0 | A round scoring below the current best is a regression |
+| `regression_band` | **0.5** (not 0.0) | A round is a regression only if it scores **> band below** the best |
 
-**Stopping criteria.** Stop when **any** rule fires; if several fire, report all and
-keep the **best-scoring** version:
+**Judge-noise robustness.** `GRADING_TEMPERATURE = 0.0` is *ignored* by the Opus judge (sampling
+params removed), so re-grading is **not bit-identical**. `regression_tolerance = 0.0` ("any drop =
+regression") would misfire on noise and waste rounds; v1 uses `regression_band = 0.5`, applied
+deterministically by `improve_step.py`. A re-measure-on-tie (average K re-grades) is a deferred option
+(§8) to keep cost bounded.
 
-- **Threshold met** — avg ≥ `pass_threshold` (or `pass_rate_target` reached).
-- **Diminishing returns** — per-round delta < `ε` for `K` consecutive rounds.
-- **Regression guard** — a round scoring below the current best is discarded; revert
-  to the best version, then try a different rung or stop. Always keep/report the
-  **best**, never the last if it's worse.
-- **Budget cap** — `max_rounds` reached.
+**Stopping criteria** (all evaluated by `improve_step.py`; if several fire, report all and keep the
+**best**): threshold met (avg ≥ `pass_threshold` or `pass_rate_target` reached); diminishing returns
+(delta < ε for K consecutive rounds); regression (a round > `regression_band` below best is discarded,
+revert to best); budget cap (`max_rounds`).
 
-**Run trace & versioning (review item 5).** The framework already writes timestamped,
-non-overwriting eval outputs to `evals/runs/<timestamp>/{output.json,output.html}` — the
-loop does **not** duplicate those. It adds an auditable improvement trace that
-**references** them:
+**Run trace & versioning (review fix 5d, corrected).** `run_evaluation` **already** accepts a
+`run_label` (`evaluator.py:83`), uses it to name the run dir, and **returns** `run_dir`
+(`evaluator.py:125`) — so newest-dir globbing is unnecessary. The only gap is that `run_eval.py`'s
+`main()` doesn't thread `run_label` through; the fix is to add that arg (and/or capture the returned
+`run_dir`). On the **no-key path**, the deterministic aggregation helper writes to
+`evals/runs/<run_label>/` with the same `report.py` writers. The loop passes
+`run_label = improve-<name>-round-NN` so each round → its run dir is deterministic. The trace
+**references** those runs; it never duplicates `output.json`:
 
 ```
 evals/improve/<name>/<timestamp>/
-  round-00-baseline/  { diagnosis.md, delta.json, run_dir → ../../runs/<ts> }
-  round-01/           { prompt.v2.md (or version id), diagnosis.md, technique,
-                        delta.json, decision, run_dir → ../../runs/<ts> }
+  round-00-baseline/  { diagnosis.md, delta.json, run_dir → ../../runs/improve-<name>-round-00 }
+  round-01/           { prompt.v2.md (or id), diagnosis.md, technique, delta.json, decision, run_dir → … }
   round-02/           ...
   final-report.md     (round-by-round trace, winning version, held-out result)
-  final-report.json
+  final-report.json   (resolved loop params + held_out_run_count + EXTRA_CRITERIA hash)
 ```
 
-**Overfitting / held-out (review item 9).** A built-in train/held-out split is
-**deferred** (it would require framework changes; see §8). v1 uses the lightweight
-guard: improve against the working dataset, then run a **final validation against a
-separate held-out dataset** the user generates via `create-dataset`.
+**Overfitting / held-out (review fix 5e).** A built-in split is **deferred**. v1: improve against the
+working dataset, then run a **final validation against a separate held-out dataset**, hardened:
+- Never used for diagnosis/rewrite/selection. Runs **once**; `final-report.json` records
+  `held_out_run_count` and **must keep it ≤ 1**; any post-held-out tuning forfeits the claim and
+  requires a freshly generated held-out set.
+- **Independence:** the held-out set must cover scenarios **distinct** from the working set (different
+  idea seed; spot-check non-overlap via `create-dataset`'s audit) — not a near-duplicate.
+- **`EXTRA_CRITERIA` is frozen** before any held-out run (it is a single global gate at
+  `run_eval.py:26`); the freeze is **enforced deterministically** by `improve_step.py`'s hash guard
+  (above), not by prose.
+- Absent held-out set → produce the best working-dataset prompt and mark final validation **skipped**
+  (not failed).
 
-- The held-out set is **never** used for diagnosis, rewrite decisions, or version
-  selection — leakage protection. It runs **once**, after the winner is selected.
-- If no held-out dataset exists, produce the best working-dataset prompt and mark final
-  validation **skipped** (not failed).
+**Output:** versioned prompt files (`<name>.vN.md` + `<name>.current.md`), the trace above, and a
+final report (round-by-round trace, winning version, held-out result or "skipped").
 
-**Output:** versioned prompt files (`evals/prompts_under_test/<name>.vN.md` +
-`<name>.current.md`), the improvement trace above, and a final report — the
-round-by-round trace (technique applied, score delta, weaknesses resolved), the winning
-version, and the held-out validation result (or "skipped").
-
-**Frontmatter:** `name: prompt-improve`; third-person `description` covering *what*
-(run an eval-driven loop that diagnoses a prompt's failures, applies the
-next-best-technique, and re-measures until a stopping rule) and *when* (user wants to
-optimize/iterate a prompt against an existing eval dataset); `argument-hint`;
-`allowed-tools: Bash, Read, Write, Edit, Glob` (Bash invokes the eval runs).
+**Frontmatter:** `name: prompt-engineering-improve`; third-person `description` (what + when);
+`argument-hint`; `allowed-tools: Bash, Read, Write, Edit, Glob` (Bash runs `improve_step.py` + evals).
 
 ## 7. Skill conventions & plugin wiring
 
-- Follow the existing skills' conventions: third-person `description` (what + when),
-  `argument-hint`, `version`, `${CLAUDE_PLUGIN_ROOT}` references, **Precondition** and
-  **Definition of done** sections, an **Offline** note where relevant.
-- Wire both new skills into the plugin `README.md` table and `.claude-plugin/plugin.json`
-  (description + keywords), exactly as `prompt-evals-*` and `workflow-design-*` are.
-- Names `prompt-author` / `prompt-improve` are the working choice; adjustable.
+- Follow existing conventions: third-person `description` (what + when), `argument-hint`, `version`,
+  `${CLAUDE_PLUGIN_ROOT}` references, **Precondition** / **Definition of done** sections, an
+  **Offline** note where relevant, and **progressive disclosure**.
+- **Cross-skill reference coupling (flag).** `rewrite-procedure.md` (under `prompt-engineering-author`)
+  is read by `prompt-engineering-improve`; `diagnosis.md` (under `prompt-engineering-improve`) is read
+  by `prompt-evals-run`. These are read by `${CLAUDE_PLUGIN_ROOT}` path and are **part of the group
+  contract** — a consumer skill has a hard path dependency on a producer skill's `references/` dir, so
+  these files cannot move/rename without updating all readers. Documented so independent versioning
+  doesn't silently break a reader.
+- Wire both skills into `README.md` + `.claude-plugin/plugin.json` as part of the **unified lifecycle
+  story** the architecture spec defines (§4 there), not as a separate island.
 
 ## 8. Non-goals (YAGNI) & future enhancements
 
 **Out of scope for v1:**
-
-- Agentic prompts (system prompts, tool descriptions, trajectory/process grading) —
-  the design is structured to add this as an additive layer later.
-- A built-in train/held-out dataset split in the framework (use the second-dataset
-  approach in §6 instead).
-- A real `system`/`user` message split via prompt frontmatter (v1 "role" is in-text
-  framing — §5).
+- Agentic prompts (system prompts, tool descriptions, trajectory/process grading) and **evaluating
+  multi-subagent apps on the no-key interactive path** (the no-nesting rule limits it to single-shot;
+  agentic-app eval is keyed/headless — architecture spec §2/§3). A deliberate cut; the eval substrate
+  is already agentic-capable on the keyed path.
+- A built-in train/held-out split in the framework (use §6's second-dataset approach).
+- A real `system`/`user` message split via prompt frontmatter (v1 "role" is in-text — §5).
 - Any new eval engine — reuse `prompt-evals-*` wholesale.
 - Automatic success-criteria definition — that is `prompt-evals-create-dataset`.
-- Judge panels / multi-sample grading (the framework notes single-judge variance; not
-  this work's concern).
+- Judge panels / multi-sample grading (single-judge variance noted; `regression_band` mitigates).
+- **Standing up the running agent** — owned by `agent-build-*` (architecture spec).
 
-**Future enhancements:**
-
-- Agentic technique catalogue + trajectory-aware diagnosis (the additive layer).
-- Built-in held-out split in the eval framework.
-- Frontmatter `system:` / `user_template:` prompt format with a loader that maps to
-  real system/user messages.
+**Future enhancements:** agentic technique catalogue + trajectory-aware diagnosis; built-in held-out
+split; frontmatter `system:`/`user_template:` format; re-measure-on-tie smoothing.
 
 ## 9. Definition of done (for implementation)
 
-**Files expected:**
+**Files expected** (framework lives at `skills/prompt-evals-setup/framework/evals/`, copied to
+`./evals` by `prompt-evals-setup`):
 ```
-skills/prompt-author/SKILL.md
-skills/prompt-author/references/techniques.md
-skills/prompt-author/references/anti-patterns.md
-skills/prompt-improve/SKILL.md
-skills/prompt-improve/references/diagnosis.md
-README.md                       (updated: new lifecycle table)
-.claude-plugin/plugin.json       (updated: description + keywords)
+skills/prompt-engineering-author/SKILL.md
+skills/prompt-engineering-author/references/techniques.md
+skills/prompt-engineering-author/references/anti-patterns.md
+skills/prompt-engineering-author/references/rewrite-procedure.md      (shared: author Mode B + improve)
+skills/prompt-engineering-improve/SKILL.md
+skills/prompt-engineering-improve/references/diagnosis.md             (shared: cited by prompt-evals-run too)
+skills/prompt-engineering-improve/scripts/improve_step.py             (deterministic loop logic + EXTRA_CRITERIA hash)
+skills/prompt-engineering-improve/scripts/tests/                      (offline unittest fixtures)
+README.md                       (updated as part of the unified lifecycle — see architecture spec §4)
+.claude-plugin/plugin.json       (updated — see architecture spec §4)
+skills/prompt-evals-run/SKILL.md (updated: §4 re-scoped to single-pass + cites diagnosis.md; the run
+                                  procedure rewrite is owned by the architecture spec — one merged file)
+skills/prompt-evals-setup/framework/evals/run_eval.py
+                                  (updated: file-backed .current.md + render() + check_placeholders default;
+                                   run_label threaded through main(); loop-param constants block)
 ```
+The new deterministic prompt-prep + aggregation glue lives in the **vendored `evals/` top level**
+(beside `run_eval.py`), never in `evals/evaluator/`; the architecture spec defines the aggregation
+helper and ensures `prompt-evals-setup`'s vendoring ships it.
 
-**Behavioral acceptance criteria** (manual / scenario checks — these skills are prose
-procedures, not unit-testable code like the framework):
+**`improve_step.py` is unit-tested code** (this drops the prior "prose procedures, not unit-testable"
+framing for `prompt-engineering-improve`). Offline `unittest` fixtures, no API key, matching
+`workflow-design-validate`: given fixture `output.json`s it produces the right delta, best-version id,
+`continue|stop:<rule>` verdict, diagnosis tally, and `EXTRA_CRITERIA`-freeze assertion; regressing/
+noisy fixtures exercise `regression_band`.
 
-- Given a task description, `prompt-author` writes a valid prompt file with declared placeholders.
-- Given an existing prompt + an issue list, `prompt-author` writes a refactored prompt plus a changelog.
-- Given missing `./evals`, `prompt-improve` stops and routes to setup/create-dataset.
-- Given an eval report with mandatory-criterion failures, `prompt-improve` selects the gate-fix path first.
-- Given a regressing round, `prompt-improve` keeps the prior best version.
-- Given multiple prompt versions, `run_prompt` evaluates `<name>.current.md` (the intended active version).
-- `prompt-author` never modifies anything under `./evals`.
+**Behavioral acceptance criteria:**
+- `prompt-engineering-author` writes a valid prompt file with declared placeholders from a task description.
+- Given a prompt + issue list, `prompt-engineering-author` writes a refactored prompt + changelog.
+- Given missing `./evals`, `prompt-engineering-improve` stops and routes to setup/create-dataset.
+- Given mandatory-criterion failures, `prompt-engineering-improve` selects the gate-fix path first.
+- Given a round > `regression_band` below best, it keeps the prior best version.
+- Given multiple versions, measurement uses `<name>.current.md`.
+- Given an existing custom `run_prompt`, migration extracts the text to `<name>.current.md` and either
+  maps the call logic to subagent options or routes it to the keyed fallback, confirming the diff first.
+- Given `prompt_inputs` with a field the template never references, the glue **emits an unused-input warning**.
+- `prompt-engineering-author` never modifies anything under `./evals`.
+- Held-out validation runs **at most once** (recorded); absent → "skipped, not failed".
 
-**Composition invariant:** the eval framework (`evals/evaluator/`, `evals/prompts/`) is
-**unchanged** by this work — these skills compose it only.
+**Composition invariant (named files).** This group leaves the framework **core** unchanged:
+`evals/evaluator/{evaluator,generate,grade,run,schemas,jsonio,templates,report,client}.py` and
+`evals/prompts/` are not modified by *this* group (it composes them). The deterministic prompt-prep +
+aggregation glue is **added at the vendored `evals/` top level**, not inside `evals/evaluator/`. The
+in-CC execution substrate (config `EXECUTION_MODE`, the aggregation helper, the `prompt-evals-run`
+run-procedure rewrite) is **added by the architecture spec**, which this group consumes.
+`run_eval.py` (per-project, editable) is updated as listed.
 
 ## 10. Implementation clarifications (quick reference)
 
-Consolidated seam decisions for the implementer (each is detailed in the section noted):
-
-- **Active version (§4):** `run_prompt` loads `<name>.current.md`; rounds write `<name>.vN.md` then copy the chosen candidate into `.current.md` before eval; the report names the best version.
-- **Rendering (§4):** brace-safe renderer (framework `render()` or `string.Template`), never `str.format()`; validate missing placeholders, warn on unused inputs, record placeholder metadata.
-- **Skill reuse (§2/§3):** `prompt-improve` does **not** call `prompt-author` as a runtime function; it follows the Mode B procedure against the shared references read by `${CLAUDE_PLUGIN_ROOT}` path.
-- **Run trace (§6):** per-round trace under `evals/improve/<name>/<timestamp>/` that *references* the framework's existing timestamped `evals/runs/` outputs; never duplicates or overwrites `output.json`.
-- **Held-out (§6):** never used for diagnosis/selection; run once after the winner is chosen; "skipped, not failed" when absent.
-- **Boundary (§5/§6):** `prompt-author` never touches `./evals`; `prompt-improve` owns thin-loader wiring.
+- **Execution (§4):** two paths — no-key interactive (skill dispatches execute+grade subagents per case → deterministic glue aggregates; single-shot only) and keyed headless fallback (`run_evaluation` + `AnthropicClient`). Substrate defined in the architecture spec.
+- **`run_prompt` (§4):** the executor seam on the **keyed** path only; the no-key path replaces it with skill-driven subagent dispatch.
+- **Rendering / placeholders (§4):** `render()` reused for substitution + KeyError backstop; `check_placeholders` (warn-on-unused + placeholder report for manual reconciliation, no auto-sync consumer) in vendored `evals/`-level glue (`run_eval.py` or a module beside it), **never** in `evaluator/` or under `skills/`.
+- **Migration (§4):** extract prompt text to `.current.md`; map system/user content to subagent options, route `max_tokens`/raw `messages.create`/tools to the keyed fallback; confirm the diff.
+- **Determinism (§6):** `improve_step.py` owns delta/best/stop/tally/freeze-hash/serialization with offline tests; the model only names the theme and rewrites.
+- **Loop params (§6):** one home — a `run_eval.py` constants block; `pass_threshold` references `config.PASS_THRESHOLD`; resolved values stamped into the trace. `config.py` edits are owned by the architecture spec (`EXECUTION_MODE`).
+- **Run trace (§6):** `run_label` already exists in `run_evaluation` + `run_dir` already returned; thread it through `main()` and write the no-key path's report to `runs/<run_label>/`.
+- **Stopping (§6):** `regression_band` 0.5 (not 0.0) for judge-noise robustness; enforced by `improve_step.py`.
+- **Held-out (§6):** never used for diagnosis/selection; `held_out_run_count ≤ 1`; independent dataset; `EXTRA_CRITERIA` freeze enforced deterministically; "skipped, not failed" when absent.
+- **Skill reuse (§2/§3):** `prompt-engineering-improve` follows the shared `rewrite-procedure.md` + `techniques.md` + `anti-patterns.md` by `${CLAUDE_PLUGIN_ROOT}` path; cross-skill reference coupling is documented (§7).
+- **Boundary (§3):** `prompt-engineering-author` never touches `./evals`; `prompt-evals-run/SKILL.md` is edited by both this group (§4 diagnosis re-scope) and the architecture spec (run-procedure rewrite) into one merged file.
