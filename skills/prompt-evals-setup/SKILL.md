@@ -1,5 +1,5 @@
 ---
-name: setup-prompt-evals
+name: prompt-evals-setup
 description: This skill should be used when the user asks to "set up prompt evals", "add prompt evaluation to this project", "instantiate the eval framework", "init prompt-eval", "scaffold evals", or wants to bootstrap LLM-graded prompt/agent evaluation in the current project. It vendors the bundled Python eval framework into ./evals, configures it, and verifies it offline.
 argument-hint: "[target directory, defaults to current project root]"
 allowed-tools: Bash, Read, Write, Edit, Glob
@@ -10,10 +10,10 @@ version: 0.1.0
 
 Instantiate the LLM-graded prompt/agent evaluation framework into the current
 project. This is the one-time `init` step. After it completes, use
-`create-eval-dataset` to build a dataset and `run-prompt-eval` to evaluate.
+`prompt-evals-create-dataset` to build a dataset and `prompt-evals-run` to evaluate.
 
 The framework is bundled with this skill at
-`${CLAUDE_PLUGIN_ROOT}/skills/setup-prompt-evals/framework/evals`. The full design
+`${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals`. The full design
 is at `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md` — consult §11
 (Bootstrap Procedure) while working.
 
@@ -21,7 +21,7 @@ is at `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md` — consult §1
 
 Use when a project needs prompt evaluation and `./evals` does not yet exist. If
 `./evals` already exists, do NOT clobber it — report what is present and stop
-(the project is already set up; point the user to `create-eval-dataset`).
+(the project is already set up; point the user to `prompt-evals-create-dataset`).
 
 ## Procedure
 
@@ -48,7 +48,7 @@ resolve at the project root, then strip any stale compiled artifacts that may ha
 been copied along:
 
 ```bash
-cp -R "${CLAUDE_PLUGIN_ROOT}/skills/setup-prompt-evals/framework/evals" "$TARGET/evals"
+cp -R "${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals" "$TARGET/evals"
 find "$TARGET/evals" -name __pycache__ -type d -prune -exec rm -rf {} +
 ```
 
@@ -103,8 +103,8 @@ rm -f "$TARGET"/evals/datasets/smoke.json && rm -rf "$TARGET"/evals/runs/smoke-*
 ### 6. Report and hand off
 
 Confirm: framework vendored, config set, `.gitignore` updated, tests + smoke green.
-Tell the user the next step is `/je-dev-skills:create-eval-dataset` to build a
-dataset, then `/je-dev-skills:run-prompt-eval` to evaluate. To run for real later:
+Tell the user the next step is `/je-dev-skills:prompt-evals-create-dataset` to build a
+dataset, then `/je-dev-skills:prompt-evals-run` to evaluate. To run for real later:
 `pip install -r evals/requirements.txt` and export the API key named by `API_KEY_ENV`.
 
 ## Definition of done

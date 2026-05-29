@@ -9,9 +9,9 @@ report.
 
 | Skill | Invoke | What it does |
 |-------|--------|--------------|
-| `setup-prompt-evals` | `/je-dev-skills:setup-prompt-evals` | One-time init: vendor the eval framework into `./evals`, configure it, verify offline. |
-| `create-eval-dataset` | `/je-dev-skills:create-eval-dataset` | Define a task + input spec + mandatory criteria, generate & freeze a dataset, audit the criteria. |
-| `run-prompt-eval` | `/je-dev-skills:run-prompt-eval` | Wire the prompt/agent under test, run the evaluation, read the report, iterate. |
+| `prompt-evals-setup` | `/je-dev-skills:prompt-evals-setup` | One-time init: vendor the eval framework into `./evals`, configure it, verify offline. |
+| `prompt-evals-create-dataset` | `/je-dev-skills:prompt-evals-create-dataset` | Define a task + input spec + mandatory criteria, generate & freeze a dataset, audit the criteria. |
+| `prompt-evals-run` | `/je-dev-skills:prompt-evals-run` | Wire the prompt/agent under test, run the evaluation, read the report, iterate. |
 
 The skills form a lifecycle: **setup → create dataset → run eval (repeat)**, mapping
 onto the framework's generate → run → grade stages.
@@ -20,7 +20,7 @@ onto the framework's generate → run → grade stages.
 
 - **Spec & setup guide:** [docs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
 - **Reference implementation (Python):** bundled in
-  [skills/setup-prompt-evals/framework/evals/](skills/setup-prompt-evals/framework/evals/),
+  [skills/prompt-evals-setup/framework/evals/](skills/prompt-evals-setup/framework/evals/),
   copied into a project by the setup skill.
 
 ## Install / try locally
@@ -28,13 +28,13 @@ onto the framework's generate → run → grade stages.
 ```bash
 claude --plugin-dir /path/to/je-dev-skills
 # then, in a target project:
-/je-dev-skills:setup-prompt-evals
+/je-dev-skills:prompt-evals-setup
 ```
 
 The framework's own tests run offline (no API key):
 
 ```bash
-cd skills/setup-prompt-evals/framework
+cd skills/prompt-evals-setup/framework
 python -m unittest discover -s evals/tests -t .
 python -m evals.examples.smoke_test
 ```

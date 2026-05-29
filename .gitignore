@@ -4,10 +4,10 @@ vendor/
 
 # Generated eval artifacts in the bundled framework payload
 # (keep the dirs via .gitkeep, ignore contents)
-skills/setup-prompt-evals/framework/evals/datasets/*
-!skills/setup-prompt-evals/framework/evals/datasets/.gitkeep
-skills/setup-prompt-evals/framework/evals/runs/*
-!skills/setup-prompt-evals/framework/evals/runs/.gitkeep
+skills/prompt-evals-setup/framework/evals/datasets/*
+!skills/prompt-evals-setup/framework/evals/datasets/.gitkeep
+skills/prompt-evals-setup/framework/evals/runs/*
+!skills/prompt-evals-setup/framework/evals/runs/.gitkeep
 
 # Python
 __pycache__/

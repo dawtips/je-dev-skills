@@ -1,5 +1,5 @@
 ---
-name: create-eval-dataset
+name: prompt-evals-create-dataset
 description: This skill should be used when the user asks to "create an eval dataset", "generate test cases", "build a prompt eval dataset", "make eval scenarios", "define a task to evaluate", or wants to produce and freeze a dataset for prompt evaluation. It defines the task, input schema, and mandatory criteria, then generates and audits a frozen dataset using the project's ./evals framework.
 argument-hint: "[short name for the dataset, e.g. meal-plan]"
 allowed-tools: Bash, Read, Write, Edit, Glob
@@ -18,7 +18,7 @@ The framework design (especially §6–§7 on high- vs low-quality inputs) is at
 ## Precondition
 
 Require `./evals` to exist. If absent, stop and tell the user to run
-`/je-dev-skills:setup-prompt-evals` first.
+`/je-dev-skills:prompt-evals-setup` first.
 
 ## Procedure
 
@@ -35,7 +35,7 @@ Work with the user to pin down:
 - **`extra_criteria`** (optional, mandatory gates) — short, concrete structural
   must-haves whose absence means failure ("must include caloric total + macro
   breakdown"). Keep soft/aspirational preferences OUT of here. Note: this is a
-  **global gate applied at evaluation time** (by `run-prompt-eval`), NOT stored
+  **global gate applied at evaluation time** (by `prompt-evals-run`), NOT stored
   per-case in the frozen dataset — decide it now, but it lives in `run_eval.py`.
 - **`num_cases`** — coverage vs cost. 10–50+ for confidence; 1–3 only for a smoke check.
 
@@ -45,7 +45,7 @@ Edit the project's `evals/run_eval.py` and set `TASK`, `PROMPT_INPUTS_SPEC`,
 `EXTRA_CRITERIA`, `NUM_CASES`, and `DATASET_FILE`. Use a filesystem-safe dataset
 filename derived from the chosen name (e.g. name `meal-plan` →
 `DATASET_FILE = f"{config.DATASETS_DIR}/meal_plan.json"`); keep `DATASET_FILE`
-and the dataset path you reference in `run-prompt-eval` identical.
+and the dataset path you reference in `prompt-evals-run` identical.
 
 ### 3. Generate and freeze the dataset
 
@@ -73,7 +73,7 @@ holds exactly the spec keys. Hand-edit or regenerate cases that drift off-scope.
 ### 5. Hand off
 
 Report the dataset path, case count, and a sample of criteria. Tell the user to run
-`/je-dev-skills:run-prompt-eval` to evaluate a prompt against this frozen dataset.
+`/je-dev-skills:prompt-evals-run` to evaluate a prompt against this frozen dataset.
 
 ## Definition of done
 

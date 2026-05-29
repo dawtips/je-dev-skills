@@ -1,5 +1,5 @@
 ---
-name: run-prompt-eval
+name: prompt-evals-run
 description: This skill should be used when the user asks to "run a prompt eval", "evaluate my prompt", "grade prompt outputs", "score my agent", "run the evals", "check my prompt against the dataset", or wants to execute and interpret an LLM-graded evaluation. It wires the prompt/agent under test, runs the project's ./evals pipeline against a frozen dataset, and interprets the report.
 argument-hint: "[dataset name to evaluate against, e.g. meal-plan]"
 allowed-tools: Bash, Read, Write, Edit, Glob
@@ -17,8 +17,8 @@ Framework design: `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
 
 ## Preconditions
 
-- `./evals` exists (else run `/je-dev-skills:setup-prompt-evals`).
-- A frozen dataset exists in `evals/datasets/` (else run `/je-dev-skills:create-eval-dataset`).
+- `./evals` exists (else run `/je-dev-skills:prompt-evals-setup`).
+- A frozen dataset exists in `evals/datasets/` (else run `/je-dev-skills:prompt-evals-create-dataset`).
 
 ## Procedure
 
@@ -69,7 +69,7 @@ judge's `strengths`/`weaknesses` — the most useful signal for *why* a case sco
 - **Low scores from real output flaws** → fix the prompt/agent and re-run against the
   **same** dataset. Compare `output.json` across runs to confirm improvement.
 - **Low scores from bad criteria** (off-scope, subjective) → the dataset is the
-  problem, not the prompt. Fix via `/je-dev-skills:create-eval-dataset` (audit step).
+  problem, not the prompt. Fix via `/je-dev-skills:prompt-evals-create-dataset` (audit step).
 - **Mandatory-criterion failures** cap a score at ≤ 3 — check `extra_criteria` first
   when scores cluster low.
 
