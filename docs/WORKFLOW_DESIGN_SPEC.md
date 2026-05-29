@@ -330,34 +330,34 @@ Each elicited requirement maps onto blueprint elements:
 
 ---
 
-## 9. v0.2 roadmap (non-goals for v0.1)
+## 9. v0.2+ roadmap (non-goals for v0.1)
 
-- **`workflow-design-scaffold`** — render the Claude-Code layer of a validated
+- **LLM design-review — SPECCED as v0.2** in
+  [WORKFLOW_DESIGN_REVIEW_SPEC.md](WORKFLOW_DESIGN_REVIEW_SPEC.md). A semantic-quality
+  judge that advises on what structure cannot see: determinism *misclassification*,
+  over-engineering smell (the "50 subagents for a simple query" failure mode), vacuous
+  rationales, non-discriminating rubric levels, cop-out `n/a`s, and internal
+  inconsistency. Refined during design into a **separate `workflow-design-review`
+  skill** (not a mode of `validate`) so the offline-deterministic gate and the
+  online-LLM advisor keep clean, separate dependency boundaries. Advisory — it never
+  replaces the deterministic gate.
+- **`workflow-design-scaffold` (v0.3+)** — render the Claude-Code layer of a validated
   blueprint into actual skill / subagent / script files. The most volatile surface
   (Claude Code internals churn), deferred deliberately.
-- **LLM design-review** — an optional semantic-quality judge layer inside
-  `workflow-design-validate`, gated on an API key. The deterministic gate stays the
-  required offline check; the LLM pass advises on what structure cannot see:
-  determinism *misclassification*, over-engineering smell (the "50 subagents for a
-  simple query" failure mode), vacuous rationales, non-discriminating rubric levels,
-  cop-out `n/a`s, and internal inconsistency (e.g. step outputs that don't feed
-  downstream inputs). Reuses the existing `prompt-evals-*` grading machinery
-  (LLM-as-judge, categorical scales, chain-of-thought). Non-deterministic and
-  subject to judge bias, so it advises — it never replaces the deterministic gate.
-- **Automated model-selection advisor** — the *guideline* form ships in v0.1 (§6,
+- **Automated model-selection advisor (v0.3+)** — the *guideline* form ships in v0.1 (§6,
   stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
   subagent, with rationale, from `references/model-selection.md`). v0.2 considers
   only the *automated* form: a script that scores a task (desired output, complexity,
   cost/token budget) and emits a model+effort recommendation programmatically.
   Pursued only if the v0.1 guideline proves insufficient — it may not be needed.
   Claude models only.
-- **Visual viewer** — render a blueprint visually: the step **flow** (a DAG showing
+- **Visual viewer (v0.3+)** — render a blueprint visually: the step **flow** (a DAG showing
   ordering, parallel sections, approval gates, and deterministic-vs-agentic coloring)
   plus **drill-down** into each step's and subagent's details. Two tiers, cheapest
   first:
   - *Tier 1 — Mermaid:* deterministically generate a Mermaid flowchart from the same
     fenced `yaml` block and emit it alongside the blueprint. Renders for free in
-    GitHub / VSCode / Markdown previews, zero runtime. The likely v0.2 default.
+    GitHub / VSCode / Markdown previews, zero runtime. The likely default tier.
   - *Tier 2 — browser viewer:* a small interactive view (clickable nodes → step /
     subagent detail panels), only if Tier 1 proves insufficient.
 
