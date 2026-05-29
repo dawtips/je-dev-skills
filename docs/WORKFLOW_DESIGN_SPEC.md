@@ -335,6 +335,16 @@ Each elicited requirement maps onto blueprint elements:
   downstream inputs). Reuses the existing `prompt-evals-*` grading machinery
   (LLM-as-judge, categorical scales, chain-of-thought). Non-deterministic and
   subject to judge bias, so it advises — it never replaces the deterministic gate.
+- **Model-selection advisor** — recommend which Claude model (and `effort` level)
+  to use for each agentic step / subagent based on explicit guidelines rather than
+  author guesswork. Inputs to the recommendation: desired output (structure,
+  fidelity), task complexity, and minimizing cost / token usage. Grounded in the
+  routing pattern (easy → Haiku, harder → Sonnet/Opus) and the effort-scaling
+  heuristics from the multi-agent research post (simple fact-finding → 1 agent,
+  3–10 tool calls; comparisons → 2–4 subagents; complex → 10+). Fills the §4.1
+  `model` / `effort` fields, which v0.1 captures manually. **Claude models only for
+  now** — the advisor's guideline set and model IDs live in `references/citations.md`
+  so they update as the model lineup changes, never hardcoded into skill prose.
 - **Visual viewer** — render a blueprint visually: the step **flow** (a DAG showing
   ordering, parallel sections, approval gates, and deterministic-vs-agentic coloring)
   plus **drill-down** into each step's and subagent's details. Two tiers, cheapest
@@ -345,8 +355,8 @@ Each elicited requirement maps onto blueprint elements:
   - *Tier 2 — browser viewer:* a small interactive view (clickable nodes → step /
     subagent detail panels), only if Tier 1 proves insufficient.
 
-All three are purely additive and read from the schema locked in §4 — v0.1 is
-unchanged by them.
+All of these are purely additive and read from (or fill) the schema locked in §4 —
+v0.1 is unchanged by them.
 
 **Other non-goals:** no execution engine (the blueprint is a design artifact, not a
 runtime); no automatic handoff into `prompt-evals-*`.
