@@ -1,5 +1,7 @@
 # Workflow Design Review Implementation Plan
 
+**Status:** Complete — implemented on branch `workflow-design-review-impl`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the v0.2 `workflow-design-review` skill: an advisory LLM-as-judge semantic review for workflow blueprints, backed by offline-tested deterministic parsing, verdict, report, and CLI plumbing.
