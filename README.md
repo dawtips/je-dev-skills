@@ -27,6 +27,21 @@ The skills form a lifecycle: **interview → validate (repeat)** — design the 
 then lint it for completeness until it passes. See the design spec at
 [docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md).
 
+## Prompt Engineering skills
+
+| Skill | Invoke | What it does |
+|-------|--------|--------------|
+| `prompt-engineering-author` | `/je-dev-skills:prompt-engineering-author` | Author a strong single-shot prompt from a task description, or refactor an existing prompt against best practices. Standalone, eval-free — never touches `./evals`. |
+| `prompt-engineering-improve` | `/je-dev-skills:prompt-engineering-improve` | Drive an eval-driven iterate→measure→diagnose→rewrite loop with explicit, deterministically-evaluated stopping rules, on top of the `prompt-evals-*` substrate. |
+
+These sit on top of `prompt-evals-*`: **author** a prompt, then **improve** it through a
+measured loop. Every numeric decision in the loop (delta, best version, stop verdict,
+diagnosis tally, `EXTRA_CRITERIA` freeze) is computed by a deterministic helper
+(`improve_step.py`) — code, not prose. The improve loop runs on the no-API-key interactive
+path (subagent dispatch) by default, with a keyed fallback for headless/CI. See the design
+spec at
+[docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
+
 ## Design & framework
 
 - **Spec & setup guide:** [docs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
