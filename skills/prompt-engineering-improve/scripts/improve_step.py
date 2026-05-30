@@ -17,7 +17,7 @@ import hashlib
 import json
 import os
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 
 
 PASS_THRESHOLD = 7  # mirrors config.PASS_THRESHOLD; mandatory-fail per grading.md is score <= 3.
@@ -96,6 +96,16 @@ class Verdict:
     decision: str           # "continue" | "stop"
     rule: str | None        # threshold | pass_rate | diminishing-returns-K | regression_band | max_rounds
     detail: str = ""
+
+
+def load_loop_params(state: dict) -> LoopParams:
+    """Load loop params with a clean ValueError for missing/malformed fields."""
+    try:
+        return LoopParams(**state["params"])
+    except KeyError as exc:
+        raise ValueError("loop-state missing 'params'") from exc
+    except TypeError as exc:
+        raise ValueError(f"loop-state params invalid: {exc}") from exc
 
 
 def stop_verdict(rounds: list[RoundRecord], params: LoopParams, *, round_index: int) -> Verdict:
@@ -221,13 +231,26 @@ def assert_freeze(*, frozen_hash: str, current_text: str | None) -> str:
     return current
 
 
+def extra_criteria_text(*, state: dict, output: dict | None = None) -> str | None:
+    """Return the actual evaluated criteria text when the report records it."""
+    if output is not None:
+        meta = output.get("meta", {})
+        if isinstance(meta, dict) and "extra_criteria" in meta:
+            return meta.get("extra_criteria")
+    return state.get("extra_criteria")
+
+
 def build_delta_payload(*, output: dict, state: dict) -> dict:
     """Assemble the deterministic delta.json payload from this round's output.json."""
-    params = LoopParams(**state["params"])
+    params = load_loop_params(state)
     summary = output["summary"]
     version = state.get("current_version", "v?")
 
     prior = state.get("rounds", [])
+    if any(r.get("version") == version for r in prior):
+        raise ValueError(
+            f"loop-state rounds already include current_version {version!r}; "
+            "rounds must contain prior completed rounds only")
     prior_records = [RoundRecord(version=r["version"], avg=r["avg"],
                                  pass_rate=r["pass_rate"]) for r in prior]
     prior_avg = prior_records[-1].avg if prior_records else None
@@ -256,7 +279,7 @@ def build_delta_payload(*, output: dict, state: dict) -> dict:
 
 def build_final_report(*, state: dict) -> dict:
     """Assemble the deterministic final-report.json for a finished loop."""
-    params = LoopParams(**state["params"])
+    params = load_loop_params(state)
     rounds_raw = state.get("rounds", [])
     records = [RoundRecord(version=r["version"], avg=r["avg"], pass_rate=r["pass_rate"])
                for r in rounds_raw]
@@ -284,6 +307,9 @@ def build_final_report(*, state: dict) -> dict:
         held_out_result = "skipped"
     else:
         held_out_run_count = int(held.get("run_count", 0))
+        if held_out_run_count > 1:
+            raise ValueError(
+                f"held_out.run_count must be <= 1, got {held_out_run_count}")
         held_out_result = held.get("result", "skipped")
 
     return {
@@ -325,13 +351,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.check_freeze:
             try:
                 assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
-                              current_text=state.get("extra_criteria"))
+                              current_text=extra_criteria_text(state=state))
             except FreezeViolation as exc:
                 print(f"FREEZE VIOLATION: {exc}")
                 return 2
-        report = build_final_report(state=state)
-        with open(args.final_report_out, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
+        try:
+            report = build_final_report(state=state)
+            with open(args.final_report_out, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2, ensure_ascii=False)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f"ERROR: {exc}")
+            return 2
         print(f"best version: {report['best_version']}")
         print(f"held_out_run_count: {report['held_out_run_count']}")
         print(f"wrote {args.final_report_out}")
@@ -350,18 +380,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.check_freeze:
         try:
             assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
-                          current_text=state.get("extra_criteria"))
+                          current_text=extra_criteria_text(state=state, output=output))
         except FreezeViolation as exc:
             print(f"FREEZE VIOLATION: {exc}")
             return 2
 
-    payload = build_delta_payload(output=output, state=state)
+    try:
+        payload = build_delta_payload(output=output, state=state)
 
-    delta_out = args.delta_out
-    if delta_out is None:
-        delta_out = os.path.join(os.path.dirname(args.loop_state) or ".", "delta.json")
-    with open(delta_out, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+        delta_out = args.delta_out
+        if delta_out is None:
+            delta_out = os.path.join(os.path.dirname(args.loop_state) or ".", "delta.json")
+        with open(delta_out, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        print(f"ERROR: {exc}")
+        return 2
 
     d = payload["delta"]
     print(f"delta: {d if d is not None else 'baseline (no prior)'}")

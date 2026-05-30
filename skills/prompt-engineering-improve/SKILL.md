@@ -24,6 +24,10 @@ four up front.
 - A **frozen dataset** exists in `evals/datasets/` (else route to
   `/je-dev-skills:prompt-evals-create-dataset`). This skill owns **no** eval engine and
   does **not** define success criteria or build datasets.
+- The measurement substrate determines which execution path is available. If
+  `evals/config.py` has `EXECUTION_MODE` and `evals/aggregate.py` exists, the no-key path
+  is available. If those substrate files are absent, use the keyed fallback or stop and
+  install the execution substrate first; do not claim no-key execution is available.
 - The prompt-under-test lives at `evals/prompts_under_test/<name>.current.md`. On first
   use, migrate any custom `run_prompt` per the substrate's migration note (extract the
   prompt text to `<name>.current.md`; map system/user content to subagent options; route
@@ -32,9 +36,10 @@ four up front.
 
 ## Execution paths (from the architecture spec - consumed, not redefined)
 
-- **No-key path (canonical, `EXECUTION_MODE=in_claude_code`):** `/je-dev-skills:prompt-evals-run`
-  drives measurement by dispatching execute+grade **subagents** per case (session auth, no
-  API key), and `python -m evals.aggregate --run-label <label> --verdicts-dir <dir> --dataset <path>`
+- **No-key path (when the execution substrate is installed,
+  `EXECUTION_MODE=in_claude_code`):** `/je-dev-skills:prompt-evals-run` drives measurement
+  by dispatching execute+grade **subagents** per case (session auth, no API key), and
+  `python -m evals.aggregate --run-label <label> --verdicts-dir <dir> --dataset <path>`
   writes `evals/runs/<label>/{output.json,output.html}`. **Single-shot only** (subagents
   can't nest). Auto mode is no-key only while an interactive session drives it.
 - **Keyed fallback (`EXECUTION_MODE=anthropic_api`, headless/CI):** `python3 -m evals.run_eval evaluate`
@@ -97,9 +102,11 @@ delta:     improve_step.py -> delta + best + continue/stop verdict
    `evals/prompts_under_test/<name>.vN+1.md`, then **copy it into `<name>.current.md`**
    before re-measuring. Never change the `{placeholder}` set.
 5. **Re-eval + decide.** Re-run `/je-dev-skills:prompt-evals-run` with
-   `run_label=improve-<name>-round-NN` on the **same** frozen dataset, append the new
-   round's `{version, avg, pass_rate}` to the loop-state `rounds`, then run
-   `improve_step.py` again. **Act on its verdict, do not recompute it:** exit 0 ->
+   `run_label=improve-<name>-round-NN` on the **same** frozen dataset. Update
+   `current_version` to the candidate version, but leave `rounds` containing prior
+   completed rounds only, then run `improve_step.py` again. After it writes `delta.json`,
+   append that completed round's `{version, avg, pass_rate, technique, decision, run_dir}`
+   to `rounds`. **Act on its verdict, do not recompute it:** exit 0 ->
    continue; exit 1 -> stop (a rule fired; the printed `verdict.rule` says which) and keep
    the printed `best.version`; exit 2 -> bad input or freeze violation.
 
@@ -108,9 +115,9 @@ delta:     improve_step.py -> delta + best + continue/stop verdict
 - **Checkpointed (default):** pause each round with the diagnosis + chosen technique +
   delta + remaining weaknesses; ask the user continue / stop / adjust.
 - **Auto, up to N rounds:** stream each delta; stop early on the helper's verdict; then
-  return to checkpointed. Auto mode is **no-key only while an interactive session drives
-  it** (subagent dispatch). A genuinely unattended/CI auto-loop uses the keyed
-  `anthropic_api` fallback and requires `ANTHROPIC_API_KEY`.
+  return to checkpointed. Auto mode is no-key only when the execution substrate is present
+  and an interactive session drives it (subagent dispatch). A genuinely unattended/CI
+  auto-loop uses the keyed `anthropic_api` fallback and requires `ANTHROPIC_API_KEY`.
 
 ## Stopping rules (all evaluated by improve_step.py)
 
@@ -135,7 +142,8 @@ After the loop stops, write the final report **with the helper, not by hand**:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/scripts/improve_step.py \
   --loop-state evals/improve/<name>/<timestamp>/loop-state.json \
-  --final-report-out evals/improve/<name>/<timestamp>/final-report.json
+  --final-report-out evals/improve/<name>/<timestamp>/final-report.json \
+  --check-freeze
 ```
 
 This stamps the resolved loop params, the round-by-round trace, the winning `best.version`,

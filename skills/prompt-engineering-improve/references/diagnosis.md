@@ -52,7 +52,7 @@ cheapest technique rung that addresses it. Rungs are defined in
 | Tone / style off | `tone_style` | Role framing + output guidelines + examples |
 | Conflicting / ambiguous instructions | `conflicting` | Resolve the conflict (anti-pattern) - do not add more |
 
-## 4. Priority + tie-break (the order improve_step.py applies)
+## 4. Priority + tie-break (applied by the model using improve_step.py's tally)
 
 When several themes are present, address them in this priority order:
 

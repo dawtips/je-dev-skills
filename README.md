@@ -37,9 +37,9 @@ then lint it for completeness until it passes. See the design spec at
 These sit on top of `prompt-evals-*`: **author** a prompt, then **improve** it through a
 measured loop. Every numeric decision in the loop (delta, best version, stop verdict,
 diagnosis tally, `EXTRA_CRITERIA` freeze) is computed by a deterministic helper
-(`improve_step.py`) — code, not prose. The improve loop runs on the no-API-key interactive
-path (subagent dispatch) by default, with a keyed fallback for headless/CI. See the design
-spec at
+(`improve_step.py`) — code, not prose. When the execution substrate is installed, the
+improve loop can use the no-API-key interactive path (subagent dispatch); otherwise it uses
+the keyed fallback for headless/CI. See the design spec at
 [docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
 
 ## Design & framework

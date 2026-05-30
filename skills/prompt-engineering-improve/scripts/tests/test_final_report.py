@@ -77,3 +77,35 @@ class TestFinalReport(unittest.TestCase):
                 "--check-freeze",
             ])
             self.assertEqual(rc, 2)
+
+    def test_held_out_run_count_over_one_is_rejected(self):
+        state = load_loop_state(os.path.join(FIXTURES, "loopstate_final.json"))
+        state["held_out"]["run_count"] = 2
+        with self.assertRaises(ValueError):
+            build_final_report(state=state)
+
+    def test_cli_finalize_held_out_overuse_exits_two(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(FIXTURES, "loopstate_final.json")
+            with open(src, encoding="utf-8") as f:
+                st = json.load(f)
+            st["extra_criteria_hash"] = extra_criteria_hash(st["extra_criteria"])
+            st["held_out"]["run_count"] = 2
+            loopstate = os.path.join(d, "loopstate.json")
+            with open(loopstate, "w", encoding="utf-8") as f:
+                json.dump(st, f)
+            rc = main([
+                "--loop-state", loopstate,
+                "--final-report-out", os.path.join(d, "final-report.json"),
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 2)
+
+    def test_cli_finalize_unwritable_output_exits_two(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _state_with_hash("loopstate_final.json", d)
+            rc = main([
+                "--loop-state", loopstate,
+                "--final-report-out", os.path.join(d, "missing", "final-report.json"),
+            ])
+            self.assertEqual(rc, 2)

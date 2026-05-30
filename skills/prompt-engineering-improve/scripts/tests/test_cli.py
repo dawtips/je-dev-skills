@@ -78,3 +78,62 @@ class TestCli(unittest.TestCase):
                 "--delta-out", os.path.join(d, "delta.json"),
             ])
             self.assertEqual(rc, 2)
+
+    def test_bad_params_exit_two(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(FIXTURES, "loopstate_round01.json")
+            with open(src, encoding="utf-8") as f:
+                st = json.load(f)
+            del st["params"]["max_rounds"]
+            loopstate = os.path.join(d, "loopstate.json")
+            with open(loopstate, "w", encoding="utf-8") as f:
+                json.dump(st, f)
+            rc = main([
+                "--output-json", os.path.join(FIXTURES, "round01_output.json"),
+                "--loop-state", loopstate,
+                "--delta-out", os.path.join(d, "delta.json"),
+            ])
+            self.assertEqual(rc, 2)
+
+    def test_unwritable_delta_out_exits_two(self):
+        with tempfile.TemporaryDirectory() as d:
+            rc = main([
+                "--output-json", os.path.join(FIXTURES, "round00_output.json"),
+                "--loop-state", os.path.join(FIXTURES, "loopstate_round00.json"),
+                "--delta-out", os.path.join(d, "missing", "delta.json"),
+            ])
+            self.assertEqual(rc, 2)
+
+    def test_freeze_check_uses_output_json_extra_criteria(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _loopstate_with_hash(d)
+            with open(os.path.join(FIXTURES, "round01_output.json"), encoding="utf-8") as f:
+                output = json.load(f)
+            output["meta"]["extra_criteria"] = "Tampered criteria text."
+            output_path = os.path.join(d, "output.json")
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(output, f)
+
+            rc = main([
+                "--output-json", output_path,
+                "--loop-state", loopstate,
+                "--delta-out", os.path.join(d, "delta.json"),
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 2)
+
+    def test_loop_state_must_not_already_include_current_version(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _loopstate_with_hash(d)
+            with open(loopstate, encoding="utf-8") as f:
+                st = json.load(f)
+            st["rounds"].append({"version": "v2", "avg": 7.5, "pass_rate": 75.0})
+            with open(loopstate, "w", encoding="utf-8") as f:
+                json.dump(st, f)
+
+            rc = main([
+                "--output-json", os.path.join(FIXTURES, "round01_output.json"),
+                "--loop-state", loopstate,
+                "--delta-out", os.path.join(d, "delta.json"),
+            ])
+            self.assertEqual(rc, 2)
