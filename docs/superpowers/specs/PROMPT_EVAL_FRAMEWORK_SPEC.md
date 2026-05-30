@@ -464,7 +464,7 @@ persistence; timestamped non-overwriting runs; dataset provenance). Still consid
 > `evals/` top level (beside `run_eval.py`), each with offline `unittest` fixtures and a
 > `python -m evals.<module>` CLI — **never** as edits to `evaluator/` core, honoring the composition
 > invariant named in the architecture spec (§5) and the prompt-engineering spec (§9). Plan + commits:
-> `docs/superpowers/plans/2026-05-29-eval-framework-hardening.md`; the full offline suite is 54 tests.
+> `.story/handovers/2026-05-29-01-2026-05-29-review-hardening-storybloq-setup.md`; the full offline suite is 54 tests.
 > **Live-path integration** (pre-judge assertion *gating* inside `run_evaluation`; orchestrating K
 > *live* runs for variance) is deferred to the run-path work — the shipped pieces are the
 > deterministic cores + CLIs over existing dataset/`output.json` files.
