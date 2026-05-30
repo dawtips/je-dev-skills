@@ -6,6 +6,7 @@
   "id": "T-019",
   "order": 50,
   "phase": "backlog",
+  "spec": "docs/superpowers/specs/2026-05-30-eval-live-path-integration-spec.md",
   "status": "open",
   "title": "Live run-path K-run variance orchestration",
   "type": "task"

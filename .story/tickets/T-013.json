@@ -6,6 +6,7 @@
   "id": "T-013",
   "order": 40,
   "phase": "review-layers",
+  "spec": "docs/superpowers/specs/2026-05-30-eval-live-path-integration-spec.md",
   "status": "open",
   "title": "Wire variance/run_delta into prompt-evals-run report",
   "type": "task"

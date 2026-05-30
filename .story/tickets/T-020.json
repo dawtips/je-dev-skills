@@ -6,6 +6,7 @@
   "id": "T-020",
   "order": 30,
   "phase": "prompt-engineering",
+  "spec": "docs/superpowers/specs/2026-05-30-prompt-engineering-diagnosis-and-future-spec.md",
   "status": "open",
   "title": "Restore prompt-evals-run Task 17 diagnosis handoff",
   "type": "task"

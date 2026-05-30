@@ -6,6 +6,7 @@
   "id": "T-018",
   "order": 30,
   "phase": "agent-build",
+  "spec": "docs/superpowers/specs/2026-05-30-prompt-evals-plugin-resident-architecture-spec.md",
   "status": "open",
   "title": "Refactor prompt evals to plugin-resident prompt artifacts",
   "type": "feature"

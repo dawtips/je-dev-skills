@@ -6,6 +6,7 @@
   "id": "T-015",
   "order": 20,
   "phase": "backlog",
+  "spec": "docs/superpowers/specs/2026-05-30-workflow-design-advanced-tooling-spec.md",
   "status": "open",
   "title": "workflow-design model-selection advisor (§9)",
   "type": "task"

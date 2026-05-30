@@ -6,6 +6,7 @@
   "id": "T-017",
   "order": 40,
   "phase": "backlog",
+  "spec": "docs/superpowers/specs/2026-05-30-prompt-engineering-diagnosis-and-future-spec.md",
   "status": "open",
   "title": "prompt-engineering §8 future enhancements",
   "type": "task"

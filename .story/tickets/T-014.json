@@ -6,6 +6,7 @@
   "id": "T-014",
   "order": 10,
   "phase": "backlog",
+  "spec": "docs/superpowers/specs/2026-05-30-eval-live-path-integration-spec.md",
   "status": "open",
   "title": "Live run-path assertion gating",
   "type": "task"
