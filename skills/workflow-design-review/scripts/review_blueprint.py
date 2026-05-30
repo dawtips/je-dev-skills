@@ -15,9 +15,9 @@ import yaml
 
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 JUDGE_MODEL = os.environ.get("WORKFLOW_REVIEW_JUDGE_MODEL", "claude-sonnet-4-6")
-PASS_THRESHOLD = int(os.environ.get("WORKFLOW_REVIEW_PASS_THRESHOLD", "3"))
-MAX_TOKENS = int(os.environ.get("WORKFLOW_REVIEW_MAX_TOKENS", "6000"))
-MAX_INPUT_CHARS = int(os.environ.get("WORKFLOW_REVIEW_MAX_INPUT_CHARS", "200000"))
+PASS_THRESHOLD = 3
+MAX_TOKENS = 6000
+MAX_INPUT_CHARS = 200000
 TOOL_NAME = "record_workflow_review"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -219,6 +219,16 @@ def _require_nonempty_string(value: Any, path: str) -> str:
     return value.strip()
 
 
+def _int_from_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ReviewInputError(f"{name} must be an integer, got {raw!r}") from exc
+
+
 def parse_review_payload(payload: Any) -> ReviewResult:
     if not isinstance(payload, dict):
         raise JudgeResponseError(f"judge payload must be an object, got {type(payload).__name__}")
@@ -290,10 +300,16 @@ def parse_tool_response(message: Any) -> dict[str, Any]:
     raise JudgeResponseError(f"judge did not call required tool {TOOL_NAME}")
 
 
-def call_judge(client: Any, system_prompt: str, user_prompt: str, model: str = JUDGE_MODEL) -> ReviewResult:
+def call_judge(
+    client: Any,
+    system_prompt: str,
+    user_prompt: str,
+    model: str = JUDGE_MODEL,
+    max_tokens: int = MAX_TOKENS,
+) -> ReviewResult:
     message = client.messages.create(
         model=model,
-        max_tokens=MAX_TOKENS,
+        max_tokens=max_tokens,
         temperature=0,
         system=[
             {
@@ -412,12 +428,20 @@ def run_review(
     strict: bool = False,
     model: str = JUDGE_MODEL,
     threshold: int = PASS_THRESHOLD,
+    max_tokens: int = MAX_TOKENS,
+    max_input_chars: int = MAX_INPUT_CHARS,
 ) -> tuple[int, Path, ReviewResult]:
-    ctx = load_blueprint_context(blueprint_path)
+    ctx = load_blueprint_context(blueprint_path, max_input_chars=max_input_chars)
     rubric = load_rubric()
     factory = client_factory or make_anthropic_client
     client = factory()
-    result = call_judge(client, build_system_prompt(rubric), build_user_prompt(ctx), model=model)
+    result = call_judge(
+        client,
+        build_system_prompt(rubric),
+        build_user_prompt(ctx),
+        model=model,
+        max_tokens=max_tokens,
+    )
     report_path = report_path_for(ctx.path)
     write_report(report_path, ctx.path.name, result, reviewed_date, model, threshold)
     return compute_exit_code(result, strict, threshold), report_path, result
@@ -442,10 +466,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--date", help="review date to print in the report, e.g. 2026-05-30")
     parser.add_argument("--strict", action="store_true", help="exit 1 when any dimension is below threshold")
     parser.add_argument("--model", default=JUDGE_MODEL, help=f"judge model, default: {JUDGE_MODEL}")
-    parser.add_argument("--threshold", type=int, default=PASS_THRESHOLD, help=f"flag threshold, default: {PASS_THRESHOLD}")
+    parser.add_argument("--threshold", type=int, help=f"flag threshold, default: {PASS_THRESHOLD}")
     args = parser.parse_args(argv)
 
-    if args.threshold < 1 or args.threshold > 5:
+    if args.threshold is not None and (args.threshold < 1 or args.threshold > 5):
         print("ERROR: --threshold must be between 1 and 5", file=sys.stderr)
         return 2
     if not args.date:
@@ -453,6 +477,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
+        env_threshold = _int_from_env("WORKFLOW_REVIEW_PASS_THRESHOLD", PASS_THRESHOLD)
+        max_tokens = _int_from_env("WORKFLOW_REVIEW_MAX_TOKENS", MAX_TOKENS)
+        max_input_chars = _int_from_env("WORKFLOW_REVIEW_MAX_INPUT_CHARS", MAX_INPUT_CHARS)
+        threshold = args.threshold if args.threshold is not None else env_threshold
+        if threshold < 1 or threshold > 5:
+            raise ReviewInputError("threshold must be between 1 and 5")
         blueprint_path = resolve_blueprint_path(args.path)
         rc, report_path, result = run_review(
             blueprint_path=blueprint_path,
@@ -460,7 +490,9 @@ def main(argv: list[str] | None = None) -> int:
             client_factory=make_anthropic_client,
             strict=args.strict,
             model=args.model,
-            threshold=args.threshold,
+            threshold=threshold,
+            max_tokens=max_tokens,
+            max_input_chars=max_input_chars,
         )
     except (ReviewInputError, JudgeResponseError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -469,7 +501,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: judge call failed: {exc}", file=sys.stderr)
         return 2
 
-    _print_summary(report_path, result, args.threshold)
+    _print_summary(report_path, result, threshold)
     return rc
 
 

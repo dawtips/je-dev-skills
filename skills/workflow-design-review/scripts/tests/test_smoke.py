@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -40,6 +41,28 @@ class TestSmoke(unittest.TestCase):
     def test_main_rejects_threshold_out_of_range(self):
         self.assertEqual(main([str(FIXTURES / "valid_full.blueprint.md"), "--date", "2026-05-30", "--threshold", "0"]), 2)
         self.assertEqual(main([str(FIXTURES / "valid_full.blueprint.md"), "--date", "2026-05-30", "--threshold", "6"]), 2)
+
+    def test_cli_reports_malformed_numeric_env_without_traceback(self):
+        script = Path(__file__).parents[1] / "review_blueprint.py"
+        for env_name in (
+            "WORKFLOW_REVIEW_PASS_THRESHOLD",
+            "WORKFLOW_REVIEW_MAX_TOKENS",
+            "WORKFLOW_REVIEW_MAX_INPUT_CHARS",
+        ):
+            with self.subTest(env_name=env_name):
+                env = os.environ.copy()
+                env[env_name] = "not-an-int"
+                env.pop(API_KEY_ENV, None)
+                proc = subprocess.run(
+                    [sys.executable, str(script), "--date", "2026-05-30", "--", str(FIXTURES / "valid_full.blueprint.md")],
+                    cwd=script.parent,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(proc.returncode, 2)
+                self.assertIn(f"{env_name} must be an integer", proc.stderr)
+                self.assertNotIn("Traceback", proc.stderr)
 
     def test_main_reports_malformed_blueprint_before_api_key(self):
         with patch.dict(os.environ, {}, clear=True):
