@@ -47,6 +47,38 @@ class TestRunKVariance(unittest.TestCase):
         self.assertEqual(result["aggregate"]["runs"], 3)
         self.assertGreater(result["suggested_regression_band"], 0)
 
+    def test_rejects_run_once_output_from_unexpected_directory(self):
+        with tempfile.TemporaryDirectory() as d:
+            runs_dir = Path(d) / "runs"
+            stale_dir = runs_dir / "g__k00"
+            stale_dir.mkdir(parents=True)
+            (stale_dir / "output.json").write_text(
+                json.dumps({"summary": {"average_score": 10.0}, "results": []})
+            )
+
+            def run_once(label):
+                actual_dir = runs_dir / f"{label}-wrong"
+                actual_dir.mkdir(parents=True)
+                (actual_dir / "output.json").write_text(
+                    json.dumps({"summary": {"average_score": 1.0}, "results": []})
+                )
+                return {"run_dir": str(actual_dir)}
+
+            with self.assertRaises(ValueError):
+                run_k_variance(group_label="g", k=2, runs_dir=runs_dir, run_once=run_once)
+
+    def test_requires_output_json_in_actual_run_directory(self):
+        with tempfile.TemporaryDirectory() as d:
+            runs_dir = Path(d) / "runs"
+
+            def run_once(label):
+                actual_dir = runs_dir / label
+                actual_dir.mkdir(parents=True)
+                return {"run_dir": str(actual_dir)}
+
+            with self.assertRaises(FileNotFoundError):
+                run_k_variance(group_label="g", k=2, runs_dir=runs_dir, run_once=run_once)
+
     def test_output_paths_are_enumerated_without_guessing(self):
         paths = output_paths_for_labels("evals/runs", ["g__k00", "g__k01"])
         self.assertEqual(paths, [Path("evals/runs/g__k00/output.json"), Path("evals/runs/g__k01/output.json")])
