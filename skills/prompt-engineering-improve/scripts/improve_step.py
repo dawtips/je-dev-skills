@@ -15,8 +15,9 @@ freeze violation. Mirrors workflow-design-validate/scripts/validate_blueprint.py
 import argparse
 import hashlib
 import json
+import os
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 
 
 PASS_THRESHOLD = 7  # mirrors config.PASS_THRESHOLD; mandatory-fail per grading.md is score <= 3.
@@ -218,3 +219,88 @@ def assert_freeze(*, frozen_hash: str, current_text: str | None) -> str:
             f"EXTRA_CRITERIA changed during the loop (frozen {frozen_hash[:12]}..., "
             f"now {current[:12]}...). Held-out claims are forfeit; regenerate a held-out set.")
     return current
+
+
+def build_delta_payload(*, output: dict, state: dict) -> dict:
+    """Assemble the deterministic delta.json payload from this round's output.json."""
+    params = LoopParams(**state["params"])
+    summary = output["summary"]
+    version = state.get("current_version", "v?")
+
+    prior = state.get("rounds", [])
+    prior_records = [RoundRecord(version=r["version"], avg=r["avg"],
+                                 pass_rate=r["pass_rate"]) for r in prior]
+    prior_avg = prior_records[-1].avg if prior_records else None
+
+    this_round = RoundRecord(version=version, avg=summary["average_score"],
+                             pass_rate=summary["pass_rate"])
+    all_rounds = prior_records + [this_round]
+    round_index = len(all_rounds) - 1
+
+    delta = compute_delta(current_avg=this_round.avg, prior_avg=prior_avg)
+    best = running_best(all_rounds)
+    verdict = stop_verdict(all_rounds, params, round_index=round_index)
+    tally = diagnose_tally(output["results"])
+
+    return {
+        "version": version,
+        "round_index": round_index,
+        "delta": delta,
+        "best": {"version": best.version, "avg": best.avg, "pass_rate": best.pass_rate},
+        "verdict": {"decision": verdict.decision, "rule": verdict.rule, "detail": verdict.detail},
+        "tally": tally,
+        "params": asdict(params),
+        "extra_criteria_hash": state.get("extra_criteria_hash", ""),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Deterministic per-round loop logic for prompt-engineering-improve.")
+    parser.add_argument("--output-json", required=True,
+                        help="this round's evals/runs/<label>/output.json")
+    parser.add_argument("--loop-state", required=True,
+                        help="the loop-state JSON (params, prior rounds, frozen hash)")
+    parser.add_argument("--delta-out", default=None,
+                        help="where to write delta.json (default: alongside loop-state)")
+    parser.add_argument("--check-freeze", action="store_true",
+                        help="assert EXTRA_CRITERIA hash unchanged before emitting")
+    args = parser.parse_args(argv)
+
+    try:
+        output = load_output_json(args.output_json)
+        state = load_loop_state(args.loop_state)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"ERROR: {exc}")
+        return 2
+
+    if args.check_freeze:
+        try:
+            assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
+                          current_text=state.get("extra_criteria"))
+        except FreezeViolation as exc:
+            print(f"FREEZE VIOLATION: {exc}")
+            return 2
+
+    payload = build_delta_payload(output=output, state=state)
+
+    delta_out = args.delta_out
+    if delta_out is None:
+        delta_out = os.path.join(os.path.dirname(args.loop_state) or ".", "delta.json")
+    with open(delta_out, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    d = payload["delta"]
+    print(f"delta: {d if d is not None else 'baseline (no prior)'}")
+    print(f"best: {payload['best']['version']} (avg {payload['best']['avg']})")
+    print(f"verdict: {payload['verdict']['decision']}"
+          + (f":{payload['verdict']['rule']}" if payload['verdict']['rule'] else ""))
+    print(f"mandatory-fails: {payload['tally']['mandatory_fail_count']}/"
+          f"{payload['tally']['total_cases']}; themes: {payload['tally']['theme_pct']}")
+    print(f"wrote {delta_out}")
+
+    return 1 if payload["verdict"]["decision"] == "stop" else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

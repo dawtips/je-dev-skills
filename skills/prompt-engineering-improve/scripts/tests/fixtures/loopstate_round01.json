@@ -1,0 +1,10 @@
+{
+  "name": "mealplan",
+  "current_version": "v2",
+  "extra_criteria": "Must include a caloric total and a macro breakdown.",
+  "extra_criteria_hash": "FILLED_BY_TEST_AT_RUNTIME",
+  "params": {"pass_threshold": 7, "pass_rate_target": 0.80, "max_rounds": 3, "epsilon": 0.25, "diminishing_return_rounds": 2, "regression_band": 0.5},
+  "rounds": [
+    {"version": "v1", "avg": 5.0, "pass_rate": 25.0}
+  ]
+}

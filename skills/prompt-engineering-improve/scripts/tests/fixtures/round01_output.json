@@ -1,0 +1,10 @@
+{
+  "meta": {"run_label": "improve-mealplan-round-01", "extra_criteria": "Must include a caloric total and a macro breakdown."},
+  "summary": {"total": 4, "average_score": 7.5, "passed": 3, "pass_rate": 75.0},
+  "results": [
+    {"output": "o1", "score": 8, "reasoning": "good", "test_case": {"scenario": "s1", "prompt_inputs": {"goal": "cut"}, "solution_criteria": ["c1"]}, "verdict": {"strengths": ["clear"], "weaknesses": [], "reasoning": "good", "score": 8}},
+    {"output": "o2", "score": 8, "reasoning": "fixed", "test_case": {"scenario": "s2", "prompt_inputs": {"goal": "bulk"}, "solution_criteria": ["c2"]}, "verdict": {"strengths": ["consistent format"], "weaknesses": [], "reasoning": "fixed", "score": 8}},
+    {"output": "o3", "score": 8, "reasoning": "now has macros", "test_case": {"scenario": "s3", "prompt_inputs": {"goal": "maintain"}, "solution_criteria": ["c3"]}, "verdict": {"strengths": ["macros present"], "weaknesses": [], "reasoning": "now has macros", "score": 8}},
+    {"output": "o4", "score": 6, "reasoning": "caloric total still terse", "test_case": {"scenario": "s4", "prompt_inputs": {"goal": "cut"}, "solution_criteria": ["c4"]}, "verdict": {"strengths": [], "weaknesses": ["caloric total format terse"], "reasoning": "caloric total still terse", "score": 6}}
+  ]
+}
