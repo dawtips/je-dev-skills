@@ -234,12 +234,16 @@ def assert_freeze(*, frozen_hash: str, current_text: str | None) -> str:
     return current
 
 
-def extra_criteria_text(*, state: dict, output: dict | None = None) -> str | None:
+def extra_criteria_text(
+    *, state: dict, output: dict | None = None, require_output_meta: bool = False
+) -> str | None:
     """Return the actual evaluated criteria text when the report records it."""
     if output is not None:
         meta = output.get("meta", {})
         if isinstance(meta, dict) and "extra_criteria" in meta:
             return meta.get("extra_criteria")
+        if require_output_meta:
+            raise ValueError("held-out output.json missing meta.extra_criteria")
     return state.get("extra_criteria")
 
 
@@ -388,7 +392,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
                               current_text=extra_criteria_text(
-                                  state=state, output=held_out_output))
+                                  state=state,
+                                  output=held_out_output,
+                                  require_output_meta=report["held_out_run_count"] > 0))
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 print(f"ERROR: {exc}")
                 return 2

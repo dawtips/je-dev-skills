@@ -91,6 +91,24 @@ class TestFinalReport(unittest.TestCase):
             ])
             self.assertEqual(rc, 2)
 
+    def test_cli_finalize_requires_held_out_output_extra_criteria_metadata(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _state_with_hash("loopstate_final.json", d)
+            with open(os.path.join(FIXTURES, "round01_output.json"), encoding="utf-8") as f:
+                held_out_output = json.load(f)
+            del held_out_output["meta"]["extra_criteria"]
+            held_out_path = os.path.join(d, "held-out-output.json")
+            with open(held_out_path, "w", encoding="utf-8") as f:
+                json.dump(held_out_output, f)
+
+            rc = main([
+                "--loop-state", loopstate,
+                "--final-report-out", os.path.join(d, "final-report.json"),
+                "--held-out-output-json", held_out_path,
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 2)
+
     def test_cli_freeze_check_only_passes(self):
         with tempfile.TemporaryDirectory() as d:
             loopstate = _state_with_hash("loopstate_final.json", d)

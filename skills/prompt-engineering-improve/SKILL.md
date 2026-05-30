@@ -95,12 +95,14 @@ delta:     improve_step.py -> delta + best + continue/stop verdict
      --delta-out evals/improve/<name>/<timestamp>/round-NN/delta.json \
      --check-freeze
    ```
-   Act on the helper's exit code even for the baseline: exit 1 means the baseline already
-   hit a stopping rule, so finalize without rewriting; exit 2 means bad input or freeze
-   violation. If the loop continues, append this completed round's
-   `{version, avg, pass_rate, technique, decision, run_dir}` to `rounds` before selecting a
-   rewrite. Use the tally (mandatory-fail count, %-per-theme) to **name the dominant theme**.
-   Apply the criteria-vs-prompt guard: if it's a criteria problem, **STOP** and route to
+   Append this completed round's
+   `{version, avg, pass_rate, technique, decision, run_dir}` to `rounds` immediately after
+   the helper writes `delta.json`, before any continue/stop branching. Then act on the
+   helper's exit code even for the baseline: exit 1 means the baseline already hit a
+   stopping rule, so finalize without rewriting **with that baseline round in the trace**;
+   exit 2 means bad input or freeze violation. If the loop continues, use the tally
+   (mandatory-fail count, %-per-theme) to **name the dominant theme**. Apply the
+   criteria-vs-prompt guard: if it's a criteria problem, **STOP** and route to
    `prompt-evals-create-dataset`.
 3. **Select.** Map the dominant theme -> the minimum ladder rung (diagnosis.md table +
    priority/tie-break).
