@@ -53,7 +53,7 @@ VERDICTS_DIR="evals/runs/_verdicts/$RUN_LABEL"
 mkdir -p "$VERDICTS_DIR"
 ```
 
-### 2. For each case: render, dispatch execute, dispatch grade, write a verdict JSON
+### 2. For each case: render, dispatch execute, run assertions, maybe dispatch grade, write a verdict JSON
 
 Read the dataset's `cases` array. For **each** case (index `i`):
 
@@ -66,7 +66,35 @@ Read the dataset's `cases` array. For **each** case (index `i`):
    raw output. Use the model/effort in `config.SUBAGENT_EXECUTOR_MODEL` /
    `config.SUBAGENT_EFFORT`. This is a single-shot turn — the subagent must not
    dispatch further subagents.
-3. **Dispatch a grade-subagent** (Task tool): give it the case's
+3. **Run structural assertions** configured in `evals.run_eval.ASSERTIONS` using
+   `evals.run_eval.ASSERTION_POLICY`. These checks run locally against the
+   execute-subagent's raw output and produce the `assertion_gate` evidence that
+   the skill writes beside the verdict.
+
+   ```bash
+   python3 - <<'PY'
+   import json
+   from pathlib import Path
+   from evals import run_eval
+   from evals.assertion_gate import evaluate_assertion_gate, synthetic_gated_verdict
+
+   output_path = Path("evals/runs/_outputs/$RUN_LABEL/case-<i:02d>.txt")
+   gate = evaluate_assertion_gate(
+       output_path.read_text(encoding="utf-8"),
+       run_eval.ASSERTIONS,
+       policy=run_eval.ASSERTION_POLICY,
+   )
+   print(json.dumps({
+       "gate": gate,
+       "synthetic_verdict": synthetic_gated_verdict(gate) if gate["judge_skipped"] else None,
+   }, indent=2))
+   PY
+   ```
+
+4. **If `judge_skipped: true`, do not dispatch a grade-subagent.** Write a verdict
+   JSON with the synthetic score-1 verdict from `synthetic_gated_verdict(gate)`,
+   the raw output, and the assertion evidence.
+5. **Otherwise dispatch a grade-subagent** (Task tool): give it the case's
    `task_description`, `prompt_inputs`, `solution_criteria`, the global
    `EXTRA_CRITERIA` (from `evals/run_eval.py`), and the execute-subagent's output.
    Instruct it to grade per `${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals/prompts/grading.md`
@@ -74,13 +102,28 @@ Read the dataset's `cases` array. For **each** case (index `i`):
    `reasoning`, `score` (integer 1-10) — the `verdict_schema()` shape. Subagent
    frontmatter has no structured-output field, so the JSON discipline is in the
    instruction; the next step validates it.
-4. **Write the per-case verdict JSON** to `$VERDICTS_DIR/case-<i:02d>.json` with
-   this exact shape (the skill writes the file):
+6. **Write the per-case verdict JSON** to `$VERDICTS_DIR/case-<i:02d>.json` with
+   this exact shape (the skill writes the file). Always include assertion evidence
+   beside the judge or synthetic verdict:
 
    ```json
    {
      "test_case": { ...the dataset case verbatim... },
      "output": "<the execute-subagent's raw output>",
+     "assertion_gate": {
+       "policy": "gate_mandatory",
+       "results": [
+         {
+           "text": "contains 'kcal'",
+           "passed": true,
+           "evidence": "found 'kcal'",
+           "severity": "advisory",
+           "action": "annotate"
+         }
+       ],
+       "mandatory_failed": false,
+       "judge_skipped": false
+     },
      "verdict": { "strengths": [...], "weaknesses": [...], "reasoning": "...", "score": 8 }
    }
    ```

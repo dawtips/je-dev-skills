@@ -13,6 +13,7 @@ from pathlib import Path
 
 from evals.evaluator import PromptEvaluator, Step, Trajectory
 from evals.examples.fake_client import FakeLLMClient
+from evals.live_run import run_evaluation as run_live_evaluation
 
 TASK = "Write a compact 1-day meal plan for one athlete."
 SPEC = {
@@ -21,6 +22,10 @@ SPEC = {
     "goal": "Goal of the athlete",
 }
 EXTRA = "Must include a caloric total and a macro breakdown (protein/carbs/fat)."
+ASSERTIONS = [
+    {"type": "contains", "value": "kcal", "severity": "advisory"},
+    {"type": "regex", "pattern": r"\bProtein\b|\bprotein\b", "severity": "advisory"},
+]
 NUM_CASES = 3
 
 
@@ -68,17 +73,21 @@ def main() -> int:
         output_file=dataset_file,
     )
 
-    single = evaluator.run_evaluation(
+    single = run_live_evaluation(
+        judge_client=FakeLLMClient(num_cases=NUM_CASES),
         run_function=run_prompt,
         dataset_file=dataset_file,
         extra_criteria=EXTRA,
+        assertions=ASSERTIONS,
         run_label="smoke-single-shot",
     )
-    agentic = evaluator.run_evaluation(
+    agentic = run_live_evaluation(
+        judge_client=FakeLLMClient(num_cases=NUM_CASES),
         run_function=run_agent,
         dataset_file=dataset_file,
         extra_criteria=EXTRA,
         process_criteria="Calls a calorie tool before producing the plan.",
+        assertions=ASSERTIONS,
         run_label="smoke-agentic",
     )
 
@@ -93,6 +102,9 @@ def main() -> int:
             "output.html exists": (run_dir / "output.html").exists(),
             "average in range": 1 <= s["average_score"] <= 10,
             "pass rate in range": 0 <= s["pass_rate"] <= 100,
+            "assertion evidence recorded": all(
+                "assertion_gate" in row for row in result["results"]
+            ),
         }
         for label, passed in checks.items():
             mark = "ok " if passed else "FAIL"

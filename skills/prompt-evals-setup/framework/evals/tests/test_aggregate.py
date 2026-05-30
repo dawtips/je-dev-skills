@@ -43,6 +43,47 @@ class TestLoadVerdicts(unittest.TestCase):
             aggregate.load_results(VERDICTS_BAD)
 
 
+class TestAggregateAssertionEvidence(unittest.TestCase):
+    def test_load_results_preserves_assertion_gate(self):
+        with tempfile.TemporaryDirectory() as d:
+            verdicts = Path(d)
+            case = {
+                "task_description": "task",
+                "scenario": "case",
+                "prompt_inputs": {},
+                "solution_criteria": ["criterion"],
+            }
+            gate = {
+                "policy": "gate_mandatory",
+                "results": [
+                    {
+                        "text": "contains 'kcal'",
+                        "passed": False,
+                        "evidence": "missing 'kcal'",
+                        "severity": "mandatory",
+                        "action": "gate",
+                    }
+                ],
+                "mandatory_failed": True,
+                "judge_skipped": True,
+            }
+            (verdicts / "case-00.json").write_text(json.dumps({
+                "test_case": case,
+                "output": "answer",
+                "assertion_gate": gate,
+                "verdict": {
+                    "strengths": [],
+                    "weaknesses": ["missing"],
+                    "reasoning": "Skipped judge.",
+                    "score": 1,
+                },
+            }))
+
+            loaded = aggregate.load_results(verdicts)
+
+        self.assertEqual(loaded[0]["assertion_gate"], gate)
+
+
 class TestAggregateWritesReport(unittest.TestCase):
     def test_writes_output_json_and_html_to_run_dir(self):
         with tempfile.TemporaryDirectory() as d:

@@ -66,6 +66,7 @@ def load_results(verdicts_dir: str | Path) -> list[dict]:
                 "score": verdict["score"],
                 "reasoning": verdict.get("reasoning", ""),
                 "verdict": verdict,
+                "assertion_gate": record.get("assertion_gate"),
             }
         )
     return results

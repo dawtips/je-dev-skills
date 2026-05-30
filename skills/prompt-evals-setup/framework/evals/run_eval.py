@@ -30,6 +30,7 @@ from pathlib import Path
 from evals import config
 from evals.evaluator import AnthropicClient, PromptEvaluator
 from evals.evaluator.templates import render
+from evals.live_run import run_evaluation as run_live_evaluation
 from evals.promptprep import check_placeholders
 
 # --- 1. Describe the task and its closed input set ---------------------------
@@ -40,6 +41,11 @@ PROMPT_INPUTS_SPEC = {
     "goal": "Goal of the athlete",
 }
 EXTRA_CRITERIA = "Must include a caloric total and a macro breakdown (protein/carbs/fat)."
+ASSERTIONS = [
+    {"type": "contains", "value": "kcal", "severity": "advisory"},
+    {"type": "regex", "pattern": r"\bProtein\b|\bprotein\b", "severity": "advisory"},
+]
+ASSERTION_POLICY = "gate_mandatory"
 # Agentic-only: how the agent should behave (tools, recovery, no needless steps).
 # Leave None for single-shot prompts. Wired through to grading in main() below.
 PROCESS_CRITERIA = None
@@ -127,11 +133,14 @@ def main(argv: list[str]) -> int:
             print(_IN_CC_GUIDANCE)
             return 3  # non-zero: not an error, but no in-process run happened
         run_label = argv[2] if len(argv) > 2 else None
-        build_evaluator().run_evaluation(
+        run_live_evaluation(
+            judge_client=AnthropicClient(config.JUDGE_MODEL),
             run_function=run_prompt,
             dataset_file=DATASET_FILE,
             extra_criteria=EXTRA_CRITERIA,
             process_criteria=PROCESS_CRITERIA,
+            assertions=ASSERTIONS,
+            assertion_policy=ASSERTION_POLICY,
             run_label=run_label,
         )
         return 0
