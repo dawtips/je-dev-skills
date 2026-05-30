@@ -1,13 +1,13 @@
 {
   "blockedBy": [],
-  "completedDate": null,
+  "completedDate": "2026-05-30",
   "createdDate": "2026-05-29",
   "description": "Surface multi-run variance + baseline delta in the run report (report-analyst lens). Cores already built.",
   "id": "T-013",
   "order": 40,
   "phase": "review-layers",
   "spec": "docs/superpowers/specs/2026-05-30-eval-live-path-integration-spec.md",
-  "status": "open",
+  "status": "complete",
   "title": "Wire variance/run_delta into prompt-evals-run report",
   "type": "task"
 }

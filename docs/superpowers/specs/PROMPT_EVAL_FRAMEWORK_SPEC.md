@@ -465,9 +465,12 @@ persistence; timestamped non-overwriting runs; dataset provenance). Still consid
 > `python -m evals.<module>` CLI — **never** as edits to `evaluator/` core, honoring the composition
 > invariant named in the architecture spec (§5) and the prompt-engineering spec (§9). Plan + commits:
 > `.story/handovers/2026-05-29-01-2026-05-29-review-hardening-storybloq-setup.md`; the full offline suite is 54 tests.
-> **Live-path integration** (pre-judge assertion *gating* inside `run_evaluation`; orchestrating K
-> *live* runs for variance) is deferred to the run-path work — the shipped pieces are the
-> deterministic cores + CLIs over existing dataset/`output.json` files.
+> Live-path wiring for the shipped deterministic cores is covered by
+> `docs/superpowers/specs/2026-05-30-eval-live-path-integration-spec.md`.
+> Implemented wiring composes top-level orchestration around the evaluator core:
+> report analysis calls `run_delta.py` and `variance.py`; assertion gating calls
+> `assertions.py` before judge grading; K-run orchestration writes explicit run labels
+> and then calls `variance.py`.
 
 - **Multi-run variance / confidence** — `evals/variance.py`. Aggregates K run files of one frozen
   dataset into per-case **mean ± stddev**, flags high-variance (flaky) cases, and emits
@@ -477,8 +480,8 @@ persistence; timestamped non-overwriting runs; dataset provenance). Still consid
 - **Deterministic assertion layer (pre-judge)** — `evals/assertions.py`. Structural must-haves
   (`contains` / `regex` / length / `json_valid` / `json_has_key`) checked **in code** — cheaper and
   more reliable than the judge for definite-shape requirements; the judge then handles only what needs
-  judgment. The standalone engine is shipped; wiring it as a pre-judge *gate* inside the run loop is
-  the deferred live-path integration above.
+  judgment. The standalone engine remains available as a CLI; `evals/assertion_gate.py` and
+  `evals/live_run.py` compose it as a pre-judge gate without editing `evaluator/` core.
 - **Criteria-audit script** — `evals/criteria_audit.py`. Deterministically flags **non-discriminating**
   criteria (identical across all cases), subjective-language criteria, and duplicate scenarios over a
   frozen dataset, promoting the manual spot-check (§7) into a checked report. Reference: `skill-creator`'s

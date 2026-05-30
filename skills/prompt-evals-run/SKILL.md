@@ -53,7 +53,12 @@ VERDICTS_DIR="evals/runs/_verdicts/$RUN_LABEL"
 mkdir -p "$VERDICTS_DIR"
 ```
 
-### 2. For each case: render, dispatch execute, dispatch grade, write a verdict JSON
+For no-key K-run variance, repeat the Path A case loop once per explicit label
+generated from `<group_label>__kNN`. Do not derive labels from wall-clock time. After
+the K runs exist, pass each `evals/runs/<group_label>__kNN/output.json` to
+`python3 -m evals.aggregate` using repeated `--variance-output` flags.
+
+### 2. For each case: render, dispatch execute, run assertions, maybe dispatch grade, write a verdict JSON
 
 Read the dataset's `cases` array. For **each** case (index `i`):
 
@@ -66,7 +71,46 @@ Read the dataset's `cases` array. For **each** case (index `i`):
    raw output. Use the model/effort in `config.SUBAGENT_EXECUTOR_MODEL` /
    `config.SUBAGENT_EFFORT`. This is a single-shot turn — the subagent must not
    dispatch further subagents.
-3. **Dispatch a grade-subagent** (Task tool): give it the case's
+3. **Run structural assertions** configured in `evals.run_eval.ASSERTIONS` using
+   `evals.run_eval.ASSERTION_POLICY`. These checks run locally against the
+   execute-subagent's raw output and produce the `assertion_gate` evidence that
+   the skill writes beside the verdict. Persist the raw output first so the
+   assertion helper and later troubleshooting read the same bytes:
+
+   ```bash
+   OUTPUTS_DIR="evals/runs/_outputs/$RUN_LABEL"
+   mkdir -p "$OUTPUTS_DIR"
+   OUTPUT_FILE="$OUTPUTS_DIR/case-$(printf '%02d' "$i").txt"
+   printf '%s' "$RAW_OUTPUT" > "$OUTPUT_FILE"
+
+   RUN_LABEL="$RUN_LABEL" CASE_INDEX="$i" python3 - <<'PY'
+   import json
+   import os
+   from pathlib import Path
+   from evals import run_eval
+   from evals.assertion_gate import evaluate_assertion_gate, synthetic_gated_verdict
+
+   output_path = (
+       Path("evals/runs/_outputs")
+       / os.environ["RUN_LABEL"]
+       / f"case-{int(os.environ['CASE_INDEX']):02d}.txt"
+   )
+   gate = evaluate_assertion_gate(
+       output_path.read_text(encoding="utf-8"),
+       run_eval.ASSERTIONS,
+       policy=run_eval.ASSERTION_POLICY,
+   )
+   print(json.dumps({
+       "gate": gate,
+       "synthetic_verdict": synthetic_gated_verdict(gate) if gate["judge_skipped"] else None,
+   }, indent=2))
+   PY
+   ```
+
+4. **If `judge_skipped: true`, do not dispatch a grade-subagent.** Write a verdict
+   JSON with the synthetic score-1 verdict from `synthetic_gated_verdict(gate)`,
+   the raw output, and the assertion evidence.
+5. **Otherwise dispatch a grade-subagent** (Task tool): give it the case's
    `task_description`, `prompt_inputs`, `solution_criteria`, the global
    `EXTRA_CRITERIA` (from `evals/run_eval.py`), and the execute-subagent's output.
    Instruct it to grade per `${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals/prompts/grading.md`
@@ -74,13 +118,28 @@ Read the dataset's `cases` array. For **each** case (index `i`):
    `reasoning`, `score` (integer 1-10) — the `verdict_schema()` shape. Subagent
    frontmatter has no structured-output field, so the JSON discipline is in the
    instruction; the next step validates it.
-4. **Write the per-case verdict JSON** to `$VERDICTS_DIR/case-<i:02d>.json` with
-   this exact shape (the skill writes the file):
+6. **Write the per-case verdict JSON** to `$VERDICTS_DIR/case-<i:02d>.json` with
+   this exact shape (the skill writes the file). Always include assertion evidence
+   beside the judge or synthetic verdict:
 
    ```json
    {
      "test_case": { ...the dataset case verbatim... },
      "output": "<the execute-subagent's raw output>",
+     "assertion_gate": {
+       "policy": "gate_mandatory",
+       "results": [
+         {
+           "text": "contains 'kcal'",
+           "passed": true,
+           "evidence": "found 'kcal'",
+           "severity": "advisory",
+           "action": "annotate"
+         }
+       ],
+       "mandatory_failed": false,
+       "judge_skipped": false
+     },
      "verdict": { "strengths": [...], "weaknesses": [...], "reasoning": "...", "score": 8 }
    }
    ```
@@ -93,8 +152,17 @@ Do the cases in order so filenames sort deterministically (`case-00`, `case-01`,
 python3 -m evals.aggregate \
   --run-label "$RUN_LABEL" \
   --verdicts-dir "$VERDICTS_DIR" \
-  --dataset evals/datasets/<name>.json
+  --dataset evals/datasets/<name>.json \
+  --baseline-output evals/runs/<baseline-label>/output.json \
+  --variance-output evals/runs/<run-a>/output.json \
+  --variance-output evals/runs/<run-b>/output.json
 ```
+
+The `--baseline-output` and `--variance-output` flags are explicit. Do not infer a
+"previous" or "latest" run by timestamp. If no baseline is supplied, the report
+analyst section says the baseline delta is not available. If fewer than two variance
+outputs are supplied, it says variance needs >=2 runs. These are advisory report
+sections only; they do not change the run verdict.
 
 This validates every verdict (`schemas.validate_verdict`, which clamps the score and
 **raises** on a malformed one), summarizes, and writes
@@ -139,10 +207,16 @@ Use when you need an unattended/CI run or agentic `Trajectory` grading.
    pip install -r evals/requirements.txt
    export ANTHROPIC_API_KEY=...      # name is in evals/config.py (API_KEY_ENV)
    python3 -m evals.run_eval evaluate <run_label>
+   python3 -m evals.run_eval evaluate-variance <group_label> <k>
    ```
 
    This makes `2 × num_cases` calls for a single-shot prompt (one execute + one
    grade per case) and writes `evals/runs/<run_label>/{output.json,output.html}`.
+
+   K-run variance multiplies cost by `K x (run + grade) x num_cases`. State that budget
+   to the user before launching. The labels are deterministic and explicit:
+   `<group_label>__k00`, `<group_label>__k01`, and so on. Use the resulting
+   `output.json` files as `--variance-output` inputs to the report analyst section.
 
 ## Definition of done
 

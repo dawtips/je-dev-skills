@@ -43,6 +43,47 @@ class TestLoadVerdicts(unittest.TestCase):
             aggregate.load_results(VERDICTS_BAD)
 
 
+class TestAggregateAssertionEvidence(unittest.TestCase):
+    def test_load_results_preserves_assertion_gate(self):
+        with tempfile.TemporaryDirectory() as d:
+            verdicts = Path(d)
+            case = {
+                "task_description": "task",
+                "scenario": "case",
+                "prompt_inputs": {},
+                "solution_criteria": ["criterion"],
+            }
+            gate = {
+                "policy": "gate_mandatory",
+                "results": [
+                    {
+                        "text": "contains 'kcal'",
+                        "passed": False,
+                        "evidence": "missing 'kcal'",
+                        "severity": "mandatory",
+                        "action": "gate",
+                    }
+                ],
+                "mandatory_failed": True,
+                "judge_skipped": True,
+            }
+            (verdicts / "case-00.json").write_text(json.dumps({
+                "test_case": case,
+                "output": "answer",
+                "assertion_gate": gate,
+                "verdict": {
+                    "strengths": [],
+                    "weaknesses": ["missing"],
+                    "reasoning": "Skipped judge.",
+                    "score": 1,
+                },
+            }))
+
+            loaded = aggregate.load_results(verdicts)
+
+        self.assertEqual(loaded[0]["assertion_gate"], gate)
+
+
 class TestAggregateWritesReport(unittest.TestCase):
     def test_writes_output_json_and_html_to_run_dir(self):
         with tempfile.TemporaryDirectory() as d:
@@ -59,7 +100,7 @@ class TestAggregateWritesReport(unittest.TestCase):
             self.assertTrue(out_json.exists())
             self.assertTrue(out_html.exists())
             data = json.loads(out_json.read_text())
-            self.assertEqual(set(data.keys()), {"meta", "summary", "results"})
+            self.assertEqual(set(data.keys()), {"meta", "summary", "results", "analysis"})
             # summarize(): scores [8,3,9], PASS_THRESHOLD 7 -> 2 pass of 3.
             self.assertEqual(data["summary"]["total"], 3)
             self.assertEqual(data["summary"]["passed"], 2)
@@ -111,6 +152,74 @@ class TestAggregateWritesReport(unittest.TestCase):
                     runs_dir=str(Path(d) / "runs"),
                 )
             self.assertIn("does not match", str(ctx.exception))
+
+
+class TestAggregateReportAnalysis(unittest.TestCase):
+    def test_aggregate_writes_absent_input_analysis_notes(self):
+        with tempfile.TemporaryDirectory() as d:
+            verdicts = Path(d) / "verdicts"
+            verdicts.mkdir()
+            dataset = Path(d) / "dataset.json"
+            runs_dir = Path(d) / "runs"
+            case = {
+                "task_description": "task",
+                "scenario": "case",
+                "prompt_inputs": {},
+                "solution_criteria": ["criterion"],
+            }
+            dataset.write_text(json.dumps({
+                "provenance": {"task_description": "task"},
+                "cases": [case],
+            }))
+            (verdicts / "case-00.json").write_text(json.dumps({
+                "test_case": case,
+                "output": "answer",
+                "verdict": {
+                    "strengths": [],
+                    "weaknesses": [],
+                    "reasoning": "ok",
+                    "score": 8,
+                },
+            }))
+
+            out_dir = aggregate.aggregate(
+                run_label="current",
+                verdicts_dir=verdicts,
+                dataset=dataset,
+                runs_dir=str(runs_dir),
+                extra_criteria=None,
+                include_analysis=True,
+            )
+            payload = json.loads((Path(out_dir) / "output.json").read_text())
+
+        self.assertIn("analysis", payload)
+        self.assertFalse(payload["analysis"]["baseline_delta"]["available"])
+        self.assertFalse(payload["analysis"]["variance"]["available"])
+
+    def test_aggregate_accepts_baseline_and_variance_outputs(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d) / "base.json"
+            k1 = Path(d) / "k1.json"
+            k2 = Path(d) / "k2.json"
+            current = {
+                "summary": {"average_score": 8.0, "pass_rate": 100.0, "passed": 1},
+                "results": [{"test_case": {"scenario": "case"}, "score": 8}],
+            }
+            baseline = {
+                "summary": {"average_score": 6.0, "pass_rate": 0.0, "passed": 0},
+                "results": [{"test_case": {"scenario": "case"}, "score": 6}],
+            }
+            for path, payload in ((base, baseline), (k1, baseline), (k2, current)):
+                path.write_text(json.dumps(payload))
+
+            analysis = aggregate.build_report_analysis_for_output(
+                current,
+                baseline_output=base,
+                variance_outputs=[k1, k2],
+            )
+
+        self.assertTrue(analysis["baseline_delta"]["available"])
+        self.assertTrue(analysis["variance"]["available"])
 
 
 class TestCli(unittest.TestCase):
