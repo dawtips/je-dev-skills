@@ -167,6 +167,15 @@ interpolated by the judge).
    the judge returns validated structure (§6.2), not free text.
 5. **Render + write** the report (§7).
 
+**Context isolation (deliberate).** The judge receives the blueprint file and
+**nothing else** — never the interview transcript or the authoring conversation that
+produced it. A reviewer shown the author's step-by-step reasoning drifts toward
+ratifying it (arXiv:2503.21934 "Proof or Bluff": 85.7% self-verified success collapsed
+to <5% under human grading); the skeptical/adversarial system prompt (step 3) is the
+second bias mitigation. Note the blueprint's own `rationale` fields **are** in scope —
+you cannot flag a vacuous rationale without reading it — but they are the *recorded
+decision*, not the meandering reasoning behind it, which is what stays withheld.
+
 ### 6.2 Structured judge output
 
 ```json
