@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-05-29",
+  "createdDate": "2026-05-29",
+  "description": "Promoted PROMPT_EVAL §13 hardening, plugin-dev reuse in agent-build, WORKFLOW_DESIGN §9.1 semantic-review design, and CONTRIBUTING companion-plugin policy.",
+  "id": "T-005",
+  "order": 30,
+  "phase": "eval-hardening",
+  "status": "complete",
+  "title": "Reconcile specs+plans with claude-plugins-official review",
+  "type": "chore"
+}

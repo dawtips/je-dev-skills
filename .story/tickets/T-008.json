@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Two eval execution paths (no-key subagent dispatch + keyed fallback): aggregate.py, promptprep.py, config EXECUTION_MODE, prompt-evals-run rewrite. Plan: 2026-05-29-in-cc-execution-substrate.md.",
+  "id": "T-008",
+  "order": 10,
+  "phase": "agent-build",
+  "status": "open",
+  "title": "Build in-Claude-Code execution substrate",
+  "type": "feature"
+}

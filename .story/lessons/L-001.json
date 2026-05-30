@@ -1,0 +1,14 @@
+{
+  "content": "Reconcile specs+plans before building when external review surfaces changes; build deterministic tested cores before LLM wrappers; add framework code at evals/ top level, never editing evaluator/ core.",
+  "context": "Session 2026-05-29: reviewed claude-plugins-official, reconciled specs+plans before WS1/WS4; deterministic cores made WS3 thin wiring.",
+  "createdDate": "2026-05-29",
+  "id": "L-001",
+  "lastValidated": "2026-05-29",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [],
+  "title": "Reconcile specs before coding; deterministic cores before LLM wrappers",
+  "updatedDate": "2026-05-29"
+}

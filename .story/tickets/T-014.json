@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Deferred: pre-judge assertion gating inside run_evaluation, and orchestrating K live runs for variance. Tied to the run-path rewrite.",
+  "id": "T-014",
+  "order": 10,
+  "phase": "backlog",
+  "status": "open",
+  "title": "§13 live-path: assertion gating + K-run variance orchestration",
+  "type": "task"
+}

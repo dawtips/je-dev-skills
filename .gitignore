@@ -39,3 +39,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# storybloq runtime state
+.story/snapshots/
+.story/sessions/
+.story/status.json

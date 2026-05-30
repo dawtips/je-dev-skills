@@ -1,0 +1,43 @@
+{
+  "blockers": [],
+  "date": "2026-05-30",
+  "phases": [
+    {
+      "description": "The built core: the prompt-evals LLM-graded evaluation group (framework + setup/create-dataset/run skills) and the workflow-design group (interview + validate).",
+      "id": "foundation",
+      "label": "PHASE 0",
+      "name": "Foundation"
+    },
+    {
+      "description": "v0.2 eval-framework hardening (variance, assertions, criteria_audit, run_delta), the skill self-lint, and the claude-plugins-official spec/plan reconciliation. Built this session.",
+      "id": "eval-hardening",
+      "label": "PHASE 1",
+      "name": "Eval Hardening"
+    },
+    {
+      "description": "The prompt-engineering group: author (standalone) and improve (eval-driven loop). Specced + planned, unbuilt.",
+      "id": "prompt-engineering",
+      "label": "PHASE 2",
+      "name": "Prompt Engineering"
+    },
+    {
+      "description": "The in-Claude-Code execution substrate and the agent-build-* group (scaffold + run). Specced + planned, unbuilt.",
+      "id": "agent-build",
+      "label": "PHASE 3",
+      "name": "Agent Build + Substrate"
+    },
+    {
+      "description": "Workflow-design semantic review (spec §9.1) plus wiring the v0.2 eval modules (criteria_audit, variance, run_delta) into existing skills.",
+      "id": "review-layers",
+      "label": "PHASE 4",
+      "name": "Review Layers (WS3)"
+    },
+    {
+      "description": "Intentionally deferred / YAGNI items, tracked but not active: §13 live-path integration, model-selection advisor, visual viewer, prompt-engineering §8 future enhancements.",
+      "id": "backlog",
+      "label": "PHASE 5",
+      "name": "Deferred Backlog"
+    }
+  ],
+  "title": "je-dev-skills"
+}

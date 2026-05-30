@@ -1,0 +1,14 @@
+{
+  "blockedBy": [
+    "T-010"
+  ],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Advisory semantic reviewer over a structurally-valid blueprint; deterministic sub-checks extend validate_blueprint; LLM only for judgment patterns. Blocked by RL1.",
+  "id": "T-011",
+  "order": 20,
+  "phase": "review-layers",
+  "status": "open",
+  "title": "Build workflow-design-review skill",
+  "type": "feature"
+}

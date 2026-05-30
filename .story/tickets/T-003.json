@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-05-29",
+  "createdDate": "2026-05-29",
+  "description": "Four offline deterministic evals/ modules plus runs_util, each tested. Plan: docs/superpowers/plans/2026-05-29-eval-framework-hardening.md. Full suite now 54 tests.",
+  "id": "T-003",
+  "order": 10,
+  "phase": "eval-hardening",
+  "status": "complete",
+  "title": "Eval framework hardening: variance/assertions/criteria_audit/run_delta",
+  "type": "task"
+}

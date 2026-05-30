@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-05-29",
+  "createdDate": "2026-05-29",
+  "description": "Deterministic linter for skills SKILL.md (frontmatter, name==dir, ref existence, body length). Audit clean: 5 skills, 0 errors, 0 warnings.",
+  "id": "T-004",
+  "order": 20,
+  "phase": "eval-hardening",
+  "status": "complete",
+  "title": "Skill self-lint (tools/skill_lint.py) + CONTRIBUTING wiring",
+  "type": "task"
+}

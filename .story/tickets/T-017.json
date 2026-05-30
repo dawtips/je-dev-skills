@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Deferred: agentic technique catalogue + trajectory-aware diagnosis, built-in held-out split, system/user frontmatter, re-measure-on-tie.",
+  "id": "T-017",
+  "order": 40,
+  "phase": "backlog",
+  "status": "open",
+  "title": "prompt-engineering §8 future enhancements",
+  "type": "task"
+}

@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Surface multi-run variance + baseline delta in the run report (report-analyst lens). Cores already built.",
+  "id": "T-013",
+  "order": 40,
+  "phase": "review-layers",
+  "status": "open",
+  "title": "Wire variance/run_delta into prompt-evals-run report",
+  "type": "task"
+}

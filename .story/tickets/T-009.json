@@ -1,0 +1,14 @@
+{
+  "blockedBy": [
+    "T-008"
+  ],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Render a validated blueprint + authored prompts into .claude/ subagents/hooks/scripts + an entry command; drive in-session. Reuse plugin-dev for authoring. Plan: 2026-05-29-agent-build-group.md. Blocked by substrate.",
+  "id": "T-009",
+  "order": 20,
+  "phase": "agent-build",
+  "status": "open",
+  "title": "Build agent-build-scaffold + agent-build-run",
+  "type": "feature"
+}

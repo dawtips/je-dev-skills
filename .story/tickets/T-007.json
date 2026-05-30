@@ -1,0 +1,15 @@
+{
+  "blockedBy": [
+    "T-006",
+    "T-008"
+  ],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Eval-driven iterate-measure-diagnose-rewrite loop with deterministic improve_step.py. Same plan, Tasks 1-10,15-19. Consume run_delta.compute_delta + variance.suggested_regression_band. Blocked by author + substrate.",
+  "id": "T-007",
+  "order": 20,
+  "phase": "prompt-engineering",
+  "status": "open",
+  "title": "Build prompt-engineering-improve",
+  "type": "feature"
+}

@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Deferred: Mermaid flowchart from the blueprint yaml (tier 1); optional browser viewer (tier 2).",
+  "id": "T-016",
+  "order": 30,
+  "phase": "backlog",
+  "status": "open",
+  "title": "workflow-design visual viewer (§9)",
+  "type": "feature"
+}

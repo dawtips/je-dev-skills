@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-05-29",
+  "description": "Add an audit step running evals/criteria_audit.py over the frozen dataset. Core already built in eval-hardening.",
+  "id": "T-012",
+  "order": 30,
+  "phase": "review-layers",
+  "status": "open",
+  "title": "Wire criteria_audit.py into prompt-evals-create-dataset",
+  "type": "task"
+}
