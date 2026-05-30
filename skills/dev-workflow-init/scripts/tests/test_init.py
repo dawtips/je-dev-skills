@@ -65,7 +65,18 @@ class TestScaffold(unittest.TestCase):
             _run(tmp)
             agents = (Path(tmp) / "AGENTS.md").read_text()
             self.assertIn("Deleting plans once implemented", agents)
-            self.assertIn("delete on merge", agents)
+            self.assertIn("delete before merge", agents)
+
+    def test_agents_md_names_automatic_local_merge_cleanup_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _run(tmp)
+            agents = (Path(tmp) / "AGENTS.md").read_text()
+            self.assertIn("Integrate and clean up automatically", agents)
+            self.assertIn("Always merge completed work back to the default branch locally", agents)
+            self.assertIn("remove the worktree", agents)
+            self.assertIn("delete the local branch", agents)
+            self.assertNotIn("Open a PR", agents)
+            self.assertNotIn("Keep branch and worktree", agents)
 
     def test_empty_name_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

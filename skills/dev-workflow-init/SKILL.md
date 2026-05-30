@@ -10,13 +10,15 @@ version: 0.1.0
 
 Stand up the combined **storybloq + superpowers** development workflow in a project, so
 every later change follows one loop: **roadmap -> ticket -> spec (if non-obvious) -> plan
--> implement + adversarially verify -> handover + lesson -> delete plan.**
+-> implement + adversarially verify -> handover + lesson -> delete plan -> integrate +
+clean up automatically.**
 
 The two systems combine under a single rule, which the generated `AGENTS.md` states in
 full:
 
 > **superpowers is the *method* (how you build). storybloq is the *memory* (what
-> persists). A plan is the one disposable artifact that bridges them — deleted on merge.**
+> persists). A plan is the one disposable artifact that bridges them — deleted before
+> merge.**
 
 This SKILL is a table of contents. The deterministic skeleton is written by a tested
 script; you only drive the parts that need judgment (naming, seeding the first real
@@ -67,8 +69,8 @@ with the project's reality:
   entry points are, environment quirks.
 - In `AGENTS.md`, fill the **Tests** section with the project's real test/lint commands
   once they exist (leave the placeholder if the project has none yet).
-- Do **not** weaken the "Deleting plans once implemented" rule or the hard rules — those
-  are the point of the workflow.
+- Do **not** weaken the "Deleting plans once implemented" rule, the branch/worktree
+  cleanup rule, or the hard rules — those are the point of the workflow.
 
 ### 4. Commit the scaffold
 
@@ -82,6 +84,9 @@ workflow`). From here, all further work goes through the loop in `AGENTS.md`.
 - `docs/superpowers/specs/` and `docs/superpowers/plans/` exist (plans empty but tracked).
 - `AGENTS.md` and `CLAUDE.md` exist; `CLAUDE.md` imports `AGENTS.md` via `@AGENTS.md`.
 - Root `.gitignore` ignores `.story/{snapshots,sessions}/` and `.story/status.json`.
+- `AGENTS.md` says completed plans are deleted before merge, completed work is merged
+  locally to the default branch, verification is rerun there, and the feature worktree
+  and branch are removed.
 - The scaffold is committed.
 
 ## Boundaries

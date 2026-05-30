@@ -159,27 +159,45 @@ For any non-trivial change, work this order:
    - Run an independent review round and address findings before declaring done.
 6. **Handover + lesson** -- write the single narrative in `.story/handovers/` and any
    durable learning in `.story/lessons/`. Durable.
-7. **Delete the plan** -- see the rule below. This closes the loop.
+7. **Delete the plan** -- include the deletion in the feature branch before merge; see
+   the rule below. This closes the work loop.
+8. **Integrate and clean up automatically** -- merge completed work to the default
+   branch locally, rerun verification there, then remove the worktree and delete the
+   local branch.
 
 ## Deleting plans once implemented (required)
 
-When a ticket reaches `complete` **and** its change is merged to the default branch:
+When a ticket reaches `complete` and its change is ready to merge to the default branch:
 
 1. Confirm the plan's durable content now lives elsewhere:
    - design decisions -> the relevant file in `docs/superpowers/specs/`,
    - what-happened narrative -> a `.story/handovers/` entry,
    - reusable learnings -> a `.story/lessons/` entry.
-2. `git rm docs/superpowers/plans/<that-plan>.md`.
+2. `git rm docs/superpowers/plans/<that-plan>.md` on the feature branch **before merge**.
 3. Reference the deleted plan's filename in the handover so history stays traceable.
 
 Do **not** keep "completed" plans around as documentation -- that is what specs,
 handovers, and git history are for. A plan with `Status: Complete` sitting in
 `docs/superpowers/plans/` is a bug to fix, not a state to preserve.
 
+## Integrating and cleaning up branches/worktrees
+
+After verification, handover/lesson, and plan deletion, do not ask what integration path
+to use. This project always uses local merge cleanup:
+
+1. Always merge completed work back to the default branch locally.
+2. Rerun the required verification on the merged result.
+3. Remove the worktree.
+4. Delete the local branch.
+
+Do not offer PR, "keep branch", or "what next?" options for completed work. Always
+remove the worktree and delete the local branch after the verified local merge. The
+only exception is an explicit user instruction to pause before merge or discard the work.
+
 ## Hard rules
 
 - **Never commit a plan to the default branch as a permanent artifact.** Plans live only
-  while their ticket is open; keep them in `docs/superpowers/plans/`, and delete on merge.
+  while their ticket is open; keep them in `docs/superpowers/plans/`, and delete before merge.
 - **Don't vendor companion tools.** Depend on installed tools; do not copy their code in.
 - **Deterministic over non-deterministic** wherever possible; closed-form logic is tested
   code, not prose.
@@ -194,7 +212,7 @@ handovers, and git history are for. A plan with `Status: Complete` sitting in
 | Handovers | `.story/handovers/` | durable |
 | Lessons | `.story/lessons/` | durable |
 | Specs (design contracts) | `docs/superpowers/specs/` | durable |
-| Plans (build scratchpads) | `docs/superpowers/plans/` | **ephemeral -- delete on merge** |
+| Plans (build scratchpads) | `docs/superpowers/plans/` | **ephemeral -- delete before merge** |
 
 ## Tests
 
