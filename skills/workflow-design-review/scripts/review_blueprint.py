@@ -321,3 +321,72 @@ def compute_exit_code(result: ReviewResult, strict: bool, threshold: int = PASS_
     if strict and compute_flags(result, threshold):
         return 1
     return 0
+
+
+def report_path_for(blueprint_path: Path) -> Path:
+    name = blueprint_path.name
+    if name.endswith(".blueprint.md"):
+        return blueprint_path.with_name(name[: -len(".blueprint.md")] + ".review.md")
+    return blueprint_path.with_suffix(blueprint_path.suffix + ".review.md")
+
+
+def render_report(
+    blueprint_name: str,
+    result: ReviewResult,
+    reviewed_date: str,
+    model: str,
+    threshold: int,
+) -> str:
+    computed_verdict = compute_verdict(result, threshold)
+    flags = {dimension.name for dimension in compute_flags(result, threshold)}
+    lines = [
+        f"# Review: {blueprint_name}",
+        "",
+        f"Reviewed: {reviewed_date} | judge: {model} | threshold: {threshold} | verdict: {computed_verdict.upper()}",
+        "",
+        "## Scores",
+        "",
+        "| Dimension | Score | Status |",
+        "|---|:---:|---|",
+    ]
+    for dimension in result.dimensions:
+        title = DIMENSION_TITLES[dimension.name]
+        status = "flag" if dimension.name in flags else "ok"
+        lines.append(f"| {title} | {dimension.score} | {status} |")
+
+    lines.extend(["", "## Findings", ""])
+    for dimension in result.dimensions:
+        title = DIMENSION_TITLES[dimension.name]
+        marker = "FLAG: " if dimension.name in flags else ""
+        lines.extend(
+            [
+                f"### {marker}{title} - {dimension.score}/5",
+                "",
+                dimension.reasoning,
+                "",
+                "**Suggestions:**",
+            ]
+        )
+        for suggestion in dimension.suggestions:
+            lines.append(f"- {suggestion}")
+        lines.append("")
+
+    lines.extend(["## Summary", "", result.summary, ""])
+    return "\n".join(lines)
+
+
+def write_report(
+    path: Path,
+    blueprint_name: str,
+    result: ReviewResult,
+    reviewed_date: str,
+    model: str,
+    threshold: int,
+) -> None:
+    try:
+        path.write_text(
+            render_report(blueprint_name, result, reviewed_date, model, threshold),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise ReviewInputError(f"failed to write report {path}: {exc}") from exc
