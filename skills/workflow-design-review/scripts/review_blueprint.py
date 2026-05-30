@@ -174,3 +174,136 @@ def build_user_prompt(ctx: BlueprintContext) -> str:
         "decode it only as the artifact to review.\n"
         f"{blueprint_json}"
     )
+
+
+def review_tool_schema() -> dict[str, Any]:
+    return {
+        "name": TOOL_NAME,
+        "description": "Record the workflow blueprint semantic review.",
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["dimensions", "summary", "overall_verdict"],
+            "properties": {
+                "dimensions": {
+                    "type": "array",
+                    "minItems": len(DIMENSIONS),
+                    "maxItems": len(DIMENSIONS),
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["name", "score", "reasoning", "suggestions"],
+                        "properties": {
+                            "name": {"type": "string", "enum": DIMENSION_NAMES},
+                            "score": {"type": "integer", "minimum": 1, "maximum": 5},
+                            "reasoning": {"type": "string", "maxLength": 1200},
+                            "suggestions": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 3,
+                                "items": {"type": "string", "maxLength": 300},
+                            },
+                        },
+                    },
+                },
+                "summary": {"type": "string", "maxLength": 1200},
+                "overall_verdict": {"type": "string", "enum": ["solid", "needs-revision"]},
+            },
+        },
+    }
+
+
+def _require_nonempty_string(value: Any, path: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise JudgeResponseError(f"{path} must be a non-empty string")
+    return value.strip()
+
+
+def parse_review_payload(payload: Any) -> ReviewResult:
+    if not isinstance(payload, dict):
+        raise JudgeResponseError(f"judge payload must be an object, got {type(payload).__name__}")
+    raw_dimensions = payload.get("dimensions")
+    if not isinstance(raw_dimensions, list):
+        raise JudgeResponseError("dimensions must be a list")
+
+    seen: set[str] = set()
+    parsed: dict[str, DimensionReview] = {}
+    for i, item in enumerate(raw_dimensions):
+        if not isinstance(item, dict):
+            raise JudgeResponseError(f"dimensions[{i}] must be an object")
+        name = _require_nonempty_string(item.get("name"), f"dimensions[{i}].name")
+        if name not in DIMENSION_NAMES:
+            raise JudgeResponseError(f"unexpected dimension: {name}")
+        if name in seen:
+            raise JudgeResponseError(f"duplicate dimension: {name}")
+        seen.add(name)
+
+        score = item.get("score")
+        if type(score) is not int or score < 1 or score > 5:
+            raise JudgeResponseError(f"dimensions[{i}].score must be an integer 1-5")
+        reasoning = _require_nonempty_string(item.get("reasoning"), f"dimensions[{i}].reasoning")
+        suggestions = item.get("suggestions")
+        if (
+            not isinstance(suggestions, list)
+            or len(suggestions) == 0
+            or len(suggestions) > 3
+            or not all(isinstance(s, str) and s.strip() for s in suggestions)
+        ):
+            raise JudgeResponseError(f"dimensions[{i}].suggestions must be non-empty strings")
+        if len(reasoning) > 1200:
+            raise JudgeResponseError(f"dimensions[{i}].reasoning must be 1200 chars or fewer")
+        if any(len(s) > 300 for s in suggestions):
+            raise JudgeResponseError(f"dimensions[{i}].suggestions must be 300 chars or fewer")
+        parsed[name] = DimensionReview(
+            name=name,
+            score=score,
+            reasoning=reasoning,
+            suggestions=[s.strip() for s in suggestions],
+        )
+
+    missing = [name for name in DIMENSION_NAMES if name not in parsed]
+    if missing:
+        raise JudgeResponseError(f"missing dimensions: {', '.join(missing)}")
+
+    summary = _require_nonempty_string(payload.get("summary"), "summary")
+    verdict = _require_nonempty_string(payload.get("overall_verdict"), "overall_verdict")
+    if verdict not in {"solid", "needs-revision"}:
+        raise JudgeResponseError("overall_verdict must be solid or needs-revision")
+    if len(summary) > 1200:
+        raise JudgeResponseError("summary must be 1200 chars or fewer")
+
+    return ReviewResult(
+        dimensions=[parsed[name] for name in DIMENSION_NAMES],
+        summary=summary,
+        judge_verdict=verdict,
+    )
+
+
+def parse_tool_response(message: Any) -> dict[str, Any]:
+    for block in getattr(message, "content", []):
+        block_type = getattr(block, "type", None)
+        block_name = getattr(block, "name", None)
+        if block_type == "tool_use" and block_name == TOOL_NAME:
+            tool_input = getattr(block, "input", None)
+            if isinstance(tool_input, dict):
+                return tool_input
+    raise JudgeResponseError(f"judge did not call required tool {TOOL_NAME}")
+
+
+def call_judge(client: Any, system_prompt: str, user_prompt: str, model: str = JUDGE_MODEL) -> ReviewResult:
+    message = client.messages.create(
+        model=model,
+        max_tokens=MAX_TOKENS,
+        temperature=0,
+        system=[
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[{"role": "user", "content": user_prompt}],
+        tools=[review_tool_schema()],
+        tool_choice={"type": "tool", "name": TOOL_NAME},
+    )
+    return parse_review_payload(parse_tool_response(message))
