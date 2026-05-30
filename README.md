@@ -22,10 +22,13 @@ onto the framework's generate → run → grade stages.
 |-------|--------|--------------|
 | `workflow-design-interview` | `/je-dev-skills:workflow-design-interview` | Run a staged discovery interview that turns an idea into a checked `./workflows/<name>.blueprint.md`. |
 | `workflow-design-validate` | `/je-dev-skills:workflow-design-validate` | Run a deterministic completeness check over a workflow blueprint and report the gaps to fix. |
+| `workflow-design-review` | `/je-dev-skills:workflow-design-review` | Run an advisory LLM semantic review over a workflow blueprint and write a scored `.review.md` report. |
 
-The skills form a lifecycle: **interview → validate (repeat)** — design the blueprint,
-then lint it for completeness until it passes. See the design spec at
-[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md).
+The skills form a lifecycle: **interview -> validate -> review (repeat)** -- design the
+blueprint, lint it for structural completeness, then run an advisory semantic
+review for design quality. See the v0.1 design spec at
+[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md) and the v0.2 review
+spec at [docs/WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/WORKFLOW_DESIGN_REVIEW_SPEC.md).
 
 ## Prompt Engineering skills
 

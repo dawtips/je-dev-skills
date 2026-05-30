@@ -1,12 +1,12 @@
 {
   "name": "je-dev-skills",
   "version": "0.1.0",
-  "description": "A personal collection of Claude Code skills. Includes a prompt/agent evaluation lifecycle (prompt-evals-*: setup, create-dataset, run), a prompt-engineering lifecycle (prompt-engineering-*: author, improve) that writes and eval-improves prompts, and a workflow-design lifecycle (workflow-design-*: interview, validate) that turns an idea into a checked workflow blueprint.",
+  "description": "A personal collection of Claude Code skills. Includes a prompt/agent evaluation lifecycle (prompt-evals-*: setup, create-dataset, run), a prompt-engineering lifecycle (prompt-engineering-*: author, improve) that writes and eval-improves prompts, and a workflow-design lifecycle (workflow-design-*: interview, validate, review) that turns an idea into a checked and semantically reviewed workflow blueprint.",
   "author": {
     "name": "dawtips",
     "email": "dawtips@gmail.com"
   },
   "repository": "https://github.com/dawtips/je-dev-skills",
   "license": "MIT",
-  "keywords": ["evaluation", "evals", "prompt-engineering", "prompt-authoring", "prompt-improvement", "llm-as-judge", "testing", "agents", "workflow", "orchestration", "blueprint", "agent-design"]
+  "keywords": ["evaluation", "evals", "prompt-engineering", "prompt-authoring", "prompt-improvement", "llm-as-judge", "testing", "agents", "workflow", "orchestration", "blueprint", "agent-design", "semantic-review"]
 }
