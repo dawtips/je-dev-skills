@@ -34,7 +34,7 @@ from evals.evaluator import AnthropicClient, PromptEvaluator
 from evals.evaluator.templates import render
 from evals.live_run import run_evaluation as run_live_evaluation
 from evals.promptprep import check_placeholders
-from evals.variance_runner import run_k_variance
+from evals.variance_runner import run_k_variance, variance_labels
 
 # --- 1. Describe the task and its closed input set ---------------------------
 TASK = "Write a compact 1-day meal plan for one athlete."
@@ -156,7 +156,17 @@ def main(argv: list[str]) -> int:
             print("usage: python -m evals.run_eval evaluate-variance <group_label> <k>")
             return 2
         group_label = argv[2]
-        k = int(argv[3])
+        try:
+            k = int(argv[3])
+        except ValueError:
+            print("usage: python -m evals.run_eval evaluate-variance <group_label> <k>")
+            print("error: <k> must be an integer >= 2")
+            return 2
+        try:
+            variance_labels(group_label, k)
+        except ValueError as exc:
+            print(f"error: {exc}")
+            return 2
 
         def run_once(label: str) -> dict:
             return run_live_evaluation(
