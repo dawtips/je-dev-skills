@@ -15,6 +15,14 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
 AGENTIC = "agentic"
 DETERMINISTIC = "deterministic"
 SUBAGENT_CONTRACT_FIELDS = ("objective", "output_format", "tools", "boundaries")
+MECHANICAL_SIGNALS = {
+    "copy", "extract", "format", "lookup", "parse", "read", "transform", "normalize",
+    "convert", "sort", "filter",
+}
+JUDGMENT_SIGNALS = {
+    "ambiguous", "categorize", "classify", "decide", "judgment", "open-ended",
+    "reason", "synthesize", "tradeoff",
+}
 
 
 class ScaffoldError(ValueError):
@@ -224,3 +232,24 @@ def render_entry_command(bp: dict, workflow_name: str) -> str:
             )
         lines.append("")
     return "\n".join(lines)
+
+
+def warn_overpowered_steps(bp: dict) -> list[str]:
+    warnings = []
+    for step in bp.get("steps") or []:
+        if step.get("kind") != AGENTIC:
+            continue
+        text = " ".join([
+            str(step.get("id", "")),
+            str(step.get("rationale", "")),
+            str(step.get("pattern", "")),
+            str(step.get("termination", "")),
+        ]).lower()
+        has_mechanical_signal = any(signal in text for signal in MECHANICAL_SIGNALS)
+        has_judgment_signal = any(signal in text for signal in JUDGMENT_SIGNALS)
+        if has_mechanical_signal and not has_judgment_signal:
+            step_id = step.get("id", "<unknown>")
+            warnings.append(
+                f"agentic step {step_id!r} looks mechanical; a script may be simpler"
+            )
+    return warnings
