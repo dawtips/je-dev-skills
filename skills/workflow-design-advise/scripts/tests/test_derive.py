@@ -1,6 +1,7 @@
 import unittest
 
 from advise_model import (
+    STEP_PATTERN_SIGNALS,
     TaskSignals,
     derive_signals_for_step,
     derive_signals_for_subagent,
@@ -31,6 +32,14 @@ class TestDeriveStep(unittest.TestCase):
             {"id": "q", "kind": "agentic", "pattern": "none"})
         self.assertEqual(signals, TaskSignals("moderate", "moderate", "step"))
         self.assertTrue(needs_review)
+
+    def test_all_known_patterns_match_the_constant(self):
+        # Pins every STEP_PATTERN_SIGNALS row (chain/evaluate/parallelize too).
+        for pattern, (difficulty, breadth, role) in STEP_PATTERN_SIGNALS.items():
+            signals, needs_review = derive_signals_for_step(
+                {"id": pattern, "kind": "agentic", "pattern": pattern})
+            self.assertEqual(signals, TaskSignals(difficulty, breadth, role), pattern)
+            self.assertFalse(needs_review, pattern)
 
 
 class TestDeriveSubagent(unittest.TestCase):

@@ -14,7 +14,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -105,20 +105,24 @@ def _max_tier(a: str, b: str) -> str:
     return a if TIERS.index(a) >= TIERS.index(b) else b
 
 
-def _min_tier(a: str, b: str) -> str:
-    return a if TIERS.index(a) <= TIERS.index(b) else b
-
-
 def score(signals: TaskSignals) -> tuple[str, str, str]:
     """Map task signals to a (tier, effort, rationale). Pure and deterministic.
 
     Rules from references/model-selection.md:
-      - difficulty -> base tier (easy=haiku, moderate=sonnet, hard=opus);
+      - difficulty -> base tier (easy=haiku, moderate=sonnet, hard=opus), i.e.
+        the cheapest tier that clears the difficulty bar (cost-minimization on
+        the tier axis);
       - an orchestrator warrants at least the strongest tier;
       - a narrow, bounded worker runs one tier below its difficulty;
-      - cost pressure caps non-orchestration work below Opus;
       - breadth -> effort (narrow=low, moderate=medium, broad=high). 'max' is
-        never auto-recommended -- it is a human choice given the ~15x cost.
+        never auto-recommended -- it is a human choice given the ~15x cost;
+      - a human-supplied high cost/token budget caps effort at 'medium' to bound
+        the ~15x effort multiplier (the guideline's cost-minimization input).
+
+    Note: this deterministic form ties effort to breadth and tier to
+    difficulty/role, so the guideline's "independent dials" cases (a Haiku
+    worker at medium effort, an Opus orchestrator at low effort) are not
+    auto-produced -- they remain a human override.
     """
     tier = BASE_TIER[signals.difficulty]
     reasons = [DIFFICULTY_REASON[signals.difficulty]]
@@ -134,13 +138,11 @@ def score(signals: TaskSignals) -> tuple[str, str, str]:
             reasons.append("a narrow, bounded worker subtask runs a tier below the orchestrator")
         tier = stepped
 
-    if signals.budget_pressure == "high" and signals.role != "orchestrator":
-        capped = _min_tier(tier, "sonnet")
-        if capped != tier:
-            reasons.append("cost pressure caps non-orchestration work below Opus")
-        tier = capped
-
     effort = EFFORT_BY_BREADTH[signals.breadth]
+    if signals.budget_pressure == "high" and EFFORTS.index(effort) > EFFORTS.index("medium"):
+        effort = "medium"
+        reasons.append("cost pressure caps effort at medium to bound the ~15x effort multiplier")
+
     return tier, effort, "; ".join(reasons) + "."
 
 
@@ -209,20 +211,30 @@ def derive_signals_for_subagent(subagent: dict) -> tuple[TaskSignals, bool]:
 
 
 def _agreement(cur_model: Any, cur_effort: Any, rec_model: str, rec_effort: str) -> bool | None:
-    if cur_model == "inherit":
-        return None  # 'inherit' is a deliberate choice; confirm it separately
+    # 'inherit' and unset (missing) values are deliberate/undecided, not a
+    # disagreement -- treat both as None so --strict does not fail on them.
+    if cur_model == "inherit" or cur_model is None or cur_effort is None:
+        return None
     return cur_model == rec_model and cur_effort == rec_effort
 
 
-def advise_blueprint(bp: dict) -> list[Recommendation]:
-    """Score every agentic step (advisory) and subagent (writeable)."""
+def advise_blueprint(bp: dict, budget_pressure: str = "low") -> list[Recommendation]:
+    """Score every agentic step (advisory) and subagent (writeable).
+
+    budget_pressure is a workflow-level, human-supplied signal (the guideline's
+    third input, cost/token minimization). It is threaded into every TaskSignals
+    so the cost cap in score() can fire; it is never guessed from blueprint prose.
+    """
     recs: list[Recommendation] = []
 
     for i, step in enumerate(bp.get("steps") or []):
+        if not isinstance(step, dict):
+            raise AdviceInputError(
+                f"steps[{i}] must be a mapping, got {type(step).__name__}")
         signals, needs_review = derive_signals_for_step(step)
         if signals is None:
             continue
-        model, effort, rationale = score(signals)
+        model, effort, rationale = score(replace(signals, budget_pressure=budget_pressure))
         recs.append(Recommendation(
             target_kind="step",
             target_id=str(step.get("id", f"steps[{i}]")),
@@ -234,8 +246,11 @@ def advise_blueprint(bp: dict) -> list[Recommendation]:
         ))
 
     for i, sub in enumerate(bp.get("subagents") or []):
+        if not isinstance(sub, dict):
+            raise AdviceInputError(
+                f"subagents[{i}] must be a mapping, got {type(sub).__name__}")
         signals, needs_review = derive_signals_for_subagent(sub)
-        model, effort, rationale = score(signals)
+        model, effort, rationale = score(replace(signals, budget_pressure=budget_pressure))
         cur_model = sub.get("model")
         cur_effort = sub.get("effort")
         recs.append(Recommendation(
@@ -264,7 +279,10 @@ def render_report(recs: list[Recommendation], blueprint_name: str, date: str) ->
         "|---|---|---|---|---|:---:|:---:|",
     ]
     for r in recs:
-        current = f"{r.current_model}/{r.current_effort}" if r.target_kind == "subagent" else "—"
+        if r.target_kind != "subagent" or (r.current_model is None and r.current_effort is None):
+            current = "—"
+        else:
+            current = f"{r.current_model}/{r.current_effort}"
         if r.agrees is True:
             agree = "yes"
         elif r.agrees is False:
@@ -330,6 +348,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--date", help="advice date for the report header, e.g. 2026-05-30")
     parser.add_argument("--strict", action="store_true",
                         help="exit 1 if any subagent's model/effort disagrees with the advice")
+    parser.add_argument("--budget", choices=("low", "high"), default="low",
+                        help="workflow cost/token pressure; 'high' caps effort at medium")
     args = parser.parse_args(argv)
 
     if not args.json and not args.date:
@@ -338,11 +358,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         path = resolve_blueprint_path(args.path)
         bp = load_blueprint(path)
+        recs = advise_blueprint(bp, budget_pressure=args.budget)
     except AdviceInputError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    recs = advise_blueprint(bp)
     if args.json:
         print(recommendations_to_json(recs))
     else:

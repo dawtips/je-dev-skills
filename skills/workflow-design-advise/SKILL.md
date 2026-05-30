@@ -38,10 +38,14 @@ passes — advice on an incomplete blueprint is premature.
    python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-advise/scripts/advise_model.py <path> --date <YYYY-MM-DD>
    ```
 
-   Exit codes: `0` = report produced, `2` = file unreadable or not exactly one
-   fenced `yaml` block. Add `--strict` to exit `1` when any subagent's current
-   `model`/`effort` disagrees with the advice (useful as a gate). Add `--json`
-   for machine-readable output (no `--date` needed).
+   Exit codes: `0` = report produced, `2` = file unreadable, not exactly one
+   fenced `yaml` block, or a malformed `steps`/`subagents` entry. Add `--strict`
+   to exit `1` when any subagent's current `model`/`effort` disagrees with the
+   advice (useful as a gate). Add `--json` for machine-readable output (no
+   `--date` needed). Add `--budget high` when the workflow is cost/token
+   constrained — it caps effort at `medium` to bound the ~15× multiplier (the
+   guideline's cost-minimization input; supply it yourself rather than have the
+   tool guess from prose).
 
 3. **Read the report.** A table of `Target | Kind | Recommended | Effort |
    Current | Agree | Review`, then a per-target rationale. `Agree = NO` marks an
@@ -70,9 +74,13 @@ have had their difficulty confirmed by a human.
 
 - **Deterministic and advisory.** Same input → same output. The advisor encodes
   the v0.1 guideline; it does not replace human judgment on a subagent's
-  difficulty (flagged for review).
+  difficulty (flagged for review). It ties effort to task breadth and tier to
+  difficulty/role, so the guideline's "independent dials" cases (a Haiku worker
+  at medium effort, an Opus orchestrator at low effort) are a human override,
+  not auto-produced.
 - **Gated feature.** Per `docs/superpowers/specs/2026-05-30-workflow-design-advanced-tooling-spec.md`
   §2.4 this is a "maybe-never" tool — build/use it only when the by-hand
   guideline proves insufficient. Claude models only.
 - **Tiers, not IDs.** Blueprints store a tier; concrete model IDs live in one
-  constant in `advise_model.py` and in `references/citations.md`.
+  constant in `advise_model.py`, re-verified against the volatile-values table
+  in `references/citations.md`.

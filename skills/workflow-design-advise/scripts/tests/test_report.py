@@ -34,6 +34,16 @@ class TestReport(unittest.TestCase):
         self.assertFalse(by_id["item-researcher"]["agrees"])
         self.assertFalse(by_id["plan"]["writeable"])
 
+    def test_inherit_and_agreeing_render_states(self):
+        # Pins the remaining Agree-column states: 'inherit?' and 'yes'.
+        bp = {"subagents": [
+            {"id": "inh", "tools": ["a", "b"], "model": "inherit", "effort": "medium"},
+            {"id": "ok", "tools": ["a", "b"], "model": "sonnet", "effort": "medium"},
+        ]}
+        out = render_report(advise_blueprint(bp), "x.blueprint.md", "2026-05-30")
+        self.assertIn("inherit?", out)
+        self.assertIn("yes", out)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,6 @@ from advise_model import (
     score,
     _step_down,
     _max_tier,
-    _min_tier,
 )
 
 
@@ -29,9 +28,9 @@ class TestPrimitives(unittest.TestCase):
         self.assertEqual(_step_down("sonnet"), "haiku")
         self.assertEqual(_step_down("haiku"), "haiku")
 
-    def test_max_and_min_tier(self):
+    def test_max_tier(self):
         self.assertEqual(_max_tier("haiku", "opus"), "opus")
-        self.assertEqual(_min_tier("haiku", "opus"), "haiku")
+        self.assertEqual(_max_tier("sonnet", "haiku"), "sonnet")
 
     def test_task_signals_rejects_bad_values(self):
         with self.assertRaises(ValueError):
@@ -65,15 +64,21 @@ class TestScore(unittest.TestCase):
         s = TaskSignals(difficulty="easy", breadth="narrow", role="orchestrator")
         self.assertEqual(score(s)[0], "opus")
 
-    def test_budget_pressure_caps_non_orchestration_below_opus(self):
+    def test_budget_pressure_caps_effort_at_medium(self):
+        # High cost pressure bounds the ~15x effort multiplier; tier is unchanged.
         s = TaskSignals(difficulty="hard", breadth="broad", role="step",
                         budget_pressure="high")
-        self.assertEqual(score(s)[0], "sonnet")
+        self.assertEqual(score(s)[:2], ("opus", "medium"))
 
-    def test_budget_pressure_does_not_cap_orchestrator(self):
+    def test_budget_pressure_caps_orchestrator_effort_too(self):
         s = TaskSignals(difficulty="hard", breadth="broad", role="orchestrator",
                         budget_pressure="high")
-        self.assertEqual(score(s)[0], "opus")
+        self.assertEqual(score(s)[:2], ("opus", "medium"))
+
+    def test_budget_pressure_does_not_raise_low_effort(self):
+        s = TaskSignals(difficulty="easy", breadth="narrow", role="step",
+                        budget_pressure="high")
+        self.assertEqual(score(s)[1], "low")
 
 
 if __name__ == "__main__":
