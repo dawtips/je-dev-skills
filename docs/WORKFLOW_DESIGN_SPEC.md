@@ -335,32 +335,11 @@ Each elicited requirement maps onto blueprint elements:
 - **`workflow-design-scaffold`** — render the Claude-Code layer of a validated
   blueprint into actual skill / subagent / script files. The most volatile surface
   (Claude Code internals churn), deferred deliberately.
-- **LLM design-review** — an optional semantic-quality judge layer inside
-  `workflow-design-validate`, gated on an API key. The deterministic gate stays the
-  required offline check; the LLM pass advises on what structure cannot see:
-  determinism *misclassification*, over-engineering smell (the "50 subagents for a
-  simple query" failure mode), vacuous rationales, non-discriminating rubric levels,
-  cop-out `n/a`s, and internal inconsistency (e.g. step outputs that don't feed
-  downstream inputs). Reuses the existing `prompt-evals-*` grading machinery
-  (LLM-as-judge, categorical scales, chain-of-thought). Non-deterministic and
-  subject to judge bias, so it advises — it never replaces the deterministic gate.
-
-  *Reconciliation addendum (2026-05-29, after the `claude-plugins-official` review.)*
-  Two design constraints, learned from Anthropic's `math-olympiad` skill (whose
-  adversarial verifier sees only the clean proof, never the author's reasoning — citing
-  arXiv:2503.21934, where 85.7% self-verified success collapsed to <5% under human
-  grading): (1) the reviewer must be **context-isolated** — given the blueprint's
-  decisions, **not** the interview transcript/rationale that produced them, since a
-  reviewer that sees the reasoning is biased toward agreeing with it; (2) **pattern-armed,
-  not "is this good?"** — prompt it to hunt named failure modes (unjustified subagent
-  escalation, a missing failure mode on a `side_effecting` step, a rationale that doesn't
-  support its `kind`, over-engineering past the simplest sufficient design). Split the
-  work by determinism: the **criteria-auditor** and **report-analyst** lenses are
-  **deterministic scripts first** (non-discriminating rubric levels, vacuous/`n/a`
-  patterns, variance — all computable), with an LLM only for qualitative naming; only the
-  **decomposition / reasoning-quality reviewer** is LLM-first. Each review agent gets the
-  four-part subagent contract (§4) and is dispatched one level deep — dogfooding this
-  spec's own rules.
+- **LLM design-review** — an optional, advisory semantic-quality layer over a
+  structurally-valid blueprint (determinism *misclassification*, over-engineering smell,
+  vacuous rationales, weak rubric levels, cop-out `n/a`s, internal inconsistency). The
+  deterministic gate stays required; the LLM pass advises, never replaces it.
+  **Buildable design in §9.1 below.**
 - **Automated model-selection advisor** — the *guideline* form ships in v0.1 (§6,
   stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
   subagent, with rationale, from `references/model-selection.md`). v0.2 considers
@@ -383,6 +362,64 @@ v0.1 is unchanged by them.
 
 **Other non-goals:** no execution engine (the blueprint is a design artifact, not a
 runtime); no automatic handoff into `prompt-evals-*`.
+
+### 9.1 LLM design-review — buildable design (the WS3 semantic-review layer)
+
+The **LLM design-review** roadmap item above, specified for implementation. It is an
+**advisory** layer that runs only after `workflow-design-validate` exits 0; it never gates
+and never flips `status:`.
+
+**Boundary.** `validate_blueprint.py` stays the required, offline, deterministic gate.
+Semantic review is non-deterministic, API-key-gated, and produces findings a human
+adjudicates. If several findings fire it reports all and recommends — it decides nothing.
+
+**Context isolation (the load-bearing constraint).** The reviewer is given the blueprint's
+**decisions only** — the single fenced `yaml` block (steps, rationales, subagents,
+dimensions, rubrics, outcomes) — and **NOT** the interview transcript or the author's
+defense of them. A reviewer that sees the reasoning trace drifts toward ratifying it
+(arXiv:2503.21934: 85.7% self-verified → <5% under human grading). Run it in a **fresh
+subagent** with no design history, one level deep.
+
+**Pattern-armed prompts (not "is this good?").** The reviewer hunts a fixed catalogue of
+failure modes; each returns structured findings `{pattern, location (yaml path), severity,
+why}`:
+
+| Pattern | What it catches |
+|---|---|
+| determinism misclassification | a `kind: agentic` step whose rationale describes mechanical work (a script would do), or `deterministic` where genuine judgment is needed |
+| over-engineering smell | subagents/loops past the simplest sufficient design; unjustified escalation ("50 subagents for a simple query") |
+| vacuous rationale | a `rationale` that restates the step instead of justifying its `kind`/`pattern` |
+| cop-out n/a | a dimension `{n/a: ...}` whose rationale does not actually hold |
+| weak rubric levels | rubric `levels` that are distinct strings but do not separate quality meaningfully |
+
+**Deterministic-script-first split.** Some "semantic" checks are actually computable and
+belong in the **gate**, not the LLM — extend `validate_blueprint.py` (or a sibling module):
+
+- **internal inconsistency** — a step's declared outputs consumed by no downstream step's
+  inputs; an `outcome` with no producing step;
+- **structural rubric degeneracy** — `levels` that are byte-identical or empty (the cheap
+  subset of "weak rubric levels");
+- (already gated) missing `retry`/`rollback` presence on `side_effecting`/`reversible` steps.
+
+The LLM reviewer runs **only** the judgment-bound patterns in the table; it never does what
+code can. This is the "deterministic-script-first" split: the **criteria-auditor** and
+**report-analyst** lenses named in the `claude-plugins-official` review are these
+deterministic sub-checks (gate) plus the LLM layer's qualitative naming — not separate
+components.
+
+**Reuse of prompt-evals grading.** The reviewer is structured by the existing
+`prompt-evals-*` machinery — one rubric per pattern (categorical integer scale, explicit
+per-level definitions, reason-first verdict via `schemas.verdict_schema`, no sampling params
+on the Opus judge). No new judge engine; the report aggregates the per-pattern verdicts.
+
+**Output.** A `<name>.review.md` advisory beside the blueprint: per-pattern findings with
+yaml-path locations + severities and an overall ship/revise recommendation. It may stamp a
+frontmatter `review:` field; only the human flips `status:` after addressing findings.
+
+**Packaging.** Ships as a v0.2 skill `workflow-design-review` (or an opt-in `--semantic`
+mode of validate), API-key-gated, run after the deterministic PASS. Each pattern-hunt is one
+subagent dispatched one level deep — dogfooding this spec's own four-part-contract and
+no-nesting rules.
 
 ---
 

@@ -31,13 +31,20 @@ These EXACT names/signatures are owned by the three composing plans. This plan
 
 > **Forward-note (reconciliation, 2026-05-29 — `claude-plugins-official` review; spec §8).** The
 > `regression_band = 0.5` constant and `improve_step.py`'s own delta/argmax are **v1-local** and
-> intentionally provisional. When the eval framework ships the planned multi-run **variance** +
-> **baseline/previous-run delta** helpers (`PROMPT_EVAL_FRAMEWORK_SPEC.md` §13, "v0.2 hardening"),
-> `improve_step.py` should **consume** them — measured per-case stddev calibrates `regression_band`
-> (replacing the hand-picked 0.5) and the delta helper replaces the home-grown delta/argmax. Build
-> v1 exactly as specified below; treat 0.5 as a placeholder, not a permanent constant. The deferred
-> built-in train/held-out split should follow `skill-creator/scripts/run_loop.py`'s overfitting-aware
-> selection (select best by held-out score, not training score). All out of scope for this plan.
+> intentionally provisional. The eval framework **now ships** two consumable helpers
+> (`PROMPT_EVAL_FRAMEWORK_SPEC.md` §13, "v0.2 hardening — shipped"):
+>
+> - `evals/run_delta.py::compute_delta(baseline, current)` — a direct drop-in for **Task 3**'s
+>   per-round delta/argmax (the loop already compares consecutive rounds). Prefer calling it over
+>   re-implementing delta inside `improve_step.py`.
+> - `evals/variance.py::compute_variance(runs)["suggested_regression_band"]` — to **calibrate**
+>   **Task 6**'s `regression_band` from measured grading noise instead of the hand-picked 0.5. This
+>   needs K re-grades of one prompt (a one-off calibration step the loop does not run by default), so
+>   keep 0.5 as the fallback when no variance run is available.
+>
+> The deferred built-in train/held-out split should follow `skill-creator/scripts/run_loop.py`'s
+> overfitting-aware selection (best by held-out score, not training score). Held-out split stays out
+> of scope for this plan.
 
 ---
 
