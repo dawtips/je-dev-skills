@@ -17,6 +17,10 @@ class TestExtract(unittest.TestCase):
         with self.assertRaises(ValueError):
             extract_yaml_block("no fenced block here")
 
+    def test_load_blueprint_rejects_no_yaml_fixture(self):
+        with self.assertRaises(ValueError):
+            load_blueprint(os.path.join(FIXTURES, "broken_no_yaml.blueprint.md"))
+
     def test_slugify_normalizes(self):
         self.assertEqual(slugify("Reason Classifier!"), "reason-classifier")
         self.assertEqual(slugify("fetch_order"), "fetch-order")
