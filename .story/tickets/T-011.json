@@ -1,10 +1,8 @@
 {
-  "blockedBy": [
-    "T-010"
-  ],
+  "blockedBy": [],
   "completedDate": null,
   "createdDate": "2026-05-29",
-  "description": "Build the workflow-design-review skill + review_blueprint.py per docs/WORKFLOW_DESIGN_REVIEW_SPEC.md (LLM-as-judge semantic review, advisory, reuses prompt-evals grading). Blocked by T-010 (plan).",
+  "description": "Build the workflow-design-review skill + review_blueprint.py per docs/WORKFLOW_DESIGN_REVIEW_SPEC.md and the approved TDD implementation plan at docs/superpowers/plans/2026-05-30-workflow-design-review.md. Scope: advisory LLM-as-judge semantic review, context-isolated prompt, fake-client offline tests, soft exit codes, rubric/report wiring, README/plugin metadata updates.",
   "id": "T-011",
   "order": 20,
   "phase": "review-layers",
