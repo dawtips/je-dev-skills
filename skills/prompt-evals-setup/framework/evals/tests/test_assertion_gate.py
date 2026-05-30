@@ -47,6 +47,14 @@ class TestAssertionGate(unittest.TestCase):
         self.assertTrue(gate["mandatory_failed"])
         self.assertFalse(gate["judge_skipped"])
 
+    def test_annotate_only_rejects_gate_override(self):
+        with self.assertRaisesRegex(ValueError, "gate override is invalid under annotate_only policy"):
+            evaluate_assertion_gate(
+                "no calories here",
+                [{"type": "contains", "value": "kcal", "severity": "mandatory", "policy": "gate"}],
+                policy="annotate_only",
+            )
+
     def test_synthetic_verdict_is_deterministic_floor(self):
         gate = evaluate_assertion_gate(
             "no calories here",

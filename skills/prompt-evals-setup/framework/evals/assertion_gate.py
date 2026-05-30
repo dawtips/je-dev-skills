@@ -20,6 +20,8 @@ def evaluate_assertion_gate(output: str, assertions: list[dict], policy: str = "
         assertion_policy = assertion.get("policy")
         if assertion_policy is not None and assertion_policy not in ASSERTION_ACTION_OVERRIDES:
             raise ValueError(f"unknown assertion policy override: {assertion_policy!r}")
+        if policy == "annotate_only" and assertion_policy == "gate":
+            raise ValueError("gate override is invalid under annotate_only policy")
 
     checked = check_assertions(output, assertions)
     results = []
