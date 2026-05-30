@@ -1,13 +1,13 @@
 {
   "blockedBy": [],
-  "completedDate": null,
+  "completedDate": "2026-05-30",
   "createdDate": "2026-05-29",
   "description": "Deferred / maybe-never: automated model+effort scorer. Pursue only if the v0.1 guideline proves insufficient.",
   "id": "T-015",
   "order": 20,
   "phase": "backlog",
   "spec": "docs/superpowers/specs/2026-05-30-workflow-design-advanced-tooling-spec.md",
-  "status": "open",
+  "status": "complete",
   "title": "workflow-design model-selection advisor (§9)",
   "type": "task"
 }

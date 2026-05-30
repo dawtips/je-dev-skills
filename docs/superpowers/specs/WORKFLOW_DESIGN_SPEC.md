@@ -341,13 +341,16 @@ Each elicited requirement maps onto blueprint elements:
   an entry-point command) is now owned by the `agent-build-*` group. See
   [2026-05-29-agent-build-and-execution-spec.md](2026-05-29-agent-build-and-execution-spec.md)
   §3.
-- **Automated model-selection advisor (v0.3+)** — the *guideline* form ships in v0.1 (§6,
-  stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
-  subagent, with rationale, from `references/model-selection.md`). v0.2 considers
-  only the *automated* form: a script that scores a task (desired output, complexity,
-  cost/token budget) and emits a model+effort recommendation programmatically.
-  Pursued only if the v0.1 guideline proves insufficient — it may not be needed.
-  Claude models only.
+- **Automated model-selection advisor — shipped as `workflow-design-advise` (T-015).**
+  The *guideline* form ships in v0.1 (§6, stage 4: the interview recommends a Claude
+  `model` + `effort` per agentic step / subagent, with rationale, from
+  `references/model-selection.md`). The *automated* form is now built: a deterministic
+  scorer (`skills/workflow-design-advise/scripts/advise_model.py`) that reads the
+  validated blueprint, scores each agentic step (advisory) and subagent (writeable)
+  against the routing + effort-scaling tables, and flags over/under-provisioned
+  `subagents[].model`/`effort`. Built as a deliberate override of the §2.4 "maybe-never"
+  gate (see `2026-05-30-workflow-design-advanced-tooling-spec.md` §2.6); Claude models
+  only; recommends tiers, not pinned IDs.
 - **Visual viewer (v0.3+)** — render a blueprint visually: the step **flow** (a DAG showing
   ordering, parallel sections, approval gates, and deterministic-vs-agentic coloring)
   plus **drill-down** into each step's and subagent's details. Two tiers, cheapest

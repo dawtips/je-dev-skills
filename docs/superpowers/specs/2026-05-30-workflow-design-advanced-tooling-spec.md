@@ -61,6 +61,25 @@ A scorer takes (output spec, complexity signal, budget) → `model` + `effort` +
 rationale; model IDs in one constant; deterministic core offline-tested; writes into the
 v0.1 fields without schema change; parent spec §9 updated to mark it shipped.
 
+### 2.6 Status — shipped (T-015)
+Built as a **deliberate override of the §2.4 "maybe-never" gate** (the user chose to
+build it; recorded here and in the T-015 handover, so it is a recorded finding, not a
+silent default). Lives in `skills/workflow-design-advise/` (`scripts/advise_model.py` +
+six offline test files). Decisions that refine this contract:
+
+- **Mechanism: script-emits + skill-applies.** The script is a pure analyzer; it prints a
+  report (and `--json`), and the SKILL.md drives the `model`/`effort` edits with the Edit
+  tool — mirroring `workflow-design-validate` (analyzer + agent edits), avoiding a fragile
+  in-place YAML round-trip. An automated `--apply` is **deferred** (low value vs. risk).
+- **Steps are advisory; only subagents are writeable.** The v0.1 schema (§2) stores
+  `model`/`effort` on `subagents`, not `steps`, so step recommendations are advisory
+  (recorded in prose), never written to a nonexistent step field.
+- **Tiers over IDs; honest determinism.** Recommends a tier (one `MODEL_IDS` constant
+  re-verified against `citations.md`); a subagent's task *difficulty* is surfaced as a
+  human `needs_review` flag rather than guessed.
+- **Budget input is human-supplied.** `--budget high` caps effort at `medium` (bounding the
+  ~15× multiplier); cost pressure is never inferred from blueprint prose.
+
 ---
 
 ## 3. T-016 — Visual viewer
