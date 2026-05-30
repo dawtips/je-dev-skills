@@ -6,8 +6,12 @@ workflow-design-validate, then renders Claude-Code-native files in later stages.
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
+from pathlib import Path
 import re
+import sys
 
 import yaml
 
@@ -253,3 +257,104 @@ def warn_overpowered_steps(bp: dict) -> list[str]:
                 f"agentic step {step_id!r} looks mechanical; a script may be simpler"
             )
     return warnings
+
+
+def _workflow_name(blueprint_path: str | Path) -> str:
+    name = Path(blueprint_path).name
+    if name.endswith(".blueprint.md"):
+        return name[: -len(".blueprint.md")]
+    return Path(blueprint_path).stem
+
+
+def _plan_outputs(bp: dict, workflow_name: str, out_dir: str | Path) -> list[tuple[Path, str, bool]]:
+    base = Path(out_dir)
+    outputs: list[tuple[Path, str, bool]] = []
+    for step in bp.get("steps") or []:
+        if step.get("kind") == DETERMINISTIC:
+            outputs.append((
+                base / ".claude" / "scripts" / step_script_filename(step),
+                render_step_script(step),
+                True,
+            ))
+    for subagent in bp.get("subagents") or []:
+        outputs.append((
+            base / ".claude" / "agents" / subagent_filename(subagent),
+            render_subagent(subagent),
+            False,
+        ))
+    gated_rubrics = [
+        rubric for rubric in (bp.get("rubrics") or [])
+        if rubric.get("gate") is not None
+    ]
+    for rubric in gated_rubrics:
+        outputs.append((
+            base / ".claude" / "hooks" / hook_filename(rubric),
+            render_hook(rubric),
+            True,
+        ))
+    if gated_rubrics:
+        outputs.append((
+            base / ".claude" / "hooks.json",
+            render_hooks_json(gated_rubrics),
+            False,
+        ))
+    outputs.append((
+        base / ".claude" / "commands" / f"{workflow_name}.md",
+        render_entry_command(bp, workflow_name),
+        False,
+    ))
+    return outputs
+
+
+def scaffold_blueprint(
+    blueprint_path: str | Path,
+    out_dir: str | Path = ".",
+    dry_run: bool = False,
+) -> tuple[list[Path], list[str]]:
+    bp = load_blueprint(str(blueprint_path))
+    workflow_name = _workflow_name(blueprint_path)
+    warnings = warn_overpowered_steps(bp)
+    planned = _plan_outputs(bp, workflow_name, out_dir)
+    written = [path for path, _, _ in planned]
+    if dry_run:
+        return written, warnings
+    for path, text, executable in planned:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        if executable:
+            path.chmod(path.stat().st_mode | 0o111)
+    return written, warnings
+
+
+def main(argv=None, stdout=None, stderr=None) -> int:
+    stdout = stdout or sys.stdout
+    stderr = stderr or sys.stderr
+    parser = argparse.ArgumentParser(
+        description="Render a workflow blueprint into Claude Code artifacts."
+    )
+    parser.add_argument("blueprint", help="path to <name>.blueprint.md")
+    parser.add_argument("--out-dir", default=".", help="target project directory")
+    parser.add_argument("--dry-run", action="store_true", help="print planned files only")
+    args = parser.parse_args(argv)
+    try:
+        paths, warnings = scaffold_blueprint(
+            args.blueprint,
+            args.out_dir,
+            dry_run=args.dry_run,
+        )
+    except (OSError, ValueError, ScaffoldError) as exc:
+        print(f"ERROR: {exc}", file=stderr)
+        return 2
+    if args.dry_run:
+        print("DRY RUN: would write", file=stdout)
+    for warning in warnings:
+        print(f"WARNING: {warning}", file=stdout)
+    for path in paths:
+        rel = os.path.relpath(path, args.out_dir)
+        prefix = "would write" if args.dry_run else "wrote"
+        print(f"{prefix} {rel}", file=stdout)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
