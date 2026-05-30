@@ -46,6 +46,19 @@ PROCESS_CRITERIA = None
 DATASET_FILE = f"{config.DATASETS_DIR}/meal_plan.json"
 NUM_CASES = 20
 
+# --- Loop parameters (prompt-engineering-improve) ----------------------------
+# The loop params live HERE (not config.py) - the existing per-project edit
+# surface. This substrate plan preserves them; prompt-engineering-improve owns
+# their semantics.
+LOOP_PARAMS = {
+    "pass_threshold": config.PASS_THRESHOLD,
+    "pass_rate_target": 0.80,
+    "max_rounds": 3,
+    "epsilon": 0.25,
+    "diminishing_return_rounds": 2,
+    "regression_band": 0.5,
+}
+
 # The active prompt is a FILE (Layer 1), not a Python string. Each round writes a
 # candidate <name>.vN.md; the chosen candidate is copied into <name>.current.md
 # before measuring. run_prompt always renders <name>.current.md.
