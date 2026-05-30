@@ -102,6 +102,12 @@ For each agentic step / subagent, in Stage 4:
 5. Write the choice **with a rationale** into the blueprint:
    `model: <tier> # rationale`, `effort: <level> # rationale`.
 
+> **Automated form.** These routing + effort tables are encoded deterministically
+> in the `workflow-design-advise` skill (`scripts/advise_model.py`), which scores
+> a validated blueprint and flags over/under-provisioned `subagents[].model`/
+> `effort`. Use it to audit choices; it surfaces (never guesses) a subagent's
+> task difficulty for human review.
+
 ---
 
 ## Worked recommendations
