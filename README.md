@@ -3,6 +3,14 @@
 A Claude Code **plugin** that helps build agent applications end to end, with
 deterministic code over non-deterministic model work wherever possible.
 
+## Project setup
+
+Starting a new project? `/je-dev-skills:dev-workflow-init` scaffolds the **storybloq +
+superpowers** development workflow into it — the `.story/` durable memory, the
+`docs/superpowers/{specs,plans}` docs skeleton, and a tool-neutral `AGENTS.md` + `CLAUDE.md`
+working agreement — so every later change follows one loop: roadmap → ticket → spec → plan →
+implement + verify → handover → **delete plan**. This is how *this* repo is built, too.
+
 ## Lifecycle
 
 **Design -> author -> build & run -> measure -> improve**, one journey:
@@ -17,6 +25,7 @@ API key. Headless or CI execution uses the keyed fallback (`ANTHROPIC_API_KEY`).
 
 | Skill group | Invoke | What it does |
 |-------------|--------|--------------|
+| `dev-workflow-init` | `/je-dev-skills:dev-workflow-init` | Bootstrap the storybloq + superpowers dev workflow into a project: `.story/` memory, `docs/superpowers/{specs,plans}`, and an `AGENTS.md`/`CLAUDE.md` working agreement. |
 | `workflow-design-*` | `/je-dev-skills:workflow-design-{interview,validate,review}` | Turn an idea into a checked `./workflows/<name>.blueprint.md`, lint it for structural completeness, and run advisory semantic review. |
 | `prompt-engineering-author` | `/je-dev-skills:prompt-engineering-author` | Author or refactor a strong single-shot prompt from a task description, eval-free. |
 | `agent-build-*` | `/je-dev-skills:agent-build-{scaffold,run}` | Render a validated blueprint plus authored prompts into `.claude/` subagents, hooks, scripts, and an entry-point command, then drive them in-session one level deep. |

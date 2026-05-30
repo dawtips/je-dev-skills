@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-05-30",
+  "createdDate": "2026-05-30",
+  "description": "Add the dev-workflow-init skill: a deterministic, offline-tested scaffolder (skills/dev-workflow-init/scripts/init_project.py, 14 unit tests) plus a table-of-contents SKILL.md that stands up the combined storybloq + superpowers dev workflow in a target project (.story/ memory skeleton, docs/superpowers/{specs,plans}, AGENTS.md + CLAUDE.md working agreement, storybloq runtime gitignore). Refuses to clobber without --force; supports --dry-run. Wired into README (Project setup section + skills table) and plugin.json keywords. skill_lint clean at 11 skills.",
+  "id": "T-021",
+  "order": 40,
+  "phase": "foundation",
+  "status": "complete",
+  "title": "Add dev-workflow-init project-setup skill",
+  "type": "feature"
+}
