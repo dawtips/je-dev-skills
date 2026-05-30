@@ -31,6 +31,24 @@ def _delta_movers(delta: dict) -> dict:
     }
 
 
+def _format_baseline_case(row: dict) -> str:
+    if row.get("matched"):
+        before = row["score_before"]
+        delta = f"{row['delta']:+}"
+    else:
+        before = "unmatched"
+        delta = "n/a"
+    return f"{row['case']}: {before} -> {row['score_after']} ({delta})"
+
+
+def _format_variance_case(row: dict) -> str:
+    flag = " FLAKY" if row.get("flaky") else ""
+    return (
+        f"{row['case']}: mean {row['mean']} +/- {row['stddev']} "
+        f"{row['scores']} ({row['runs']} runs){flag}"
+    )
+
+
 def build_report_analysis(
     current: dict,
     *,
@@ -98,6 +116,8 @@ def render_markdown(analysis: dict) -> str:
             lines.append(f"- Biggest improvement: {best['case']} ({best['delta']:+}).")
         if worst is not None and worst["delta"] < 0:
             lines.append(f"- Biggest regression: {worst['case']} ({worst['delta']:+}).")
+        for row in delta["per_case"]:
+            lines.append(f"- Baseline case: {_format_baseline_case(row)}")
     else:
         lines.append(f"- {delta['note']}")
 
@@ -110,6 +130,8 @@ def render_markdown(analysis: dict) -> str:
             f"flaky cases {agg['flaky_cases']}."
         )
         lines.append(f"- Suggested regression band: {variance['suggested_regression_band']}.")
+        for row in variance["per_case"]:
+            lines.append(f"- Variance case: {_format_variance_case(row)}")
     else:
         lines.append(f"- {variance['note']}")
     return "\n".join(lines) + "\n"
