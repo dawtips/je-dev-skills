@@ -1,0 +1,15 @@
+{
+  "test_case": {
+    "prompt_inputs": {"height": "190 cm", "weight": "110 kg", "goal": "Lean bulk"},
+    "solution_criteria": ["Provides a 1-day meal plan with a caloric total and macro breakdown."],
+    "task_description": "Write a compact 1-day meal plan for one athlete.",
+    "scenario": "A powerlifter in a lean bulk"
+  },
+  "output": "Total: 3,600 kcal | Protein 220g / Carbs 380g / Fat 110g",
+  "verdict": {
+    "strengths": ["Clear caloric total and full macro breakdown."],
+    "weaknesses": [],
+    "reasoning": "Fully satisfies every criterion.",
+    "score": 9
+  }
+}

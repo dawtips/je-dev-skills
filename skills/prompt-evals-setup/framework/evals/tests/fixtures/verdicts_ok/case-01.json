@@ -1,0 +1,15 @@
+{
+  "test_case": {
+    "prompt_inputs": {"height": "165 cm", "weight": "60 kg", "goal": "Peak endurance"},
+    "solution_criteria": ["Provides a 1-day meal plan with a caloric total and macro breakdown."],
+    "task_description": "Write a compact 1-day meal plan for one athlete.",
+    "scenario": "A vegan marathon runner in peak training"
+  },
+  "output": "Total: 2,800 kcal | Protein 130g / Carbs 420g / Fat 75g",
+  "verdict": {
+    "strengths": ["Carb-forward and vegan-appropriate."],
+    "weaknesses": ["No macro breakdown given."],
+    "reasoning": "Fails the mandatory macro-breakdown criterion.",
+    "score": 3
+  }
+}

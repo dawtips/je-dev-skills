@@ -22,6 +22,19 @@ JUDGE_MODEL = "claude-opus-4-8"
 # Environment variable the Anthropic client reads the API key from.
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 
+# Execution mode:
+# - "in_claude_code": no-key interactive path; the skill dispatches subagents
+#   and then calls evals.aggregate to assemble reports from verdict JSON files.
+# - "anthropic_api": keyed headless/CI fallback; run_eval.py calls Anthropic
+#   directly through PromptEvaluator.
+EXECUTION_MODE = "in_claude_code"
+
+# Interactive no-key path knobs. These are instructions for the SKILL.md
+# orchestration layer; Python never dispatches subagents directly.
+SUBAGENT_EXECUTOR_MODEL = "claude-haiku-4-5-20251001"
+SUBAGENT_JUDGE_MODEL = "claude-opus-4-8"
+SUBAGENT_EFFORT = "medium"
+
 # Max output tokens per framework LLM call (generation + grading).
 MAX_TOKENS = 2048
 

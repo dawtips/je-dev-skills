@@ -1,0 +1,15 @@
+{
+  "test_case": {
+    "prompt_inputs": {"height": "178 cm", "weight": "82 kg", "goal": "Lose fat"},
+    "solution_criteria": ["Provides a 1-day meal plan with a caloric total and macro breakdown."],
+    "task_description": "Write a compact 1-day meal plan for one athlete.",
+    "scenario": "A wrestler cutting weight the week before a meet"
+  },
+  "output": "Total: 2,400 kcal | Protein 180g / Carbs 240g / Fat 70g",
+  "verdict": {
+    "strengths": ["Includes a caloric total and macro breakdown."],
+    "weaknesses": ["Per-meal timing could be more specific."],
+    "reasoning": "Meets the mandatory structure and the secondary criterion.",
+    "score": 8
+  }
+}

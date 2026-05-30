@@ -1,0 +1,14 @@
+{
+  "test_case": {
+    "prompt_inputs": {"height": "170 cm", "weight": "70 kg", "goal": "Maintain"},
+    "solution_criteria": ["Provides a 1-day meal plan with a caloric total and macro breakdown."],
+    "task_description": "Write a compact 1-day meal plan for one athlete.",
+    "scenario": "A recreational cyclist maintaining weight"
+  },
+  "output": "Eat well and train hard.",
+  "verdict": {
+    "strengths": [],
+    "weaknesses": ["No plan, no numbers."],
+    "reasoning": "Non-answer."
+  }
+}
