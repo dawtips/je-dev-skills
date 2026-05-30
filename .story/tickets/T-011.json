@@ -4,7 +4,7 @@
   ],
   "completedDate": null,
   "createdDate": "2026-05-29",
-  "description": "Advisory semantic reviewer over a structurally-valid blueprint; deterministic sub-checks extend validate_blueprint; LLM only for judgment patterns. Blocked by RL1.",
+  "description": "Build the workflow-design-review skill + review_blueprint.py per docs/WORKFLOW_DESIGN_REVIEW_SPEC.md (LLM-as-judge semantic review, advisory, reuses prompt-evals grading). Blocked by T-010 (plan).",
   "id": "T-011",
   "order": 20,
   "phase": "review-layers",
