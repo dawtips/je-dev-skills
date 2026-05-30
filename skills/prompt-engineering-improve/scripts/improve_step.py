@@ -136,3 +136,45 @@ def _regression_rule(rounds, params):
 
 def _diminishing_rule(rounds, params):
     return None
+
+
+# Weakness-theme keyword table. Deterministic substring match over each verdict's
+# 'weaknesses' strings. Mirrors references/diagnosis.md's themes. A case counts once
+# per theme it matches. NOT a classifier - it tallies what the judge already wrote so
+# the model can name the dominant theme against real counts.
+THEME_KEYWORDS = {
+    "missing_content": ["missing", "omitted", "absent", "did not include", "left out"],
+    "format_structure": ["format", "structure", "inconsistent", "ordering", "schema"],
+    "reasoning": ["reasoning", "logic", "incorrect", "wrong", "shallow", "hallucin"],
+    "tone_style": ["tone", "style", "voice", "register", "verbose", "terse"],
+    "conflicting": ["conflict", "ambiguous", "contradict", "unclear instruction"],
+}
+
+
+def diagnose_tally(results: list[dict]) -> dict:
+    """Count mandatory-fails and percent-of-cases per weakness theme.
+
+    Mandatory-fail means score <= 3, per grading.md. This is a pure tally over
+    the verdict JSON - no model call.
+    """
+    total = len(results)
+    if total == 0:
+        return {"mandatory_fail_count": 0, "total_cases": 0,
+                "mandatory_fail_pct": 0.0, "theme_pct": {}}
+    mandatory = sum(1 for r in results if int(r.get("score", 0)) <= MANDATORY_FAIL_MAX)
+    theme_hits = {theme: 0 for theme in THEME_KEYWORDS}
+    for r in results:
+        weaknesses = " ".join(r.get("verdict", {}).get("weaknesses", [])).lower()
+        for theme, keywords in THEME_KEYWORDS.items():
+            if any(kw in weaknesses for kw in keywords):
+                theme_hits[theme] += 1
+    theme_pct = {
+        theme: round(100.0 * hits / total, 1)
+        for theme, hits in theme_hits.items() if hits > 0
+    }
+    return {
+        "mandatory_fail_count": mandatory,
+        "total_cases": total,
+        "mandatory_fail_pct": round(100.0 * mandatory / total, 1),
+        "theme_pct": theme_pct,
+    }
