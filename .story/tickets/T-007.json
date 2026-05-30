@@ -1,15 +1,12 @@
 {
-  "blockedBy": [
-    "T-006",
-    "T-008"
-  ],
-  "completedDate": null,
+  "blockedBy": [],
+  "completedDate": "2026-05-29",
   "createdDate": "2026-05-29",
-  "description": "Eval-driven iterate-measure-diagnose-rewrite loop with deterministic improve_step.py. Same plan, Tasks 1-10,15-19. Consume run_delta.compute_delta + variance.suggested_regression_band. Blocked by author + substrate.",
+  "description": "Eval-driven iterate-measure-diagnose-rewrite loop with deterministic improve_step.py, prompt-engineering-improve skill, diagnosis reference, prompt-evals-run handoff, loop params/run_label wiring, and final-report/freeze guards. Implemented from 2026-05-29-prompt-engineering-skills.md Tasks 1-10,15-19. The no-key in-Claude-Code execution substrate remains separate work in T-008.",
   "id": "T-007",
   "order": 20,
   "phase": "prompt-engineering",
-  "status": "open",
+  "status": "complete",
   "title": "Build prompt-engineering-improve",
   "type": "feature"
 }

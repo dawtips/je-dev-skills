@@ -1,12 +1,12 @@
 {
   "blockedBy": [],
-  "completedDate": null,
+  "completedDate": "2026-05-29",
   "createdDate": "2026-05-29",
   "description": "Standalone, eval-free prompt authoring (generate + improve modes). Plan: 2026-05-29-prompt-engineering-skills.md Tasks 11-14. No deps; cheapest next build.",
   "id": "T-006",
   "order": 10,
   "phase": "prompt-engineering",
-  "status": "open",
+  "status": "complete",
   "title": "Build prompt-engineering-author",
   "type": "feature"
 }
