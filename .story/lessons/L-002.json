@@ -1,0 +1,14 @@
+{
+  "content": "In je-dev-skills, do not treat code/tests passing as the end of a non-trivial work stream. Before offering merge, PR, or branch-finish options, complete AGENTS.md loop steps 6 and 7: write the handover/lesson, then remove the ephemeral plan so it cannot accumulate on main.",
+  "context": "Session 2026-05-30: eval live-path integration initially stopped after verification and branch-finish options, leaving the handover/lesson and plan deletion undone despite tickets being complete.",
+  "createdDate": "2026-05-30",
+  "id": "L-002",
+  "lastValidated": "2026-05-30",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": ["process", "plans", "handovers"],
+  "title": "Close je-dev-skills work streams with handover and plan deletion",
+  "updatedDate": "2026-05-30"
+}
