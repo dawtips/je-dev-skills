@@ -62,6 +62,7 @@ The renderer splits one render concern per function (`render_subagent`, `render_
 - **Test idiom** (copied from `workflow-design-validate/scripts/tests/test_subagents.py:1-7`): tests import the module directly (`from scaffold import ...`); `FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")`; run with `python3 -m unittest discover` from the `scripts/` dir so `scaffold` is importable as a top-level module.
 - **Skill frontmatter idiom** (copied from `workflow-design-validate/SKILL.md:1-7`): `name`, third-person `description` (what + when, with quoted trigger phrases), `argument-hint`, `allowed-tools`, `version: 0.1.0`. Reference plugin files by `${CLAUDE_PLUGIN_ROOT}/...` path.
 - **Volatility containment** (spec §3.4): every CC-version-volatile specific (subagent frontmatter field names, model aliases, effort levels, hook event names, Task→Agent tool name) is cited from `references/citations.md` with an *as of 2026-05-29* date and a `verify-against-runtime` step — never hardcoded in skill prose. Mirror `skills/workflow-design-interview/references/citations.md`.
+- **Companion plugins, not vendoring** (`CONTRIBUTING.md`; spec §3.5): the rendered subagents reuse `plugin-dev/agent-development`'s authoring guidance and its `validate-agent.sh` / `plugin-validator` / `skill-reviewer` (a dev-time companion plugin) rather than restating agent-authoring rules here. This skill owns the blueprint→artifact *mapping* + deterministic renderers only — read `CONTRIBUTING.md` before starting Tasks 12–14.
 
 ---
 
@@ -1822,6 +1823,15 @@ renderer cite *this* file rather than hardcoding volatile specifics.
   disclosure, scripts-vs-instructions. *As of 2026-05-29.*
 - **Building Effective Agents** — Schluntz & Zhang, 19 Dec 2024. "Start simple; add
   complexity only when it improves outcomes" — grounds the warn-on-over-powered rule.
+- **`plugin-dev/agent-development`** (companion plugin — see `CONTRIBUTING.md`; install
+  `plugin-dev@claude-plugins-official`). The canonical **authoring** guidance for the
+  subagents this skill renders — system-prompt structure, discovery-optimized
+  `description`s, least-privilege `tools`: `references/system-prompt-design.md`,
+  `triggering-examples.md`, `agent-creation-system-prompt.md`. This skill owns the
+  blueprint→artifact *mapping* and the deterministic renderers, **not** a fresh
+  agent-authoring manual — reuse plugin-dev rather than duplicate it (spec §3.5).
+  Validate emitted `.claude/agents/*.md` with plugin-dev's `scripts/validate-agent.sh`
+  and the `skill-reviewer` / `plugin-validator` agents. *As of 2026-05-29.*
 
 ## Volatile values (re-check on each use — verify-against-runtime)
 
@@ -1875,14 +1885,16 @@ verify the current name in the sub-agents doc. *As of 2026-05-29.*
 cd /home/dawti/je-dev-skills && \
 grep -q "NO .output_format. frontmatter key\|NO \`output_format\` frontmatter key" skills/agent-build-scaffold/references/citations.md && echo "OK: output_format note" && \
 grep -c "As of 2026-05-29" skills/agent-build-scaffold/references/citations.md && \
-grep -q "SubagentStop" skills/agent-build-scaffold/references/citations.md && echo "OK: hook event cited"
+grep -q "SubagentStop" skills/agent-build-scaffold/references/citations.md && echo "OK: hook event cited" && \
+grep -q "plugin-dev/agent-development" skills/agent-build-scaffold/references/citations.md && echo "OK: plugin-dev authoring citation"
 ```
 
 Expected output (the count must be ≥ 4 — multiple dated entries):
 ```
 OK: output_format note
-6
+7
 OK: hook event cited
+OK: plugin-dev authoring citation
 ```
 
 - [ ] **Step 3: Commit.**
@@ -1996,6 +2008,16 @@ The renderer emits **placeholders**, not finished code. With the Edit tool:
   exit-code contract (0 = pass, 1 = block).
 - **Entry command:** confirm the step order and termination conditions match the
   blueprint.
+
+**Authoring & validating the subagents (companion plugin).** For *how* to write a strong
+subagent — system-prompt structure, a discovery-optimized `description`, least-privilege
+`tools` — follow `plugin-dev/agent-development`'s guidance (`references/system-prompt-design.md`,
+`triggering-examples.md`); this skill renders the contract skeleton and reuses that guidance
+rather than restating it (see `references/citations.md` and `CONTRIBUTING.md`). Optionally
+validate the emitted files: run `plugin-dev`'s `scripts/validate-agent.sh` over each
+`.claude/agents/*.md`, or ask the `plugin-validator` / `skill-reviewer` agents. Optional by
+design — the renderer works offline without plugin-dev installed; this is a quality pass, not a
+dependency.
 
 ### 6. Add runtime state to .gitignore
 

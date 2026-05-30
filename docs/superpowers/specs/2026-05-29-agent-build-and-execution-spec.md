@@ -218,6 +218,15 @@ The plugin already references `agent-sdk-dev` / `new-sdk-app`. `agent-build-*` t
 **in-Claude-Code, no-key** runtime (subagents/skills/hooks). A keyed Agent-SDK entry point is a v1
 **non-goal/open question** (§6), not a deliverable — it does not duplicate the SDK app scaffolder.
 
+**Authoring the rendered subagents (reconciliation addendum, 2026-05-29).** The subagent and artifact
+rendering in §3.2 should **reuse `plugin-dev`'s authoring guidance rather than reinvent it**:
+`plugin-dev/agent-development` (`references/system-prompt-design.md`, `triggering-examples.md`,
+`agent-creation-system-prompt.md`, and `scripts/validate-agent.sh`) is the canonical source for a
+subagent's system prompt, description triggers, and frontmatter, and `plugin-dev`'s `skill-reviewer` /
+`plugin-validator` agents validate emitted skills/manifests. `agent-build-scaffold` cites these by
+reference (dev-time companion plugins — see `CONTRIBUTING.md`); it owns only the blueprint→artifact
+*mapping* and the deterministic renderers, not a fresh agent-authoring manual.
+
 ---
 
 ## 4. Plugin composition & wiring (the unified story)

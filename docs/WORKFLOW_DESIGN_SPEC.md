@@ -344,6 +344,23 @@ Each elicited requirement maps onto blueprint elements:
   downstream inputs). Reuses the existing `prompt-evals-*` grading machinery
   (LLM-as-judge, categorical scales, chain-of-thought). Non-deterministic and
   subject to judge bias, so it advises — it never replaces the deterministic gate.
+
+  *Reconciliation addendum (2026-05-29, after the `claude-plugins-official` review.)*
+  Two design constraints, learned from Anthropic's `math-olympiad` skill (whose
+  adversarial verifier sees only the clean proof, never the author's reasoning — citing
+  arXiv:2503.21934, where 85.7% self-verified success collapsed to <5% under human
+  grading): (1) the reviewer must be **context-isolated** — given the blueprint's
+  decisions, **not** the interview transcript/rationale that produced them, since a
+  reviewer that sees the reasoning is biased toward agreeing with it; (2) **pattern-armed,
+  not "is this good?"** — prompt it to hunt named failure modes (unjustified subagent
+  escalation, a missing failure mode on a `side_effecting` step, a rationale that doesn't
+  support its `kind`, over-engineering past the simplest sufficient design). Split the
+  work by determinism: the **criteria-auditor** and **report-analyst** lenses are
+  **deterministic scripts first** (non-discriminating rubric levels, vacuous/`n/a`
+  patterns, variance — all computable), with an LLM only for qualitative naming; only the
+  **decomposition / reasoning-quality reviewer** is LLM-first. Each review agent gets the
+  four-part subagent contract (§4) and is dispatched one level deep — dogfooding this
+  spec's own rules.
 - **Automated model-selection advisor** — the *guideline* form ships in v0.1 (§6,
   stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
   subagent, with rationale, from `references/model-selection.md`). v0.2 considers

@@ -456,6 +456,39 @@ persistence; timestamped non-overwriting runs; dataset provenance). Still consid
 - **No CI gate (by design).** This is a dev-time tool. If you later want regression
   gating, diff `output.json` against a saved baseline and fail on a pass-rate drop.
 
+### v0.2 hardening (planned)
+
+> **Reconciliation addendum (2026-05-29, after the `claude-plugins-official` review).**
+> A pattern review against Anthropic's `skill-creator` promoted four items above from
+> "consider" to planned framework hardening. All four land as **new modules at the
+> vendored `evals/` top level** (beside `run_eval.py` / `aggregate.py`), each with offline
+> `unittest` fixtures — **never** as edits to `evaluator/` core. This honors the
+> composition invariant named in the architecture spec (§5) and the prompt-engineering
+> spec (§9): the core stays frozen; capabilities compose around it.
+
+- **Multi-run variance / confidence.** Run each case `K` times and report **mean ±
+  stddev**, flagging high-variance (flaky) cases — promotes the single-judge-variance
+  limitation above from "consider a panel" to a measured signal. The measured per-case
+  stddev also **calibrates** the `regression_band` that `prompt-engineering-improve`
+  hardcodes at 0.5 today (that spec §6), turning a guessed band into a derived one.
+  Reference pattern: `skill-creator`'s `aggregate_benchmark.py` (mean ± stddev, flaky
+  detection) and its 3×-sampling of each query.
+- **Deterministic assertion layer (pre-judge).** Structural must-haves (regex /
+  JSON-schema / presence / length) checked **in code before the LLM judge** — cheaper,
+  reliable, and squarely on the plugin's determinism-first thesis; the judge then handles
+  only what needs judgment. Complements `extra_criteria` (today LLM-judged) by letting a
+  structural gate fail fast and deterministically. Reference: `skill-creator` deliberately
+  uses objective assertions for verifiable outputs and reserves LLM/human judgment for
+  subjective ones.
+- **Criteria-audit script.** Deterministically flag **non-discriminating** criteria (pass
+  in all — or no — cases across a run) and subjective-language criteria, promoting the
+  manual spot-check (§7) into a checked report. Reference: `skill-creator`'s analyzer pass
+  (non-discriminating-assertion detection).
+- **Baseline / previous-run delta.** A no-model script that diffs two
+  `runs/<label>/output.json` and reports per-case + aggregate deltas, promoting the manual
+  "diff output.json" note above. `prompt-engineering-improve`'s `improve_step.py` should
+  **consume** this rather than re-implement delta/argmax (that spec §6).
+
 ### Cost
 Total LLM calls ≈ `1 + num_cases (generation) + 2 × num_cases (run + grade)`.
 Generation is one-time per frozen dataset; only the `2 × num_cases` run+grade cost

@@ -29,6 +29,16 @@ These EXACT names/signatures are owned by the three composing plans. This plan
 - COMPOSITION INVARIANT: framework CORE unchanged — `evaluator/{evaluator,generate,grade,run,schemas,jsonio,templates,report,client}.py` and `prompts/`. New/changed code only at the vendored `evals/` top level + the SKILL.md files.
 - Subagent dispatch is the interactive Claude's job (Agent/Task tool, session auth, no key) — Python CANNOT dispatch a subagent. The no-key eval path is SKILL-ORCHESTRATED prose in `prompt-evals-run/SKILL.md`, not Python. Subagents can't nest; no-key eval is single-shot only.
 
+> **Forward-note (reconciliation, 2026-05-29 — `claude-plugins-official` review; spec §8).** The
+> `regression_band = 0.5` constant and `improve_step.py`'s own delta/argmax are **v1-local** and
+> intentionally provisional. When the eval framework ships the planned multi-run **variance** +
+> **baseline/previous-run delta** helpers (`PROMPT_EVAL_FRAMEWORK_SPEC.md` §13, "v0.2 hardening"),
+> `improve_step.py` should **consume** them — measured per-case stddev calibrates `regression_band`
+> (replacing the hand-picked 0.5) and the delta helper replaces the home-grown delta/argmax. Build
+> v1 exactly as specified below; treat 0.5 as a placeholder, not a permanent constant. The deferred
+> built-in train/held-out split should follow `skill-creator/scripts/run_loop.py`'s overfitting-aware
+> selection (select best by held-out score, not training score). All out of scope for this plan.
+
 ---
 
 ## Verified source facts (cite these; do not re-derive)

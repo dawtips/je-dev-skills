@@ -381,6 +381,17 @@ final report (round-by-round trace, winning version, held-out result or "skipped
 **Future enhancements:** agentic technique catalogue + trajectory-aware diagnosis; built-in held-out
 split; frontmatter `system:`/`user_template:` format; re-measure-on-tie smoothing.
 
+> **Reconciliation addendum (2026-05-29, after the `claude-plugins-official` review).** Two
+> alignments with Anthropic's `skill-creator`: (1) once the eval framework ships the planned
+> **multi-run variance + baseline/previous-run delta** helpers (`PROMPT_EVAL_FRAMEWORK_SPEC.md` §13,
+> "v0.2 hardening"), `improve_step.py` should **consume** them — the measured per-case stddev
+> calibrates `regression_band` (replacing the hardcoded 0.5 in §6) and the delta helper replaces
+> `improve_step.py`'s home-grown delta/argmax. (2) The deferred built-in train/held-out split should
+> follow `skill-creator/scripts/run_loop.py`'s **overfitting-aware selection** — 60/40 split, sample
+> each case for a reliable rate, and **select the best version by held-out score, not training
+> score**. Methodology-transferable (it optimizes triggering, not output quality), not a code
+> drop-in.
+
 ## 9. Definition of done (for implementation)
 
 **Files expected** (framework lives at `skills/prompt-evals-setup/framework/evals/`, copied to
