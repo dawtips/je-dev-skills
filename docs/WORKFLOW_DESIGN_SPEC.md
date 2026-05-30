@@ -336,9 +336,11 @@ Each elicited requirement maps onto blueprint elements:
   [WORKFLOW_DESIGN_REVIEW_SPEC.md](WORKFLOW_DESIGN_REVIEW_SPEC.md) and implemented
   as the v0.2 advisory semantic review skill. It runs after deterministic
   validation and writes a scored `.review.md` report next to the blueprint.
-- **`workflow-design-scaffold` (v0.3+)** — render the Claude-Code layer of a validated
-  blueprint into actual skill / subagent / script files. The most volatile surface
-  (Claude Code internals churn), deferred deliberately.
+- **`workflow-design-scaffold` - superseded by `agent-build-*`.** Rendering a
+  validated blueprint into the Claude-Code layer (subagents, hooks, scripts, and
+  an entry-point command) is now owned by the `agent-build-*` group. See
+  [docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](superpowers/specs/2026-05-29-agent-build-and-execution-spec.md)
+  §3.
 - **Automated model-selection advisor (v0.3+)** — the *guideline* form ships in v0.1 (§6,
   stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
   subagent, with rationale, from `references/model-selection.md`). v0.2 considers
