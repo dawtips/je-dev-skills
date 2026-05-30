@@ -6,11 +6,26 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from evals import aggregate
+from evals import aggregate, run_eval
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 VERDICTS_OK = os.path.join(FIXTURES, "verdicts_ok")
 VERDICTS_BAD = os.path.join(FIXTURES, "verdicts_bad")
+
+
+def _fixture_records() -> list[dict]:
+    records = []
+    for name in sorted(os.listdir(VERDICTS_OK)):
+        with open(os.path.join(VERDICTS_OK, name), encoding="utf-8") as f:
+            records.append(json.load(f))
+    return records
+
+
+def _write_dataset(path: Path, cases: list[dict], task: str = "DS TASK") -> None:
+    path.write_text(json.dumps({
+        "provenance": {"task_description": task, "prompt_inputs_spec": {}},
+        "cases": cases,
+    }), encoding="utf-8")
 
 
 class TestLoadVerdicts(unittest.TestCase):
@@ -56,10 +71,7 @@ class TestAggregateWritesReport(unittest.TestCase):
     def test_dataset_meta_overrides_when_provided(self):
         with tempfile.TemporaryDirectory() as d:
             dataset_path = Path(d) / "ds.json"
-            dataset_path.write_text(json.dumps({
-                "provenance": {"task_description": "DS TASK", "prompt_inputs_spec": {}},
-                "cases": [],
-            }))
+            _write_dataset(dataset_path, [r["test_case"] for r in _fixture_records()])
             run_dir = aggregate.aggregate(
                 run_label="r1",
                 verdicts_dir=VERDICTS_OK,
@@ -69,6 +81,36 @@ class TestAggregateWritesReport(unittest.TestCase):
             data = json.loads((Path(run_dir) / "output.json").read_text())
             self.assertEqual(data["meta"]["task_description"], "DS TASK")
             self.assertEqual(data["meta"]["dataset_file"], str(dataset_path))
+            self.assertEqual(data["meta"]["extra_criteria"], run_eval.EXTRA_CRITERIA)
+
+    def test_dataset_case_count_must_match_verdicts(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset_path = Path(d) / "ds.json"
+            _write_dataset(dataset_path, [r["test_case"] for r in _fixture_records()[:2]])
+            with self.assertRaises(ValueError) as ctx:
+                aggregate.aggregate(
+                    run_label="bad-count",
+                    verdicts_dir=VERDICTS_OK,
+                    dataset=str(dataset_path),
+                    runs_dir=str(Path(d) / "runs"),
+                )
+            self.assertIn("case count", str(ctx.exception))
+
+    def test_dataset_cases_must_match_verdict_test_cases(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset_path = Path(d) / "ds.json"
+            records = _fixture_records()
+            wrong_cases = [r["test_case"] for r in records]
+            wrong_cases[1] = dict(wrong_cases[1], scenario="wrong dataset")
+            _write_dataset(dataset_path, wrong_cases)
+            with self.assertRaises(ValueError) as ctx:
+                aggregate.aggregate(
+                    run_label="wrong-dataset",
+                    verdicts_dir=VERDICTS_OK,
+                    dataset=str(dataset_path),
+                    runs_dir=str(Path(d) / "runs"),
+                )
+            self.assertIn("does not match", str(ctx.exception))
 
 
 class TestCli(unittest.TestCase):

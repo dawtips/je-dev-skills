@@ -31,9 +31,9 @@ EXECUTION_MODE = "in_claude_code"
 
 # Interactive no-key path knobs. These are instructions for the SKILL.md
 # orchestration layer; Python never dispatches subagents directly.
-SUBAGENT_EXECUTOR_MODEL = "claude-sonnet-4-6"
+SUBAGENT_EXECUTOR_MODEL = "claude-haiku-4-5-20251001"
 SUBAGENT_JUDGE_MODEL = "claude-opus-4-8"
-SUBAGENT_EFFORT = "standard"
+SUBAGENT_EFFORT = "medium"
 
 # Max output tokens per framework LLM call (generation + grading).
 MAX_TOKENS = 2048

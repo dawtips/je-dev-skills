@@ -20,8 +20,9 @@ is at `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md` — consult §1
 ## When to use
 
 Use when a project needs prompt evaluation and `./evals` does not yet exist. If
-`./evals` already exists, do NOT clobber it — report what is present and stop
-(the project is already set up; point the user to `prompt-evals-create-dataset`).
+`./evals` already exists, do NOT clobber it — run the non-clobbering substrate
+update in Step 1, report what was added or still needs manual merge, then point
+the user to `prompt-evals-create-dataset`.
 
 ## Procedure
 

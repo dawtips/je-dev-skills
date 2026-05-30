@@ -69,17 +69,49 @@ def load_results(verdicts_dir: str | Path) -> list[dict]:
     return results
 
 
+def _load_dataset(dataset: str | Path) -> dict:
+    data = json.loads(Path(dataset).read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("cases"), list):
+        raise ValueError(f"{dataset}: expected a dataset with a top-level cases array")
+    return data
+
+
+def _validate_results_match_dataset(results: list[dict], dataset_data: dict) -> None:
+    cases = dataset_data["cases"]
+    if len(cases) != len(results):
+        raise ValueError(
+            f"dataset case count ({len(cases)}) does not match verdict count ({len(results)})"
+        )
+    for index, (case, result) in enumerate(zip(cases, results)):
+        if result["test_case"] != case:
+            raise ValueError(
+                f"verdict case-{index:02d} test_case does not match dataset case {index}"
+            )
+
+
+def _default_extra_criteria() -> str | None:
+    try:
+        from evals import run_eval
+    except Exception as exc:  # pragma: no cover - custom project run_eval may be unimportable
+        raise ValueError(
+            "could not load evals.run_eval.EXTRA_CRITERIA; pass --extra-criteria explicitly"
+        ) from exc
+    return getattr(run_eval, "EXTRA_CRITERIA", None)
+
+
 def _build_meta(
-    run_label: str, dataset: str | None, results: list[dict]
+    run_label: str,
+    dataset: str | None,
+    dataset_data: dict | None,
+    results: list[dict],
+    extra_criteria: str | None,
 ) -> dict:
     """Assemble report meta. Prefer the dataset's provenance; else harvest from the
     first verdict's test_case."""
     task_description = ""
     dataset_file = dataset or ""
-    if dataset:
-        provenance = json.loads(Path(dataset).read_text(encoding="utf-8")).get(
-            "provenance", {}
-        )
+    if dataset_data is not None:
+        provenance = dataset_data.get("provenance", {})
         task_description = provenance.get("task_description", "")
     elif results:
         task_description = results[0]["test_case"].get("task_description", "")
@@ -88,7 +120,7 @@ def _build_meta(
         "dataset_file": dataset_file,
         "judge_model": config.SUBAGENT_JUDGE_MODEL,
         "run_label": run_label,
-        "extra_criteria": None,
+        "extra_criteria": extra_criteria,
     }
 
 
@@ -98,11 +130,17 @@ def aggregate(
     verdicts_dir: str | Path,
     dataset: str | None = None,
     runs_dir: str = config.RUNS_DIR,
+    extra_criteria: str | None = None,
 ) -> str:
     """Assemble runs/<run_label>/{output.json,output.html}. Returns the run_dir path."""
     results = load_results(verdicts_dir)
+    dataset_data = _load_dataset(dataset) if dataset else None
+    if dataset_data is not None:
+        _validate_results_match_dataset(results, dataset_data)
     summary = summarize(results)
-    meta = _build_meta(run_label, dataset, results)
+    if extra_criteria is None:
+        extra_criteria = _default_extra_criteria()
+    meta = _build_meta(run_label, dataset, dataset_data, results, extra_criteria)
 
     out_dir = Path(runs_dir) / run_label
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -125,6 +163,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--runs-dir", default=config.RUNS_DIR, help="base runs dir (default config.RUNS_DIR)"
     )
+    parser.add_argument(
+        "--extra-criteria",
+        default=None,
+        help="optional criteria text to record in report meta; defaults to evals.run_eval.EXTRA_CRITERIA",
+    )
     args = parser.parse_args(argv)
     try:
         run_dir = aggregate(
@@ -132,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
             verdicts_dir=args.verdicts_dir,
             dataset=args.dataset,
             runs_dir=args.runs_dir,
+            extra_criteria=args.extra_criteria,
         )
     except (OSError, FileNotFoundError) as exc:
         print(f"ERROR: {exc}")
