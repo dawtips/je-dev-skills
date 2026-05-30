@@ -60,35 +60,21 @@ echo 'TODO: implement the side-effecting command'
 touch "$MARKER"
 ```
 
-## Rubric Gate Hook
+## Rubric Gate Script
 
-Rubric hooks are shell scripts under `.claude/hooks/` and are wired by
-`.claude/hooks.json`.
+Rubric gate scripts are shell scripts under `.claude/hooks/`. They are named by
+the generated command and invoked explicitly after
+`.agent-build-state/<rubric>.score` has been written.
 
 - Exit `0`: pass.
 - Exit `2`: block.
 - Score input: `.agent-build-state/<rubric>.score`.
-- Default event: `SubagentStop`, which must be verified against the current
-  Claude Code runtime before relying on it.
+- Project root: reads `CLAUDE_PROJECT_DIR` when present, otherwise current
+  working directory.
 
-The generated settings shape uses the documented command-hook nesting:
-
-```json
-{
-  "hooks": {
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/<name>-gate.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+The scaffolder does not auto-register project hooks. Current Claude Code project
+hooks are session/project-level lifecycle events; auto-wiring a score-file gate
+to `SubagentStop` can block before the parent workflow writes the score.
 
 ## Entry-Point Command
 
@@ -98,7 +84,7 @@ not a hidden executor. It lists steps in blueprint order:
 - Agentic step: dispatch the paired subagent.
 - Deterministic step: run the generated script.
 - Termination: stop when step termination or gates fail.
-- Gates: score-file names and thresholds.
+- Gates: score-file names, thresholds, and gate scripts to run.
 - Side effects: idempotency key, retry policy, and rollback note.
 - Nesting: one level deep only.
 

@@ -9,8 +9,8 @@ version: 0.1.0
 # Agent Build: Scaffold
 
 Render a validated workflow blueprint into Claude-Code-native artifacts:
-subagents, deterministic scripts, rubric gate hooks, `hooks.json`, and a single
-entry-point command.
+subagents, deterministic scripts, rubric gate scripts, and a single entry-point
+command.
 
 ## Preconditions
 
@@ -56,7 +56,6 @@ entry-point command.
    - `.claude/agents/<id>.md`
    - `.claude/scripts/<id>.sh`
    - `.claude/hooks/<name>-gate.sh`
-   - `.claude/hooks.json`
    - `.claude/commands/<workflow>.md`
 
 5. **Wire real content.**
@@ -69,13 +68,15 @@ entry-point command.
    `.gitignore` if it is not already ignored.
 
 7. **Hand off to run.** Use `agent-build-run` to drive the generated entry-point
-   command in-session.
+   command. If new `.claude/agents/*.md` files were written during the current
+   Claude Code session, restart Claude Code or reload agents before running so
+   the project subagents are discoverable.
 
 ## Definition Of Done
 
 - Dry-run warnings have been reviewed.
 - Artifacts are written under `.claude/`.
-- Generated scripts and hooks are executable.
+- Generated scripts and gate scripts are executable.
 - Agentic prompts and deterministic script bodies have been filled in.
 - `.agent-build-state/` is ignored by git.
 

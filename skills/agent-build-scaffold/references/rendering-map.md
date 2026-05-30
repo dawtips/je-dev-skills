@@ -16,7 +16,7 @@ runtime verification step before relying on volatile behavior.
 | `steps[].kind: deterministic` | `.claude/scripts/<id>.sh` | `render_step_script` | deterministic |
 | `steps[].kind: agentic` | paired `.claude/agents/<subagent-id>.md` | `render_subagent` | contained non-determinism |
 | subagent contract: `objective`, `output_format`, `tools`, `boundaries` | `tools` in frontmatter; the other three as body sections | `render_subagent` | declarative |
-| rubric `gate` | `.claude/hooks/<name>-gate.sh` plus `.claude/hooks.json` using default `SubagentStop` wiring and command-hook schema | `render_hook`, `render_hooks_json` | deterministic |
+| rubric `gate` | explicit gate script `.claude/hooks/<name>-gate.sh` named by the generated command | `render_hook` | deterministic |
 | side-effecting step | script with namespaced, sanitized `.agent-build-state/<step-id>-<safe-idempotency-key>.done` marker | `render_step_script` | deterministic guard |
 | reversible step | script rollback note | `render_step_script` | documentation only |
 | blueprint inputs | slash-command `argument-hint` | `render_entry_command` | deterministic |
@@ -32,7 +32,10 @@ runtime verification step before relying on volatile behavior.
    script candidates unless the blueprint gives a genuine judgment signal.
 3. Side-effecting markers are namespaced by step and sanitize runtime values
    before using them in paths.
-4. The generated command keeps orchestration one level deep. It may dispatch
+4. Gate scripts are invoked explicitly after a score file exists. They are not
+   auto-registered as project-wide Claude Code hooks because lifecycle hook
+   timing is too broad for per-workflow score files.
+5. The generated command keeps orchestration one level deep. It may dispatch
    generated subagents, but generated subagents must not dispatch nested agents.
 
 ## Not Rendered In This Cut

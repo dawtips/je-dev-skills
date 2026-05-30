@@ -34,10 +34,12 @@ runtime aliases and billing implications before running.
 
 ### Hook Event Names
 
-The scaffolder defaults rubric gates to `SubagentStop` and emits the documented
-command-hook nesting. Current Claude Code docs use exit code `2` for blocking
-policy hooks; verify event names and blocking semantics before treating the hook
-as a hard gate.
+Current Claude Code docs load project hooks from `.claude/settings.json` and use
+exit code `2` for blocking policy hooks. The scaffolder emits explicit gate
+scripts instead of auto-registering lifecycle hooks because project hook events
+are broader than a single generated workflow. Verify event names, configuration
+paths, and blocking semantics before converting generated gate scripts into
+automatic hooks.
 
 ### Task Or Agent Tool Naming
 

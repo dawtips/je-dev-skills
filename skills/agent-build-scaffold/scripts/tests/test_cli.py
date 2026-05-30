@@ -22,7 +22,8 @@ class TestCli(unittest.TestCase):
             self.assertIn(".claude/scripts/fetch-order.sh", rel)
             self.assertIn(".claude/scripts/issue-refund.sh", rel)
             self.assertIn(".claude/hooks/classification-accuracy-gate.sh", rel)
-            self.assertIn(".claude/hooks.json", rel)
+            self.assertNotIn(".claude/hooks.json", rel)
+            self.assertNotIn(".claude/settings.json", rel)
             self.assertIn(".claude/commands/refund-triage.md", rel)
 
     def test_main_dry_run_reports_warnings_and_writes_nothing(self):

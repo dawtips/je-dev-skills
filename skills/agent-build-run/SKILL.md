@@ -14,6 +14,8 @@ the current Claude Code session.
 ## Preconditions
 
 - `agent-build-scaffold` has emitted `.claude/` artifacts.
+- Claude Code has been restarted or agents have been reloaded after writing new
+  `.claude/agents/*.md` files.
 - Generated scripts have real implementations, not `TODO` placeholders.
 - Generated subagents contain the real prompt content and complete boundaries.
 - `.agent-build-state/` is ignored by git.
@@ -33,8 +35,9 @@ the current Claude Code session.
      subagents.
 
 3. **Honor gates.** When a step produces a rubric score, write it to
-   `.agent-build-state/<rubric>.score`, then let the generated hook semantics
-   block or pass according to the gate threshold.
+   `.agent-build-state/<rubric>.score`, then run the generated gate script named
+   in the command. Exit `0` passes; exit `2` blocks and requires follow-up before
+   continuing.
 
 4. **Honor loops and termination.** Continue only while the command's termination
    text says work remains and all gates pass. Stop on failed scripts, failed
