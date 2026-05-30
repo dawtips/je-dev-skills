@@ -22,9 +22,9 @@ target project.
 
 ### Subagent Frontmatter
 
-The generated subagent uses `name`, `model`, and `tools` frontmatter. Verify the
-current frontmatter schema in the Claude Code subagents documentation before
-using generated files in a new runtime version.
+The generated subagent uses `name`, `description`, `model`, and `tools`
+frontmatter. Current Claude Code subagent docs require `name` and `description`;
+verify the full schema before using generated files in a new runtime version.
 
 ### Model And Effort Names
 
@@ -34,9 +34,10 @@ runtime aliases and billing implications before running.
 
 ### Hook Event Names
 
-The scaffolder defaults rubric gates to `SubagentStop`. Hook event names are
-runtime-specific and should be checked against the current Claude Code hooks
-documentation before treating the hook as a hard gate.
+The scaffolder defaults rubric gates to `SubagentStop` and emits the documented
+command-hook nesting. Current Claude Code docs use exit code `2` for blocking
+policy hooks; verify event names and blocking semantics before treating the hook
+as a hard gate.
 
 ### Task Or Agent Tool Naming
 

@@ -16,7 +16,7 @@ runtime verification step before relying on volatile behavior.
 | `steps[].kind: deterministic` | `.claude/scripts/<id>.sh` | `render_step_script` | deterministic |
 | `steps[].kind: agentic` | paired `.claude/agents/<subagent-id>.md` | `render_subagent` | contained non-determinism |
 | subagent contract: `objective`, `output_format`, `tools`, `boundaries` | `tools` in frontmatter; the other three as body sections | `render_subagent` | declarative |
-| rubric `gate` | `.claude/hooks/<name>-gate.sh` plus `.claude/hooks.json` using default `SubagentStop` wiring | `render_hook`, `render_hooks_json` | deterministic |
+| rubric `gate` | `.claude/hooks/<name>-gate.sh` plus `.claude/hooks.json` using default `SubagentStop` wiring and command-hook schema | `render_hook`, `render_hooks_json` | deterministic |
 | side-effecting step | script with `.agent-build-state/<idempotency-key>.done` marker | `render_step_script` | deterministic guard |
 | reversible step | script rollback note | `render_step_script` | documentation only |
 | blueprint inputs | slash-command `argument-hint` | `render_entry_command` | deterministic |

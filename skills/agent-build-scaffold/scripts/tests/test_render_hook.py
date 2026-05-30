@@ -13,9 +13,10 @@ class TestRenderHook(unittest.TestCase):
         hook = render_hook(bp["rubrics"][0])
         self.assertTrue(hook.startswith("#!/usr/bin/env bash\nset -euo pipefail\n"))
         self.assertIn("classification-accuracy", hook)
-        self.assertIn("Exit 0 = pass, exit 1 = block", hook)
+        self.assertIn("Exit 0 = pass, exit 2 = block", hook)
         self.assertIn('SCORE_FILE=".agent-build-state/classification-accuracy.score"', hook)
         self.assertIn('if [ "$SCORE" -lt "4" ]; then', hook)
+        self.assertIn("exit 2", hook)
 
     def test_render_hooks_json_wires_default_subagent_stop_event(self):
         bp = load_blueprint(os.path.join(FIXTURES, "refund-triage.blueprint.md"))
@@ -23,9 +24,10 @@ class TestRenderHook(unittest.TestCase):
         self.assertIn("hooks", payload)
         self.assertIn("SubagentStop", payload["hooks"])
         self.assertEqual(
-            payload["hooks"]["SubagentStop"][0]["command"],
-            ".claude/hooks/classification-accuracy-gate.sh",
+            payload["hooks"]["SubagentStop"][0]["hooks"][0]["command"],
+            "$CLAUDE_PROJECT_DIR/.claude/hooks/classification-accuracy-gate.sh",
         )
+        self.assertEqual(payload["hooks"]["SubagentStop"][0]["hooks"][0]["type"], "command")
 
     def test_hook_filename_slugifies_name(self):
         self.assertEqual(

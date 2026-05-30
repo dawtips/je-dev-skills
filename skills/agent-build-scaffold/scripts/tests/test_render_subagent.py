@@ -12,6 +12,7 @@ class TestRenderSubagent(unittest.TestCase):
         text = render_subagent(bp["subagents"][0])
         self.assertTrue(text.startswith("---\n"))
         self.assertIn("name: reason-classifier", text)
+        self.assertIn("description: Handles the reason-classifier step for the scaffolded workflow", text)
         self.assertIn("model: haiku", text)
         self.assertIn("tools: Read", text)
         frontmatter = text.split("---", 2)[1]
