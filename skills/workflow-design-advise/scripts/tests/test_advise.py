@@ -90,6 +90,17 @@ class TestMalformedBlueprint(unittest.TestCase):
         with self.assertRaises(AdviceInputError):
             advise_blueprint({"subagents": 5})
 
+    def test_falsy_non_list_container_is_rejected_not_silently_empty(self):
+        # {} / 0 / '' must not collapse to [] and be silently accepted.
+        for bad in ({"steps": {}}, {"steps": 0}, {"subagents": ""}):
+            with self.assertRaises(AdviceInputError):
+                advise_blueprint(bad)
+
+    def test_absent_containers_are_fine(self):
+        # A None/absent steps or subagents key is legitimately empty, not an error.
+        self.assertEqual(advise_blueprint({"steps": None, "subagents": None}), [])
+        self.assertEqual(advise_blueprint({}), [])
+
 
 class TestBudgetWiring(unittest.TestCase):
     def setUp(self):

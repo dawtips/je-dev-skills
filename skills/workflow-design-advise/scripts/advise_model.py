@@ -230,7 +230,9 @@ def advise_blueprint(bp: dict, budget_pressure: str = "low") -> list[Recommendat
     """
     recs: list[Recommendation] = []
 
-    steps = bp.get("steps") or []
+    steps = bp.get("steps")
+    if steps is None:
+        steps = []
     if not isinstance(steps, list):
         raise AdviceInputError(f"steps must be a list, got {type(steps).__name__}")
     for i, step in enumerate(steps):
@@ -251,7 +253,9 @@ def advise_blueprint(bp: dict, budget_pressure: str = "low") -> list[Recommendat
             needs_review=needs_review,
         ))
 
-    subagents = bp.get("subagents") or []
+    subagents = bp.get("subagents")
+    if subagents is None:
+        subagents = []
     if not isinstance(subagents, list):
         raise AdviceInputError(
             f"subagents must be a list, got {type(subagents).__name__}")
