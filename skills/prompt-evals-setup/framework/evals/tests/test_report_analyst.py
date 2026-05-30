@@ -27,6 +27,16 @@ class TestReportAnalysis(unittest.TestCase):
         self.assertEqual(delta["movers"]["worst"]["case"], "easy")
         self.assertEqual(delta["movers"]["worst"]["delta"], 0)
 
+    def test_non_negative_deltas_do_not_render_regression_label(self):
+        baseline = run(7.0, 50.0, 1, [("easy", 8), ("hard", 6)], label="base")
+        current = run(8.0, 100.0, 2, [("easy", 8), ("hard", 9)], label="current")
+
+        analysis = build_report_analysis(current, baseline=baseline, variance_runs=[])
+        md = render_markdown(analysis)
+
+        self.assertIn("Biggest improvement: hard (+3).", md)
+        self.assertNotIn("Biggest regression", md)
+
     def test_variance_calls_core_and_surfaces_regression_band(self):
         runs = [
             run(9.0, 100.0, 2, [("stable", 8), ("flaky", 10)], label="k00"),

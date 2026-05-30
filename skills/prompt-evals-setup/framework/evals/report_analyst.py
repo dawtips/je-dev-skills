@@ -94,9 +94,9 @@ def render_markdown(analysis: dict) -> str:
         )
         best = delta["movers"]["best"]
         worst = delta["movers"]["worst"]
-        if best is not None:
+        if best is not None and best["delta"] > 0:
             lines.append(f"- Biggest improvement: {best['case']} ({best['delta']:+}).")
-        if worst is not None:
+        if worst is not None and worst["delta"] < 0:
             lines.append(f"- Biggest regression: {worst['case']} ({worst['delta']:+}).")
     else:
         lines.append(f"- {delta['note']}")
