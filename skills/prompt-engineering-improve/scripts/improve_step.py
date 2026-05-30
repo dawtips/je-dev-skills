@@ -8,6 +8,9 @@ argmax, tally, freeze-check, or serialization is done by the SKILL prose - only 
 CLI:
     python3 improve_step.py --output-json <path> --loop-state <path> \
         [--delta-out <path>] [--check-freeze]
+    python3 improve_step.py --loop-state <path> --check-freeze
+    python3 improve_step.py --loop-state <path> --final-report-out <path> \
+        [--held-out-output-json <path>] [--check-freeze]
 
 Exit codes: 0 = continue; 1 = stop (a stopping rule fired); 2 = bad input /
 freeze violation. Mirrors workflow-design-validate/scripts/validate_blueprint.py.
@@ -345,12 +348,38 @@ def main(argv: list[str] | None = None) -> int:
                         help="assert EXTRA_CRITERIA hash unchanged before emitting")
     args = parser.parse_args(argv)
 
+    if args.final_report_out is None and args.output_json is None and args.check_freeze:
+        try:
+            state = load_loop_state(args.loop_state)
+            assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
+                          current_text=extra_criteria_text(state=state))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        except FreezeViolation as exc:
+            print(f"FREEZE VIOLATION: {exc}")
+            return 2
+        print("freeze check: ok")
+        return 0
+
     if args.final_report_out is not None:
         try:
             state = load_loop_state(args.loop_state)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             print(f"ERROR: {exc}")
             return 2
+        try:
+            report = build_final_report(state=state)
+        except (ValueError, TypeError, KeyError) as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        if report["held_out_run_count"] > 0:
+            if not args.check_freeze:
+                print("ERROR: --check-freeze is required when held_out.run_count > 0")
+                return 2
+            if args.held_out_output_json is None:
+                print("ERROR: --held-out-output-json is required when held_out.run_count > 0")
+                return 2
         if args.check_freeze:
             try:
                 held_out_output = (
@@ -367,10 +396,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"FREEZE VIOLATION: {exc}")
                 return 2
         try:
-            report = build_final_report(state=state)
             with open(args.final_report_out, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
+        except OSError as exc:
             print(f"ERROR: {exc}")
             return 2
         print(f"best version: {report['best_version']}")

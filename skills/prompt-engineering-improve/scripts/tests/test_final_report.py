@@ -52,6 +52,7 @@ class TestFinalReport(unittest.TestCase):
             rc = main([
                 "--loop-state", loopstate,
                 "--final-report-out", out,
+                "--held-out-output-json", os.path.join(FIXTURES, "round01_output.json"),
                 "--check-freeze",
             ])
             self.assertEqual(rc, 0)  # finalize success -> exit 0
@@ -61,6 +62,16 @@ class TestFinalReport(unittest.TestCase):
         self.assertEqual(report["held_out_run_count"], 1)
         self.assertIn("extra_criteria_hash", report)
         self.assertIn("params", report)
+
+    def test_cli_finalize_requires_held_out_output_when_held_out_ran(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _state_with_hash("loopstate_final.json", d)
+            rc = main([
+                "--loop-state", loopstate,
+                "--final-report-out", os.path.join(d, "final-report.json"),
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 2)
 
     def test_cli_finalize_checks_held_out_output_extra_criteria(self):
         with tempfile.TemporaryDirectory() as d:
@@ -76,6 +87,30 @@ class TestFinalReport(unittest.TestCase):
                 "--loop-state", loopstate,
                 "--final-report-out", os.path.join(d, "final-report.json"),
                 "--held-out-output-json", held_out_path,
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 2)
+
+    def test_cli_freeze_check_only_passes(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _state_with_hash("loopstate_final.json", d)
+            rc = main([
+                "--loop-state", loopstate,
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 0)
+
+    def test_cli_freeze_check_only_violation_exits_two(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(FIXTURES, "loopstate_final.json")
+            with open(src, encoding="utf-8") as f:
+                st = json.load(f)
+            st["extra_criteria_hash"] = extra_criteria_hash("a DIFFERENT frozen value")
+            loopstate = os.path.join(d, "loopstate.json")
+            with open(loopstate, "w", encoding="utf-8") as f:
+                json.dump(st, f)
+            rc = main([
+                "--loop-state", loopstate,
                 "--check-freeze",
             ])
             self.assertEqual(rc, 2)

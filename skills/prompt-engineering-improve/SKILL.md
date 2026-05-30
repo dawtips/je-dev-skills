@@ -138,8 +138,15 @@ the helper reports the first by priority and you keep the **best** version.
 
 After the loop, run **once** against a separate, **independent** held-out dataset (distinct
 scenarios - not a near-duplicate). Never use it for diagnosis/rewrite/selection. Before
-any held-out run, `EXTRA_CRITERIA` is **frozen** - run `improve_step.py --check-freeze`
-(exit 2 = violation -> the held-out claim is forfeit; regenerate a held-out set). Record
+any held-out run, `EXTRA_CRITERIA` is **frozen** - run:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/scripts/improve_step.py \
+  --loop-state evals/improve/<name>/<timestamp>/loop-state.json \
+  --check-freeze
+```
+
+Exit 2 means violation -> the held-out claim is forfeit; regenerate a held-out set. Record
 `held_out_run_count` (must stay <= 1) in the final report. Absent held-out set -> mark
 final validation **skipped, not failed**.
 
