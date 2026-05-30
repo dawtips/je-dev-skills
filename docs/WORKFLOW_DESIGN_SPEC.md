@@ -332,15 +332,10 @@ Each elicited requirement maps onto blueprint elements:
 
 ## 9. v0.2+ roadmap (non-goals for v0.1)
 
-- **LLM design-review — SPECCED as v0.2** in
-  [WORKFLOW_DESIGN_REVIEW_SPEC.md](WORKFLOW_DESIGN_REVIEW_SPEC.md). A semantic-quality
-  judge that advises on what structure cannot see: determinism *misclassification*,
-  over-engineering smell (the "50 subagents for a simple query" failure mode), vacuous
-  rationales, non-discriminating rubric levels, cop-out `n/a`s, and internal
-  inconsistency. Refined during design into a **separate `workflow-design-review`
-  skill** (not a mode of `validate`) so the offline-deterministic gate and the
-  online-LLM advisor keep clean, separate dependency boundaries. Advisory — it never
-  replaces the deterministic gate.
+- `workflow-design-review` is specified in
+  [WORKFLOW_DESIGN_REVIEW_SPEC.md](WORKFLOW_DESIGN_REVIEW_SPEC.md) and implemented
+  as the v0.2 advisory semantic review skill. It runs after deterministic
+  validation and writes a scored `.review.md` report next to the blueprint.
 - **`workflow-design-scaffold` (v0.3+)** — render the Claude-Code layer of a validated
   blueprint into actual skill / subagent / script files. The most volatile surface
   (Claude Code internals churn), deferred deliberately.
