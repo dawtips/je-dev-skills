@@ -211,9 +211,12 @@ def derive_signals_for_subagent(subagent: dict) -> tuple[TaskSignals, bool]:
 
 
 def _agreement(cur_model: Any, cur_effort: Any, rec_model: str, rec_effort: str) -> bool | None:
-    # 'inherit' and unset (missing) values are deliberate/undecided, not a
-    # disagreement -- treat both as None so --strict does not fail on them.
-    if cur_model == "inherit" or cur_model is None or cur_effort is None:
+    # Undecided (None, not a disagreement) only when 'inherit' or NOTHING is
+    # chosen yet. A half-specified entry (one field set) is still compared, so a
+    # wrong-but-partial choice (e.g. model=haiku, no effort) trips --strict.
+    if cur_model == "inherit":
+        return None
+    if cur_model is None and cur_effort is None:
         return None
     return cur_model == rec_model and cur_effort == rec_effort
 
@@ -227,7 +230,10 @@ def advise_blueprint(bp: dict, budget_pressure: str = "low") -> list[Recommendat
     """
     recs: list[Recommendation] = []
 
-    for i, step in enumerate(bp.get("steps") or []):
+    steps = bp.get("steps") or []
+    if not isinstance(steps, list):
+        raise AdviceInputError(f"steps must be a list, got {type(steps).__name__}")
+    for i, step in enumerate(steps):
         if not isinstance(step, dict):
             raise AdviceInputError(
                 f"steps[{i}] must be a mapping, got {type(step).__name__}")
@@ -245,7 +251,11 @@ def advise_blueprint(bp: dict, budget_pressure: str = "low") -> list[Recommendat
             needs_review=needs_review,
         ))
 
-    for i, sub in enumerate(bp.get("subagents") or []):
+    subagents = bp.get("subagents") or []
+    if not isinstance(subagents, list):
+        raise AdviceInputError(
+            f"subagents must be a list, got {type(subagents).__name__}")
+    for i, sub in enumerate(subagents):
         if not isinstance(sub, dict):
             raise AdviceInputError(
                 f"subagents[{i}] must be a mapping, got {type(sub).__name__}")
@@ -282,13 +292,15 @@ def render_report(recs: list[Recommendation], blueprint_name: str, date: str) ->
         if r.target_kind != "subagent" or (r.current_model is None and r.current_effort is None):
             current = "—"
         else:
-            current = f"{r.current_model}/{r.current_effort}"
+            current = f"{r.current_model or '—'}/{r.current_effort or '—'}"
         if r.agrees is True:
             agree = "yes"
         elif r.agrees is False:
             agree = "NO"
-        elif r.target_kind == "subagent":
+        elif r.current_model == "inherit":
             agree = "inherit?"
+        elif r.target_kind == "subagent":
+            agree = "unset?"
         else:
             agree = "—"
         review = "!" if r.needs_review else ""

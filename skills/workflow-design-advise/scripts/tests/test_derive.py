@@ -33,9 +33,19 @@ class TestDeriveStep(unittest.TestCase):
         self.assertEqual(signals, TaskSignals("moderate", "moderate", "step"))
         self.assertTrue(needs_review)
 
-    def test_all_known_patterns_match_the_constant(self):
-        # Pins every STEP_PATTERN_SIGNALS row (chain/evaluate/parallelize too).
-        for pattern, (difficulty, breadth, role) in STEP_PATTERN_SIGNALS.items():
+    def test_every_known_pattern_maps_to_its_guideline_signals(self):
+        # Literal expectations independent of STEP_PATTERN_SIGNALS, so an edit to
+        # a row that contradicts model-selection.md fails here (not tautological).
+        expected = {
+            "route": ("easy", "narrow", "step"),
+            "chain": ("moderate", "moderate", "step"),
+            "evaluate": ("moderate", "moderate", "step"),
+            "parallelize": ("moderate", "broad", "step"),
+            "orchestrate": ("hard", "broad", "orchestrator"),
+        }
+        # Catch any added/removed pattern too.
+        self.assertEqual(set(STEP_PATTERN_SIGNALS), set(expected))
+        for pattern, (difficulty, breadth, role) in expected.items():
             signals, needs_review = derive_signals_for_step(
                 {"id": pattern, "kind": "agentic", "pattern": pattern})
             self.assertEqual(signals, TaskSignals(difficulty, breadth, role), pattern)

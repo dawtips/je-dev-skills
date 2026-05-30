@@ -44,6 +44,21 @@ class TestReport(unittest.TestCase):
         self.assertIn("inherit?", out)
         self.assertIn("yes", out)
 
+    def test_partial_subagent_does_not_leak_none_or_mislabel_inherit(self):
+        # model set (wrong) but no effort: must not render literal 'None' nor
+        # claim 'inherit?'; it is a real disagreement.
+        bp = {"subagents": [{"id": "w", "tools": ["a", "b"], "model": "haiku"}]}
+        out = render_report(advise_blueprint(bp), "x.blueprint.md", "2026-05-30")
+        self.assertNotIn("None", out)
+        self.assertNotIn("inherit?", out)
+        self.assertIn("NO", out)
+
+    def test_fully_unset_subagent_labeled_unset_not_inherit(self):
+        bp = {"subagents": [{"id": "w", "tools": ["a", "b"]}]}
+        out = render_report(advise_blueprint(bp), "x.blueprint.md", "2026-05-30")
+        self.assertNotIn("inherit?", out)
+        self.assertIn("unset?", out)
+
 
 if __name__ == "__main__":
     unittest.main()

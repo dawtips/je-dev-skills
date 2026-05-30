@@ -65,6 +65,12 @@ class TestAgreement(unittest.TestCase):
         self.assertEqual(rec.recommended_model, "sonnet")
         self.assertFalse(rec.agrees)    # effort low != medium
 
+    def test_half_specified_wrong_model_still_disagrees(self):
+        # One field set WRONG + the other absent must NOT be excused as undecided.
+        bp = {"subagents": [{"id": "w", "tools": ["a", "b"], "model": "haiku"}]}
+        rec = advise_blueprint(bp)[0]   # recommends sonnet/medium
+        self.assertFalse(rec.agrees)    # haiku != sonnet, so it disagrees
+
 
 class TestMalformedBlueprint(unittest.TestCase):
     def test_non_dict_step_raises_input_error(self):
@@ -74,6 +80,15 @@ class TestMalformedBlueprint(unittest.TestCase):
     def test_non_dict_subagent_raises_input_error(self):
         with self.assertRaises(AdviceInputError):
             advise_blueprint({"subagents": ["oops"]})
+
+    def test_non_list_steps_container_raises_input_error(self):
+        # A string/scalar container must not crash via enumerate(); exit cleanly.
+        with self.assertRaises(AdviceInputError):
+            advise_blueprint({"steps": "notalist"})
+
+    def test_scalar_subagents_container_raises_input_error(self):
+        with self.assertRaises(AdviceInputError):
+            advise_blueprint({"subagents": 5})
 
 
 class TestBudgetWiring(unittest.TestCase):
