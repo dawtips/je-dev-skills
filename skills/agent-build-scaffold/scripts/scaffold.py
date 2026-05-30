@@ -83,3 +83,43 @@ def render_step_script(step: dict) -> str:
         lines.append("echo 'TODO: implement this deterministic step'")
 
     return "\n".join(lines) + "\n"
+
+
+def subagent_filename(subagent: dict) -> str:
+    return f"{slugify(str(subagent.get('id', 'agent')))}.md"
+
+
+def _frontmatter_list(values) -> str:
+    if isinstance(values, list):
+        return ", ".join(str(v) for v in values)
+    return str(values)
+
+
+def render_subagent(subagent: dict) -> str:
+    agent_id = str(subagent.get("id", "agent"))
+    model = str(subagent.get("model", "inherit"))
+    tools = _frontmatter_list(subagent.get("tools", []))
+    effort = str(subagent.get("effort", "inherit"))
+    return "\n".join([
+        "---",
+        f"name: {slugify(agent_id)}",
+        f"model: {model}",
+        f"tools: {tools}",
+        "---",
+        "",
+        f"# {agent_id}",
+        "",
+        "## Objective",
+        str(subagent.get("objective", "")).strip(),
+        "",
+        "## Output Format",
+        str(subagent.get("output_format", "")).strip(),
+        "",
+        "## Boundaries",
+        str(subagent.get("boundaries", "")).strip(),
+        "",
+        "## Notes",
+        f"- Recommended effort: {effort} (non-contract; tune per the live runtime).",
+        "- Keep this subagent one level deep; do not dispatch nested subagents.",
+        "",
+    ])
