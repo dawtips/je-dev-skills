@@ -182,3 +182,45 @@ def render_hooks_json(rubrics: list[dict]) -> str:
         if rubric.get("gate") is not None
     ]
     return json.dumps({"hooks": {"SubagentStop": commands}}, indent=2) + "\n"
+
+
+def render_entry_command(bp: dict, workflow_name: str) -> str:
+    inputs = bp.get("inputs") or []
+    input_hint = " ".join(f"<{item.get('key', 'input')}>" for item in inputs) or "<inputs>"
+    subagents = list(bp.get("subagents") or [])
+    agentic_index = 0
+    lines = [
+        "---",
+        f"description: Run the {workflow_name} agent workflow",
+        f"argument-hint: {input_hint}",
+        "---",
+        "",
+        f"# {workflow_name}",
+        "",
+        "## Execution Rules",
+        "",
+        "- Dispatch agentic steps one level deep only; do not nest subagent calls.",
+        "- Run deterministic steps through their generated scripts.",
+        "- Stop on failed scripts, failed gates, or violated termination conditions.",
+        "",
+        "## Steps",
+        "",
+    ]
+    for index, step in enumerate(bp.get("steps") or [], start=1):
+        step_id = str(step.get("id", f"step-{index}"))
+        if step.get("kind") == AGENTIC:
+            if agentic_index >= len(subagents):
+                raise ScaffoldError(f"agentic step {step_id!r} has no paired subagent")
+            subagent = subagents[agentic_index]
+            agentic_index += 1
+            lines.append(
+                f"{index}. `{step_id}` - dispatch subagent `{subagent.get('id')}`."
+            )
+            if step.get("termination"):
+                lines.append(f"   Termination: {step['termination']}")
+        else:
+            lines.append(
+                f"{index}. `{step_id}` - run script `.claude/scripts/{step_script_filename(step)}`."
+            )
+        lines.append("")
+    return "\n".join(lines)
