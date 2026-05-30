@@ -64,18 +64,29 @@ Open the newest `evals/runs/<timestamp>/output.html`:
 `output.json` holds the full record; each result's `verdict` field carries the
 judge's `strengths`/`weaknesses` — the most useful signal for *why* a case scored low.
 
-### 4. Diagnose and iterate
+### 4. Diagnose (single pass) and choose the next move
 
-- **Low scores from real output flaws** → fix the prompt/agent and re-run against the
-  **same** dataset. Compare `output.json` across runs to confirm improvement.
-- **Low scores from bad criteria** (off-scope, subjective) → the dataset is the
-  problem, not the prompt. Fix via `/je-dev-skills:prompt-evals-create-dataset` (audit step).
-- **Mandatory-criterion failures** cap a score at ≤ 3 — check `extra_criteria` first
-  when scores cluster low.
+This is a **single-pass** diagnosis - "here's what's wrong; fix and re-run, **or invoke
+`/je-dev-skills:prompt-engineering-improve` to automate the multi-round loop**." The
+multi-round loop, stopping rules, and version selection belong to
+`prompt-engineering-improve`, not here.
+Use `prompt-engineering-improve to automate` when the user wants the measured loop.
+
+Read the shared diagnosis reference:
+`${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/references/diagnosis.md`. It is
+the single home for the **criteria-vs-prompt guard** and the **mandatory-criterion-first**
+rule, and it maps failure themes -> technique rungs. Use it to decide:
+
+- **Real output flaws** (the prompt omitted instructions, ignored a stated format, or
+  failed a recurring reasoning step) -> fix the prompt and re-run against the **same**
+  dataset; or hand off to `prompt-engineering-improve` for a measured loop.
+- **Bad criteria** (off-scope, demands unstated content/style, needs hidden knowledge) ->
+  the dataset is the problem; fix via `/je-dev-skills:prompt-evals-create-dataset`.
+- **Mandatory-criterion failures** cap a score at <= 3 - check `extra_criteria` first when
+  scores cluster low.
 
 Beware judge/executor leakage: keep `JUDGE_MODEL` strong and **distinct** from
-`EXECUTOR_MODEL`. For higher confidence on close calls, run multiple times or widen
-the dataset.
+`EXECUTOR_MODEL`. For higher confidence on close calls, widen the dataset.
 
 ## Definition of done
 
