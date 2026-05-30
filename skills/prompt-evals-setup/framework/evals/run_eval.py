@@ -1,20 +1,36 @@
 """Real entrypoint: generate a dataset once, then evaluate against it.
 
-Prerequisites:
+Two execution modes, selected by config.EXECUTION_MODE:
+
+  "in_claude_code" (default, NO API key): measurement is driven by the
+      prompt-evals-run skill (it dispatches an execute- and a grade-subagent per
+      case, writes per-case verdict JSONs, then runs `python -m evals.aggregate`).
+      A synchronous Python function cannot dispatch a subagent, so the `evaluate`
+      command here prints that guidance and exits non-zero in this mode.
+
+  "anthropic_api" (keyed headless/CI fallback): the `evaluate` command runs
+      PromptEvaluator.run_evaluation in-process with AnthropicClient. Requires
+      ANTHROPIC_API_KEY (name in config.API_KEY_ENV) and supports agentic Trajectory.
+
+Prerequisites for the keyed path:
     pip install -r evals/requirements.txt
     export ANTHROPIC_API_KEY=sk-...
 
 Usage:
-    python -m evals.run_eval generate    # build + freeze the dataset (one-time)
-    python -m evals.run_eval evaluate    # run the prompt under test + grade
+    python -m evals.run_eval generate                 # build + freeze the dataset (one-time)
+    python -m evals.run_eval evaluate [run_label]     # keyed-mode only; see EXECUTION_MODE
 
-Copy this file per project and edit TASK / SPEC / run_prompt / EXTRA_CRITERIA.
+Copy this file per project and edit TASK / PROMPT_INPUTS_SPEC / the prompt file /
+EXTRA_CRITERIA. The prompt TEXT is a file (PROMPT_FILE), not a Python string.
 """
 
 import sys
+from pathlib import Path
 
 from evals import config
 from evals.evaluator import AnthropicClient, PromptEvaluator
+from evals.evaluator.templates import render
+from evals.promptprep import check_placeholders
 
 # --- 1. Describe the task and its closed input set ---------------------------
 TASK = "Write a compact 1-day meal plan for one athlete."
@@ -30,36 +46,28 @@ PROCESS_CRITERIA = None
 DATASET_FILE = f"{config.DATASETS_DIR}/meal_plan.json"
 NUM_CASES = 20
 
-# --- Loop parameters (prompt-engineering-improve) ----------------------------
-# The five loop params live HERE (not config.py) - the existing per-project edit
-# surface. improve_step.py reads them from the loop-state JSON it is handed and
-# stamps the resolved values into each delta.json + the final report.
-# pass_threshold is the one intentional reference back to config.PASS_THRESHOLD.
-LOOP_PARAMS = {
-    "pass_threshold": config.PASS_THRESHOLD,  # 7 - avg-score bar (referenced, not redefined)
-    "pass_rate_target": 0.80,                 # fraction of cases >= threshold to target
-    "max_rounds": 3,                          # hard cap on improvement rounds
-    "epsilon": 0.25,                          # min per-round avg gain that counts as progress
-    "diminishing_return_rounds": 2,           # consecutive sub-epsilon rounds before stopping
-    "regression_band": 0.5,                   # a round regresses only if > band below best
-}
+# The active prompt is a FILE (Layer 1), not a Python string. Each round writes a
+# candidate <name>.vN.md; the chosen candidate is copied into <name>.current.md
+# before measuring. run_prompt always renders <name>.current.md.
+PROMPT_FILE = f"{config.DATASETS_DIR}/../prompts_under_test/meal_plan.current.md"
 
 
-# --- 2. Define the prompt under test -----------------------------------------
+# --- 2. Define the prompt under test (KEYED PATH ONLY) -----------------------
 def run_prompt(prompt_inputs: dict) -> str:
-    """Build the prompt, call the model, return raw text.
+    """Render the file-backed prompt with the case inputs, call the model, return text.
 
-    For an AGENTIC system, return a Trajectory instead (see evals.evaluator.Trajectory).
+    Used ONLY on the keyed path (EXECUTION_MODE=anthropic_api). The no-key path
+    runs the prompt by subagent dispatch from the prompt-evals-run skill instead.
+
+    For an AGENTIC system, return a Trajectory (see evals.evaluator.Trajectory).
     """
+    template = Path(PROMPT_FILE).read_text(encoding="utf-8")
+    # Layer-2 glue: fail on a missing placeholder, warn on an unused input, before
+    # render()'s own KeyError backstop fires.
+    check_placeholders(template, prompt_inputs)
+    prompt = render(template, **prompt_inputs)
+
     executor = AnthropicClient(config.EXECUTOR_MODEL)
-    prompt = (
-        f"{TASK}\n\n"
-        f"Height: {prompt_inputs['height']}\n"
-        f"Weight: {prompt_inputs['weight']}\n"
-        f"Goal: {prompt_inputs['goal']}\n"
-    )
-    # Reuse the JSON client only for framework calls; here we want raw text, so
-    # call the SDK directly. Kept inline to keep this file copy-pasteable.
     resp = executor._client.messages.create(  # noqa: SLF001 (example convenience)
         model=executor.model,
         max_tokens=600,
@@ -76,15 +84,24 @@ def build_evaluator() -> PromptEvaluator:
     )
 
 
+_IN_CC_GUIDANCE = (
+    "EXECUTION_MODE=in_claude_code: 'evaluate' does not run in-process here.\n"
+    "A synchronous Python function cannot dispatch a subagent. Run the eval via the\n"
+    "prompt-evals-run skill, which dispatches an execute- and grade-subagent per case\n"
+    "(session auth, no API key), writes per-case verdict JSONs, then assembles the\n"
+    "report with:\n"
+    "    python -m evals.aggregate --run-label <label> --verdicts-dir <dir> --dataset "
+    f"{DATASET_FILE}\n"
+    "To run the keyed in-process loop instead, set EXECUTION_MODE='anthropic_api' in\n"
+    "evals/config.py and export your API key."
+)
+
+
 def main(argv: list[str]) -> int:
     command = argv[1] if len(argv) > 1 else "evaluate"
-    # Optional 3rd positional arg: a run_label so each improve round names its run dir
-    # deterministically (improve-<name>-round-NN). run_evaluation already accepts it.
-    run_label = argv[2] if len(argv) > 2 else None
-    evaluator = build_evaluator()
 
     if command == "generate":
-        evaluator.generate_dataset(
+        build_evaluator().generate_dataset(
             task_description=TASK,
             prompt_inputs_spec=PROMPT_INPUTS_SPEC,
             num_cases=NUM_CASES,
@@ -93,7 +110,11 @@ def main(argv: list[str]) -> int:
         return 0
 
     if command == "evaluate":
-        evaluator.run_evaluation(
+        if config.EXECUTION_MODE != "anthropic_api":
+            print(_IN_CC_GUIDANCE)
+            return 3  # non-zero: not an error, but no in-process run happened
+        run_label = argv[2] if len(argv) > 2 else None
+        build_evaluator().run_evaluation(
             run_function=run_prompt,
             dataset_file=DATASET_FILE,
             extra_criteria=EXTRA_CRITERIA,
