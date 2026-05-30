@@ -53,6 +53,11 @@ VERDICTS_DIR="evals/runs/_verdicts/$RUN_LABEL"
 mkdir -p "$VERDICTS_DIR"
 ```
 
+For no-key K-run variance, repeat the Path A case loop once per explicit label
+generated from `<group_label>__kNN`. Do not derive labels from wall-clock time. After
+the K runs exist, pass each `evals/runs/<group_label>__kNN/output.json` to
+`python3 -m evals.aggregate` using repeated `--variance-output` flags.
+
 ### 2. For each case: render, dispatch execute, run assertions, maybe dispatch grade, write a verdict JSON
 
 Read the dataset's `cases` array. For **each** case (index `i`):
@@ -202,10 +207,16 @@ Use when you need an unattended/CI run or agentic `Trajectory` grading.
    pip install -r evals/requirements.txt
    export ANTHROPIC_API_KEY=...      # name is in evals/config.py (API_KEY_ENV)
    python3 -m evals.run_eval evaluate <run_label>
+   python3 -m evals.run_eval evaluate-variance <group_label> <k>
    ```
 
    This makes `2 × num_cases` calls for a single-shot prompt (one execute + one
    grade per case) and writes `evals/runs/<run_label>/{output.json,output.html}`.
+
+   K-run variance multiplies cost by `K x (run + grade) x num_cases`. State that budget
+   to the user before launching. The labels are deterministic and explicit:
+   `<group_label>__k00`, `<group_label>__k01`, and so on. Use the resulting
+   `output.json` files as `--variance-output` inputs to the report analyst section.
 
 ## Definition of done
 

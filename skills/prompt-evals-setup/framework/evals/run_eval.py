@@ -17,13 +17,15 @@ Prerequisites for the keyed path:
     export ANTHROPIC_API_KEY=sk-...
 
 Usage:
-    python -m evals.run_eval generate                 # build + freeze the dataset (one-time)
-    python -m evals.run_eval evaluate [run_label]     # keyed-mode only; see EXECUTION_MODE
+    python -m evals.run_eval generate                         # build + freeze the dataset (one-time)
+    python -m evals.run_eval evaluate [run_label]             # keyed-mode only; see EXECUTION_MODE
+    python -m evals.run_eval evaluate-variance <group> <k>    # keyed-mode K-run variance
 
 Copy this file per project and edit TASK / PROMPT_INPUTS_SPEC / the prompt file /
 EXTRA_CRITERIA. The prompt TEXT is a file (PROMPT_FILE), not a Python string.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -32,6 +34,7 @@ from evals.evaluator import AnthropicClient, PromptEvaluator
 from evals.evaluator.templates import render
 from evals.live_run import run_evaluation as run_live_evaluation
 from evals.promptprep import check_placeholders
+from evals.variance_runner import run_k_variance
 
 # --- 1. Describe the task and its closed input set ---------------------------
 TASK = "Write a compact 1-day meal plan for one athlete."
@@ -145,7 +148,38 @@ def main(argv: list[str]) -> int:
         )
         return 0
 
-    print(f"unknown command: {command!r} (use 'generate' or 'evaluate')")
+    if command == "evaluate-variance":
+        if config.EXECUTION_MODE != "anthropic_api":
+            print(_IN_CC_GUIDANCE)
+            return 3
+        if len(argv) != 4:
+            print("usage: python -m evals.run_eval evaluate-variance <group_label> <k>")
+            return 2
+        group_label = argv[2]
+        k = int(argv[3])
+
+        def run_once(label: str) -> dict:
+            return run_live_evaluation(
+                judge_client=AnthropicClient(config.JUDGE_MODEL),
+                run_function=run_prompt,
+                dataset_file=DATASET_FILE,
+                extra_criteria=EXTRA_CRITERIA,
+                process_criteria=PROCESS_CRITERIA,
+                assertions=ASSERTIONS,
+                assertion_policy=ASSERTION_POLICY,
+                run_label=label,
+            )
+
+        variance = run_k_variance(
+            group_label=group_label,
+            k=k,
+            runs_dir=config.RUNS_DIR,
+            run_once=run_once,
+        )
+        print(json.dumps(variance, indent=2))
+        return 0
+
+    print(f"unknown command: {command!r} (use 'generate', 'evaluate', or 'evaluate-variance')")
     return 2
 
 
