@@ -3,7 +3,7 @@ name: prompt-evals-create-dataset
 description: This skill should be used when the user asks to "create an eval dataset", "generate test cases", "build a prompt eval dataset", "make eval scenarios", "define a task to evaluate", or wants to produce and freeze a dataset for prompt evaluation. It defines the task, input schema, and mandatory criteria, then generates and audits a frozen dataset using the project's ./evals framework.
 argument-hint: "[short name for the dataset, e.g. meal-plan]"
 allowed-tools: Bash, Read, Write, Edit, Glob
-version: 0.1.0
+version: 0.1.1
 ---
 
 # Create an eval dataset
@@ -62,8 +62,25 @@ timestamp, spec). Generation is one-time and the expensive step.
 
 ### 4. Audit the generated criteria (critical)
 
-Open the dataset and spot-check each case's `solution_criteria`. Bad criteria
-silently corrupt every downstream score. Apply the §7 standard:
+Run the deterministic audit over the frozen dataset:
+
+```bash
+python3 -m evals.criteria_audit evals/datasets/<name>.json
+```
+
+Interpret the exit code before continuing:
+
+- **exit `0`** — clean automated audit; still do the quick human spot-check below.
+- **exit `1`** — criteria/scenario issues were found. Read the printed findings,
+  then hand-edit the dataset or regenerate it. Re-run the audit until it exits `0`.
+- **exit `2`** — unreadable input or setup error. Fix the path, JSON, or framework
+  import problem before continuing.
+
+Do not hand off to `prompt-evals-run` while the audit exits `1` or `2`.
+
+After the command is clean, open the dataset and spot-check each case's
+`solution_criteria`. Bad criteria silently corrupt every downstream score. Apply
+the §7 standard:
 - **Good:** 1–4 concise, measurable, task-scoped checks ("Includes all topics mentioned").
 - **Bad:** long lists or subjective style ("engaging, creative, well-formatted").
 
@@ -78,7 +95,8 @@ Report the dataset path, case count, and a sample of criteria. Tell the user to 
 ## Definition of done
 
 - `evals/datasets/<name>.json` exists with `num_cases` cases and a provenance block.
-- Criteria audited: tight, measurable, task-scoped; scenarios are diverse.
+- `python3 -m evals.criteria_audit evals/datasets/<name>.json` exits `0`.
+- Criteria spot-check confirms they are tight, measurable, task-scoped; scenarios are diverse.
 - `prompt_inputs` keys match `prompt_inputs_spec` exactly (the framework validates
   this, but confirm values are realistic).
 
