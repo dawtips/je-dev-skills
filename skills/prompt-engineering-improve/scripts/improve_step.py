@@ -198,3 +198,23 @@ def diagnose_tally(results: list[dict]) -> dict:
         "mandatory_fail_pct": round(100.0 * mandatory / total, 1),
         "theme_pct": theme_pct,
     }
+
+
+class FreezeViolation(RuntimeError):
+    """Raised when EXTRA_CRITERIA changed after the freeze snapshot."""
+
+
+def extra_criteria_hash(text: str | None) -> str:
+    """SHA-256 of the stripped EXTRA_CRITERIA text. None -> hash of empty string."""
+    normalized = (text or "").strip().encode("utf-8")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+def assert_freeze(*, frozen_hash: str, current_text: str | None) -> str:
+    """Assert EXTRA_CRITERIA is unchanged vs. the loop-start snapshot."""
+    current = extra_criteria_hash(current_text)
+    if current != frozen_hash:
+        raise FreezeViolation(
+            f"EXTRA_CRITERIA changed during the loop (frozen {frozen_hash[:12]}..., "
+            f"now {current[:12]}...). Held-out claims are forfeit; regenerate a held-out set.")
+    return current
