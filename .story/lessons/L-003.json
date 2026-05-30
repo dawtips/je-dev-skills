@@ -1,0 +1,14 @@
+{
+  "content": "When a refactor changes where artifacts live but a downstream capability has ALREADY shipped against the old layout, retrofit by routing the new path through the existing entry point (the seam the shipped work hardened), not by building a second, parallel implementation. In je-dev-skills T-018, the plugin-resident artifact runner calls the existing live_run.run_evaluation with project-relative dataset_file/runs_dir, so assertion gating, K-run variance, and baseline run-delta were inherited verbatim with zero re-wiring and no capability regression. The tell that you have it right: the new default path is at least as capable as the legacy one, and the diff adds a thin front-end plus tests rather than duplicating logic. Also re-frame the spec to match reality: if the 'upstream' dependency already merged, say the work is a retrofit under it, not a precursor to it.",
+  "context": "Session 2026-05-30: T-018 (stop vendoring the eval framework; keep lightweight plugin-resident artifacts) landed AFTER the eval live-path tickets (T-013/T-014/T-019) had already merged against the vendored ./evals layout, inverting the spec's assumed dependency order. The original plan risked a parallel artifact runner that would silently drop the just-shipped assertions/variance/run-delta.",
+  "createdDate": "2026-05-30",
+  "id": "L-003",
+  "lastValidated": "2026-05-30",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": ["architecture", "refactor", "no-regression", "specs"],
+  "title": "Retrofit under an already-shipped seam by reusing its entry point",
+  "updatedDate": "2026-05-30"
+}

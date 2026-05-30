@@ -1,148 +1,126 @@
 ---
 name: prompt-evals-setup
-description: This skill should be used when the user asks to "set up prompt evals", "add prompt evaluation to this project", "instantiate the eval framework", "init prompt-eval", "scaffold evals", or wants to bootstrap LLM-graded prompt/agent evaluation in the current project. It vendors the bundled Python eval framework into ./evals, configures it, and verifies it offline.
+description: This skill should be used when the user asks to "set up prompt evals", "add prompt evaluation to this project", "init prompt-eval", "scaffold evals", or wants to bootstrap LLM-graded prompt/agent evaluation around a specific prompt. It scaffolds lightweight, plugin-resident eval artifacts (evals/<name>/eval.json, cases.json, runs/) in the target project — the shared runner/grader/reporting machinery stays in the plugin and is never copied in.
 argument-hint: "[target directory, defaults to current project root]"
 allowed-tools: Bash, Read, Write, Edit, Glob
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Set up prompt evals
 
-Instantiate the LLM-graded prompt/agent evaluation framework into the current
-project. This is the one-time `init` step. After it completes, use
-`prompt-evals-create-dataset` to build a dataset and `prompt-evals-run` to evaluate.
+Put evals **around a specific prompt** in the current project. This is the one-time
+`init` step: it scaffolds lightweight, project-owned artifacts and leaves the shared
+eval machinery in the plugin. After it completes, use `prompt-evals-create-dataset` to
+freeze a dataset and `prompt-evals-run` to evaluate.
 
-The framework is bundled with this skill at
-`${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals`. The full design
-is at `${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md` — consult §11
-(Bootstrap Procedure) while working.
+**Plugin-resident, not vendored.** The runner, grader, aggregation, and reporting code
+stay at `${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework` and read the
+project's artifacts — they are **not** copied into the project. The project owns only:
+
+```text
+prompts/planner.md                 # the prompt template under evaluation
+evals/planner/
+  eval.json                        # target mode, prompt ref/adapter, judge config
+  cases.json                       # frozen cases (created by prompt-evals-create-dataset)
+  runs/<label>/output.json|html    # generated run artifacts (gitignored)
+```
+
+The design contract is
+`${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/2026-05-30-prompt-evals-plugin-resident-architecture-spec.md`;
+the framework reference is
+`${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
 
 ## When to use
 
-Use when a project needs prompt evaluation and `./evals` does not yet exist. If
-`./evals` already exists, do NOT clobber it — run the non-clobbering substrate
-update in Step 1, report what was added or still needs manual merge, then point
-the user to `prompt-evals-create-dataset`.
+Use when a project needs evals around a prompt and `evals/<name>/` does not yet exist
+for that prompt. If a project already vendored a full `./evals` package from the old
+default, see **Migration** below instead of re-scaffolding over it.
 
 ## Procedure
 
-Follow these steps in order. Work from the target project root (the argument if
-given, else the current working directory).
+Work from the target project root (the argument if given, else `$PWD`).
 
-### 1. Determine the target and guard against clobbering
-
-Set `TARGET` to the skill argument if one was provided, otherwise the current
-project root (`$PWD`). Then check for an existing install:
+### 1. Determine the target and the prompt under test
 
 ```bash
 TARGET="$PWD"   # or the directory passed as the skill argument
-ls -la "$TARGET/evals" 2>/dev/null && echo "EXISTS" || echo "ABSENT"
+PE="${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework"
 ```
 
-If `evals/` already exists, do NOT clobber it. Instead, run the
-**non-clobbering substrate update**: copy in ONLY the substrate files that are
-missing or that the user has not customized, leaving `config.py`, `run_eval.py`,
-and any `prompts_under_test/*.md` the user edited untouched.
+Pick a short eval `NAME` (e.g. `planner`) and decide the target mode with the user:
+
+- **prompt-file** mode (default happy path): the project has a prompt template file
+  (e.g. `prompts/planner.md`) with `{placeholder}` variables; the runner renders it and
+  the run path grades the output.
+- **command-adapter** mode (escape hatch): the prompt logic is embedded in code; a
+  project command reads a case JSON on stdin and returns output JSON on stdout.
+
+For prompt-file mode, confirm the template file exists (create a stub with the user if
+not).
+
+### 2. Scaffold the artifacts (no framework copy)
+
+Call the plugin-resident `scaffold-artifact` command (which wraps
+`scaffold_eval_artifacts`). It creates `evals/<name>/eval.json` + `runs/.gitkeep` and
+adds the run-artifact `.gitignore` entry idempotently — and copies **no** framework
+code. Run it **from the framework dir with an absolute `$TARGET`** so the real `evals`
+package always resolves (a project `evals/` data dir never shadows it):
 
 ```bash
-SRC="${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals"
-# New top-level substrate modules: safe to add if absent (the framework owns them).
-for f in aggregate.py promptprep.py; do
-  [ -f "$TARGET/evals/$f" ] || cp "$SRC/$f" "$TARGET/evals/$f"
-done
-# New tests for the substrate.
-for f in tests/test_aggregate.py tests/test_promptprep.py; do
-  [ -f "$TARGET/evals/$f" ] || cp "$SRC/$f" "$TARGET/evals/$f"
-done
-cp -Rn "$SRC/tests/fixtures/." "$TARGET/evals/tests/fixtures/" 2>/dev/null || true
+# prompt-file mode (default): pass the project-root-relative prompt file.
+(cd "$PE" && python3 -m evals.run_eval scaffold-artifact "$TARGET" planner prompt_file prompts/planner.md)
+
+# command-adapter mode (escape hatch): pass the adapter argv as a JSON array.
+(cd "$PE" && python3 -m evals.run_eval scaffold-artifact "$TARGET" agent command_adapter '["python","run_agent.py"]')
 ```
 
-For `config.py` (the `EXECUTION_MODE` block) and `run_eval.py` (the file-backed +
-mode-aware changes), do NOT overwrite — these are user-editable. Show the user a diff
-against the bundled versions and let them merge the `EXECUTION_MODE`/subagent-knob
-constants and the mode-aware `main()` by hand if their copy predates the substrate.
-Then report what was added and stop.
+### 3. Review `eval.json`
 
-### 2. Copy the bundled framework into the project
+Open `evals/<name>/eval.json` and confirm with the user: the `target` block,
+`extra_criteria`, `assertions`/`assertion_policy`, and the `generation` block
+(`task_description`, `prompt_inputs_spec`, `num_cases`) that `prompt-evals-create-dataset`
+will use to freeze `cases.json`. Models/thresholds live in the plugin's `config.py`
+(read-only here); the per-eval judge knobs live in `eval.json`.
 
-Copy the whole `evals` package wholesale so Python imports (`from evals import ...`)
-resolve at the project root, then strip any stale compiled artifacts that may have
-been copied along:
+### 4. Verify the scaffold landed (offline, no API key)
 
 ```bash
-cp -R "${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals" "$TARGET/evals"
-find "$TARGET/evals" -name __pycache__ -type d -prune -exec rm -rf {} +
+test -f "$TARGET/evals/planner/eval.json" && echo "eval.json OK"
+test -f "$TARGET/evals/planner/runs/.gitkeep" && echo "runs/ kept"
+# The framework must NOT have been copied into the project:
+test ! -e "$TARGET/evals/evaluator" && echo "no framework copy (good)"
+grep -q "evals/\*/runs/\*" "$TARGET/.gitignore" && echo ".gitignore wired"
 ```
 
-Verify the tree landed: `evals/evaluator/`, `evals/prompts/`, `evals/config.py`,
-`evals/run_eval.py`, `evals/aggregate.py`, `evals/promptprep.py`, `evals/tests/`,
-`evals/examples/`, and the `.gitkeep` dirs `evals/datasets/`, `evals/runs/`, and
-`evals/prompts_under_test/`. `aggregate.py` (the no-key Path A report assembler) and
-`promptprep.py` (the prompt-prep glue) are part of the substrate — confirm both
-copied.
+The machinery's own offline suite is plugin-owned (run it from the framework, not the
+project): `(cd "$PE" && python3 -m unittest discover -s evals/tests -t .)`.
 
-### 3. Configure `evals/config.py`
+### 5. Report and hand off
 
-Read `evals/config.py` and confirm the provider/model/threshold settings with the
-user. Defaults target Anthropic Claude:
-- `GENERATOR_MODEL` (builds the dataset),
-- `EXECUTOR_MODEL` (default for the system under test),
-- `JUDGE_MODEL` (strong, and **distinct** from the executor to reduce self-grading bias),
-- `API_KEY_ENV` (default `ANTHROPIC_API_KEY`),
-- `PASS_THRESHOLD` (a case passes if score ≥ this; default 7).
+Confirm: artifacts scaffolded, `eval.json` reviewed, `.gitignore` wired, no framework
+copied. Next: `/je-dev-skills:prompt-evals-create-dataset` to freeze `cases.json`, then
+`/je-dev-skills:prompt-evals-run` to evaluate. Running keyed/headless later needs
+`pip install -r "$PE/evals/requirements.txt"` and the API key named by `config.API_KEY_ENV`.
 
-Edit only what the user wants changed. Keep the judge strong and distinct from the
-executor.
+## Migration (projects that vendored `./evals`)
 
-### 4. Wire `.gitignore`
-
-Ensure generated artifacts are ignored but the directories are kept. Append to the
-project `.gitignore` if these lines are absent:
-
-```
-evals/datasets/*
-!evals/datasets/.gitkeep
-evals/runs/*
-!evals/runs/.gitkeep
-__pycache__/
-*.pyc
-```
-
-### 5. Verify offline (no API key required)
-
-Run from the project root so `evals` is importable as the top-level package:
-
-```bash
-cd "$TARGET" && python3 -m unittest discover -s evals/tests -t .
-cd "$TARGET" && python3 -m evals.examples.smoke_test
-```
-
-Both must pass. The unit suite covers the pure logic; the smoke test runs the full
-generate → run → grade → report pipeline (single-shot AND agentic paths) with a
-fake client. Clean up the smoke artifacts afterward:
-
-```bash
-rm -f "$TARGET"/evals/datasets/smoke.json && rm -rf "$TARGET"/evals/runs/smoke-*
-```
-
-### 6. Report and hand off
-
-Confirm: framework vendored, config set, `.gitignore` updated, tests + smoke green.
-Tell the user the next step is `/je-dev-skills:prompt-evals-create-dataset` to build a
-dataset, then `/je-dev-skills:prompt-evals-run` to evaluate. To run for real later:
-`pip install -r evals/requirements.txt` and export the API key named by `API_KEY_ENV`.
+The old default copied the whole framework into `./evals`. Those projects keep working —
+the legacy `python -m evals.*` commands are unchanged. To migrate to the plugin-resident
+layout: keep your `evals/datasets/*.json` (rename to `evals/<name>/cases.json`) and your
+prompt file; scaffold `eval.json` per Step 2; then delete the vendored package
+(`evals/evaluator/`, `evals/run_eval.py`, etc.) so the single source of truth is the
+plugin. Do this only with the user's confirmation.
 
 ## Definition of done
 
-- `./evals` exists with the full package.
-- `evals/config.py` reviewed/edited with the user.
-- `.gitignore` ignores `evals/datasets/*` and `evals/runs/*` (keeping `.gitkeep`).
-- Unit tests + smoke test pass offline; smoke artifacts cleaned up.
+- `evals/<name>/eval.json` and `runs/.gitkeep` exist; `cases.json` is created later.
+- No framework code copied into the project (`evals/evaluator/` absent).
+- `.gitignore` ignores `evals/*/runs/*` (keeping `runs/.gitkeep`).
+- `eval.json` reviewed with the user (mode, judge config, generation block).
 
 ## Notes
 
-- Python 3.10+ is required. The pure-logic verification needs no third-party deps;
-  real runs need the `anthropic` package (in `evals/requirements.txt`).
-- Do not edit files under `evals/evaluator/` or `evals/prompts/` during setup —
-  they are the vendored framework. Project-specific work happens in `run_eval.py`
-  (or a copy) via the later skills.
+- Python 3.10+ is required. The pure-logic machinery needs no third-party deps; keyed
+  runs need the `anthropic` package (in the framework's `requirements.txt`).
+- Never edit the plugin's `framework/evals/` from a target project — it is shared. All
+  project-specific configuration lives in `eval.json`.
