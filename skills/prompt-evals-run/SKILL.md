@@ -210,11 +210,17 @@ Use when you need an unattended/CI run or agentic `Trajectory` grading.
    python3 -m evals.run_eval evaluate-variance <group_label> <k>
    ```
 
-   This makes `2 × num_cases` calls for a single-shot prompt (one execute + one
+   Each case executes the prompt/agent, then runs `run_eval.ASSERTIONS` through
+   `ASSERTION_POLICY` before judge grading. A gated mandatory assertion failure
+   persists `assertion_gate`, writes the deterministic synthetic score-1 verdict,
+   and skips the judge call; advisory assertions are recorded and still grade.
+
+   This makes up to `2 × num_cases` calls for a single-shot prompt (one execute + one
    grade per case) and writes `evals/runs/<run_label>/{output.json,output.html}`.
 
-   K-run variance multiplies cost by `K x (run + grade) x num_cases`. State that budget
-   to the user before launching. The labels are deterministic and explicit:
+   K-run variance multiplies that upper bound by `K`: up to
+   `K × (run + grade) × num_cases`. State that budget to the user before launching.
+   The labels are deterministic and explicit:
    `<group_label>__k00`, `<group_label>__k01`, and so on. Use the resulting
    `output.json` files as `--variance-output` inputs to the report analyst section.
 
