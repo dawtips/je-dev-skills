@@ -29,7 +29,7 @@ API key. Headless or CI execution uses the keyed fallback (`ANTHROPIC_API_KEY`).
 | `workflow-design-*` | `/je-dev-skills:workflow-design-{interview,validate,review}` | Turn an idea into a checked `./workflows/<name>.blueprint.md`, lint it for structural completeness, and run advisory semantic review. |
 | `prompt-engineering-author` | `/je-dev-skills:prompt-engineering-author` | Author or refactor a strong single-shot prompt from a task description, eval-free. |
 | `agent-build-*` | `/je-dev-skills:agent-build-{scaffold,run}` | Render a validated blueprint plus authored prompts into `.claude/` subagents, hooks, scripts, and an entry-point command, then drive them in-session one level deep. |
-| `prompt-evals-*` | `/je-dev-skills:prompt-evals-{setup,create-dataset,run}` | Vendor the eval framework, freeze a dataset, run the prompt or agent under test, and grade outputs into a scored report. |
+| `prompt-evals-*` | `/je-dev-skills:prompt-evals-{setup,create-dataset,run}` | Scaffold plugin-resident eval artifacts around a prompt, freeze a dataset, run the prompt or agent under test, and grade outputs into a scored report. |
 | `prompt-engineering-improve` | `/je-dev-skills:prompt-engineering-improve` | Drive an eval-measured improve loop with deterministic stopping rules and model-authored rewrites. |
 
 Cost note: the interactive subagent-dispatch path uses the Claude Code session.

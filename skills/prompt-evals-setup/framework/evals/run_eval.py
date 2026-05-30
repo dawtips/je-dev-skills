@@ -29,7 +29,8 @@ import json
 import sys
 from pathlib import Path
 
-from evals import config
+from evals import artifact_runner, config
+from evals.artifacts import load_eval_spec, scaffold_eval_artifacts
 from evals.evaluator import AnthropicClient, PromptEvaluator
 from evals.evaluator.templates import render
 from evals.live_run import run_evaluation as run_live_evaluation
@@ -189,7 +190,163 @@ def main(argv: list[str]) -> int:
         print(json.dumps(variance, indent=2))
         return 0
 
-    print(f"unknown command: {command!r} (use 'generate', 'evaluate', or 'evaluate-variance')")
+    # --- T-018 plugin-resident artifact commands -----------------------------
+    # These operate on a project-owned eval.json (no vendored ./evals package);
+    # the legacy commands above are unchanged for already-vendored projects.
+    # Run them from the framework dir with ABSOLUTE project paths so the real
+    # `evals` package always resolves (a project `evals/` data dir is only a
+    # namespace portion and never shadows this regular package).
+
+    if command == "scaffold-artifact":
+        if len(argv) != 6:
+            print(
+                "usage: python -m evals.run_eval scaffold-artifact "
+                "<project_root> <name> <mode> <prompt_file|command_json>"
+            )
+            return 2
+        project_root, name, mode, ref = argv[2], argv[3], argv[4], argv[5]
+        try:
+            if mode == "command_adapter":
+                scaffold_eval_artifacts(project_root, name, mode=mode, command=json.loads(ref))
+            else:
+                scaffold_eval_artifacts(project_root, name, mode=mode, prompt_file=ref)
+        except ValueError as exc:
+            print(f"error: {exc}")
+            return 2
+        print(str(Path(project_root) / "evals" / name / "eval.json"))
+        return 0
+
+    if command == "render-artifact":
+        if len(argv) != 4:
+            print("usage: python -m evals.run_eval render-artifact <eval.json> <case_index>")
+            return 2
+        spec = load_eval_spec(argv[2])
+        if spec.target.mode != "prompt_file":
+            print("error: render-artifact only applies to prompt_file mode")
+            return 2
+        try:
+            index = int(argv[3])
+        except ValueError:
+            print("error: <case_index> must be an integer")
+            return 2
+        if not spec.cases_file.exists():
+            print(
+                f"error: cases file not found: {spec.cases_file} "
+                "(run 'generate-artifact' / prompt-evals-create-dataset first)"
+            )
+            return 2
+        cases = json.loads(spec.cases_file.read_text(encoding="utf-8")).get("cases", [])
+        if index < 0 or index >= len(cases):
+            print(f"error: case_index {index} out of range (0..{len(cases) - 1})")
+            return 2
+        print(artifact_runner.render_prompt_file(spec, cases[index]["prompt_inputs"]))
+        return 0
+
+    if command == "generate-artifact":
+        if len(argv) < 3:
+            print("usage: python -m evals.run_eval generate-artifact <eval.json>")
+            return 2
+        spec = load_eval_spec(argv[2])
+        gen = spec.generation or {}
+        task = gen.get("task_description")
+        spec_inputs = gen.get("prompt_inputs_spec")
+        if not task or not spec_inputs:
+            print(
+                "error: eval.json 'generation' block is unfilled; set "
+                "generation.task_description and generation.prompt_inputs_spec "
+                "before generating cases."
+            )
+            return 2
+        build_evaluator().generate_dataset(
+            task_description=task,
+            prompt_inputs_spec=spec_inputs,
+            num_cases=int(gen.get("num_cases", NUM_CASES)),
+            output_file=str(spec.cases_file),
+        )
+        return 0
+
+    if command == "evaluate-artifact":
+        if len(argv) < 3:
+            print("usage: python -m evals.run_eval evaluate-artifact <eval.json> [run_label]")
+            return 2
+        if config.EXECUTION_MODE != "anthropic_api":
+            print(_IN_CC_GUIDANCE)
+            return 3
+        spec = load_eval_spec(argv[2])
+        run_label = argv[3] if len(argv) > 3 else None
+        executor_client = AnthropicClient(config.EXECUTOR_MODEL)
+
+        def _executor(prompt: str) -> str:
+            resp = executor_client._client.messages.create(  # noqa: SLF001 (example convenience)
+                model=executor_client.model,
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+
+        artifact_runner.evaluate_artifact(
+            spec,
+            judge_client=AnthropicClient(config.JUDGE_MODEL),
+            executor=_executor,
+            run_label=run_label,
+        )
+        return 0
+
+    if command == "evaluate-artifact-variance":
+        if len(argv) < 5:
+            print(
+                "usage: python -m evals.run_eval evaluate-artifact-variance "
+                "<eval.json> <group_label> <k>"
+            )
+            return 2
+        if config.EXECUTION_MODE != "anthropic_api":
+            print(_IN_CC_GUIDANCE)
+            return 3
+        spec = load_eval_spec(argv[2])
+        group_label = argv[3]
+        try:
+            k = int(argv[4])
+        except ValueError:
+            print("error: <k> must be an integer >= 2")
+            return 2
+        try:
+            variance_labels(group_label, k)
+        except ValueError as exc:
+            print(f"error: {exc}")
+            return 2
+        executor_client = AnthropicClient(config.EXECUTOR_MODEL)
+        judge_client = AnthropicClient(config.JUDGE_MODEL)
+
+        def _variance_executor(prompt: str) -> str:
+            resp = executor_client._client.messages.create(  # noqa: SLF001 (example convenience)
+                model=executor_client.model,
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+
+        def run_once(label: str) -> dict:
+            return artifact_runner.evaluate_artifact(
+                spec,
+                judge_client=judge_client,
+                executor=_variance_executor,
+                run_label=label,
+            )
+
+        variance = run_k_variance(
+            group_label=group_label,
+            k=k,
+            runs_dir=str(spec.runs_dir),
+            run_once=run_once,
+        )
+        print(json.dumps(variance, indent=2))
+        return 0
+
+    print(
+        f"unknown command: {command!r} (use 'generate', 'evaluate', 'evaluate-variance', "
+        "'scaffold-artifact', 'generate-artifact', 'evaluate-artifact', "
+        "'evaluate-artifact-variance', or 'render-artifact')"
+    )
     return 2
 
 

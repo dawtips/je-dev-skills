@@ -41,16 +41,25 @@ contract coherent; splitting them would re-litigate it three times.
 
 ## 2. Dependency on the architecture refactor (read first)
 
+> **✅ Resolved after the fact (T-018, 2026-05-30).** This sequencing concern is now
+> historical: T-013/T-014/T-019 **shipped and merged first**, against the vendored
+> `./evals` layout. T-018 then landed as a **retrofit** that adds a plugin-resident
+> artifact front-end **routing through the same `run_evaluation` seam these tickets
+> hardened** — so assertions, K-run variance, and run-delta are inherited, not re-wired.
+> No re-vendoring was required and no capability regressed. The original sequencing rule
+> below is preserved for context.
+
 [T-018] (`2026-05-30-prompt-evals-plugin-resident-architecture-spec.md`) changes
 *where* eval artifacts live and *what* "the live run path" means (plugin-resident
 runner reading project-owned artifacts vs. today's vendored `./evals`). **The seam
 this spec wires into is exactly the seam T-018 reshapes.**
 
-Sequencing rule: **resolve the T-018 architecture decision before building T-014/T-019's
-in-loop wiring.** T-013 (report-surface only, no loop change) can land against either
-architecture and is the safe first step. If T-018 lands first, the `run_evaluation`
-entry point and artifact layout below are expressed in *its* terms; if this work lands
-first, it must not harden the vendored-`./evals` assumption T-018 removes.
+Sequencing rule (original, now superseded by the note above): **resolve the T-018
+architecture decision before building T-014/T-019's in-loop wiring.** T-013 (report-surface
+only, no loop change) can land against either architecture and is the safe first step. If
+T-018 lands first, the `run_evaluation` entry point and artifact layout below are expressed
+in *its* terms; if this work lands first, it must not harden the vendored-`./evals`
+assumption T-018 removes.
 
 ---
 

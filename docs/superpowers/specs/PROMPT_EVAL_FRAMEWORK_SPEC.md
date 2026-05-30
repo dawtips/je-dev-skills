@@ -6,6 +6,15 @@ folder layout, the configuration surface, and a step-by-step bootstrap procedure
 and it ships a working **Python reference implementation** under [`evals/` (bundled)](../skills/prompt-evals-setup/framework/evals/)
 that a new project vendors and adapts.
 
+> **⚠️ Superseded default (T-018).** The "a new project **vendors** the framework into
+> `./evals`" architecture described throughout this spec (§1, §2, §5, §11, §13) is **no
+> longer the default**. New setups are **plugin-resident**: the machinery stays in the
+> plugin and the project keeps only lightweight `evals/<name>/{eval.json,cases.json,runs/}`
+> artifacts. See `2026-05-30-prompt-evals-plugin-resident-architecture-spec.md`. This spec
+> remains the reference for the data contracts, stages, and config surface — which the
+> plugin-resident runner reuses verbatim — and the vendoring runbook below still applies to
+> projects migrating off the old layout.
+>
 > **How to use this spec.** If you are an agent setting up evaluation in a new
 > project, follow §11 (Bootstrap Procedure). It is the runbook. Everything before
 > it is the reference you consult while doing so.

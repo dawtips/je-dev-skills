@@ -1,0 +1,49 @@
+"""Doc tests for the plugin-resident default of prompt-evals-setup (T-018)."""
+
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SETUP = ROOT / "skills" / "prompt-evals-setup" / "SKILL.md"
+RUN = ROOT / "skills" / "prompt-evals-run" / "SKILL.md"
+
+
+def _frontmatter_description(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        if line.startswith("description:"):
+            return line
+    return ""
+
+
+class TestPromptEvalsSetupSkill(unittest.TestCase):
+    def test_setup_skill_describes_plugin_resident_artifacts(self):
+        text = SETUP.read_text(encoding="utf-8")
+        self.assertIn("evals/<name>/eval.json", text)
+        self.assertIn("${CLAUDE_PLUGIN_ROOT}", text)
+        self.assertIn("command-adapter", text)
+        self.assertIn("prompt-file", text)
+
+    def test_setup_default_is_scaffold_not_framework_vendoring(self):
+        text = SETUP.read_text(encoding="utf-8")
+        desc = _frontmatter_description(SETUP)
+        # The headline behavior must no longer be "vendor the framework into ./evals".
+        self.assertNotIn("vendors the bundled Python eval framework into ./evals", desc)
+        self.assertIn("scaffold", text.lower())
+        self.assertIn("scaffold-artifact", text)
+
+    def test_setup_keeps_migration_note_for_vendored_projects(self):
+        text = SETUP.read_text(encoding="utf-8").lower()
+        self.assertIn("migration", text)
+
+    def test_run_skill_documents_artifact_run_path(self):
+        text = RUN.read_text(encoding="utf-8")
+        self.assertIn("render-artifact", text)
+        self.assertIn("evaluate-artifact", text)
+        # The in-CC report assembler is repointed at the project's artifact runs dir.
+        self.assertIn("--runs-dir", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

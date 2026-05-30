@@ -1,105 +1,105 @@
 ---
 name: prompt-evals-run
-description: This skill should be used when the user asks to "run a prompt eval", "evaluate my prompt", "grade prompt outputs", "score my agent", "run the evals", "check my prompt against the dataset", or wants to execute and interpret an LLM-graded evaluation. It wires the prompt/agent under test, runs the project's ./evals pipeline against a frozen dataset, and interprets the report.
-argument-hint: "[dataset name to evaluate against, e.g. meal-plan]"
+description: This skill should be used when the user asks to "run a prompt eval", "evaluate my prompt", "grade prompt outputs", "score my agent", "run the evals", "check my prompt against the dataset", or wants to execute and interpret an LLM-graded evaluation. It wires the prompt/agent under test, runs the plugin-resident eval pipeline against the project's frozen cases.json, and interprets the report.
+argument-hint: "[eval name to evaluate, e.g. planner]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Task
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Run a prompt eval
 
-Execute the system under test against a frozen dataset and grade every output with
-the LLM judge (run + grade), then interpret the scored report. Re-run this against
-the **same** dataset for each prompt revision to compare versions apples-to-apples.
+Execute the system under test against a frozen dataset and grade every output with the
+LLM judge (run + grade), then interpret the scored report. Re-run this against the
+**same** dataset for each prompt revision to compare versions apples-to-apples.
 
-There are **two execution paths**, selected by `EXECUTION_MODE` in `evals/config.py`:
+The machinery is **plugin-resident** — it reads the project's `evals/<name>/` artifacts
+and is never copied in. There are **two execution paths**, selected by `EXECUTION_MODE`:
 
-- **Path A — no API key (canonical, `EXECUTION_MODE=in_claude_code`, the default).**
-  This skill, driven by the interactive Claude Code session, dispatches subagents to
-  run and grade each case (session auth, **no `ANTHROPIC_API_KEY`**), then a
-  deterministic helper (`evals/aggregate.py`) assembles the report. **Single-shot
-  prompts only** — a subagent cannot dispatch its own subagents (no nesting).
+- **Path A — no API key (canonical, `EXECUTION_MODE=in_claude_code`, the default).** This
+  skill, driven by the interactive session, dispatches subagents to run and grade each
+  case (session auth, **no `ANTHROPIC_API_KEY`**), then the deterministic `evals.aggregate`
+  assembles the report. **Single-shot prompts only** — a subagent cannot nest subagents.
 - **Path B — keyed fallback (`EXECUTION_MODE=anthropic_api`).** The in-process
-  `run_eval.py evaluate` loop with the Anthropic SDK for executor and judge.
-  Requires the API key; supports agentic `Trajectory`; for headless/CI runs.
+  `evaluate-artifact` loop with the Anthropic SDK for executor and judge. Requires the API
+  key; supports agentic `Trajectory`; for headless/CI runs.
 
-Framework design: `${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
+Both paths route through the **same** `run_evaluation` seam, so assertion gating, K-run
+variance, and baseline run-delta behave identically. Framework design:
+`${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
 
 ## Preconditions
 
-- `./evals` exists (else run `/je-dev-skills:prompt-evals-setup`).
-- A frozen dataset exists in `evals/datasets/` (else run `/je-dev-skills:prompt-evals-create-dataset`).
-- The active prompt is a file at `evals/prompts_under_test/<name>.current.md`
-  (the `prompt-engineering-author` output, or hand-written). Its `{placeholder}`
-  tokens must match the dataset's `prompt_inputs` keys.
+- `evals/<name>/eval.json` + `cases.json` exist (else run setup / create-dataset).
+- For prompt-file mode, the prompt template named by `eval.json` `target.prompt_file`
+  exists; its `{placeholder}` tokens match the dataset's `prompt_inputs` keys.
+
+Set up shared paths (run framework commands from `$PE` with **absolute** project paths so
+the real `evals` package always resolves):
+
+```bash
+PE="${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework"
+EVAL="$PWD/evals/planner/eval.json"
+CASES="$PWD/evals/planner/cases.json"
+RUNS="$PWD/evals/planner/runs"
+```
 
 ## Procedure — Path A (no API key, default)
 
-### 1. Confirm the mode and locate the inputs
+### 1. Confirm the mode and choose a run label
 
 ```bash
-python3 -c "from evals import config; print(config.EXECUTION_MODE)"   # expect: in_claude_code
-ls evals/prompts_under_test/*.current.md
-ls evals/datasets/*.json
+(cd "$PE" && python3 -c "from evals import config; print(config.EXECUTION_MODE)")   # expect: in_claude_code
 ```
 
-Pick the dataset (the skill argument names it). Choose a `run_label` —
-by convention `improve-<name>-round-NN` when called inside the improve loop, else a
-short slug. Create a fresh per-case verdict directory:
+Choose a `run_label` — by convention `improve-<name>-round-NN` inside the improve loop,
+else a short slug — and a fresh per-case verdict directory:
 
 ```bash
 RUN_LABEL="<label>"
-VERDICTS_DIR="evals/runs/_verdicts/$RUN_LABEL"
-mkdir -p "$VERDICTS_DIR"
+VERDICTS_DIR="$RUNS/_verdicts/$RUN_LABEL"
+OUTPUTS_DIR="$RUNS/_outputs/$RUN_LABEL"
+mkdir -p "$VERDICTS_DIR" "$OUTPUTS_DIR"
 ```
 
-For no-key K-run variance, repeat the Path A case loop once per explicit label
-generated from `<group_label>__kNN`. Do not derive labels from wall-clock time. After
-the K runs exist, pass each `evals/runs/<group_label>__kNN/output.json` to
-`python3 -m evals.aggregate` using repeated `--variance-output` flags.
+For no-key K-run variance, repeat this loop once per explicit label `<group>__kNN` (do not
+derive labels from wall-clock time), then pass each `$RUNS/<group>__kNN/output.json` to
+`aggregate` via repeated `--variance-output` flags.
 
-### 2. For each case: render, dispatch execute, run assertions, maybe dispatch grade, write a verdict JSON
+### 2. For each case: render, dispatch execute, run assertions, maybe dispatch grade
 
-Read the dataset's `cases` array. For **each** case (index `i`):
+Read `cases.json`'s `cases` array. For **each** case (index `i`):
 
-1. **Render the prompt deterministically** (no model): substitute the case's
-   `prompt_inputs` into `<name>.current.md`. The framework's `render()` does the
-   substitution and `check_placeholders` reconciles the keys — both are offline.
-   Capture the rendered prompt string.
-2. **Dispatch an execute-subagent** (Task tool, session auth, no key): give it the
-   rendered prompt as its full instruction and ask it to return ONLY the prompt's
-   raw output. Use the model/effort in `config.SUBAGENT_EXECUTOR_MODEL` /
-   `config.SUBAGENT_EFFORT`. This is a single-shot turn — the subagent must not
-   dispatch further subagents.
-3. **Run structural assertions** configured in `evals.run_eval.ASSERTIONS` using
-   `evals.run_eval.ASSERTION_POLICY`. These checks run locally against the
-   execute-subagent's raw output and produce the `assertion_gate` evidence that
-   the skill writes beside the verdict. Persist the raw output first so the
-   assertion helper and later troubleshooting read the same bytes:
+1. **Render the prompt deterministically** (no model) with the plugin-resident helper —
+   it reuses `render()` + `check_placeholders`:
 
    ```bash
-   OUTPUTS_DIR="evals/runs/_outputs/$RUN_LABEL"
-   mkdir -p "$OUTPUTS_DIR"
+   RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i")
+   ```
+
+2. **Dispatch an execute-subagent** (Task tool, session auth, no key): give it `$RENDERED`
+   as its full instruction and ask for ONLY the prompt's raw output. Use
+   `config.SUBAGENT_EXECUTOR_MODEL` / `config.SUBAGENT_EFFORT`. Single-shot turn — no
+   nested subagents. Persist the raw output first so the assertion helper reads the same
+   bytes:
+
+   ```bash
    OUTPUT_FILE="$OUTPUTS_DIR/case-$(printf '%02d' "$i").txt"
    printf '%s' "$RAW_OUTPUT" > "$OUTPUT_FILE"
+   ```
 
-   RUN_LABEL="$RUN_LABEL" CASE_INDEX="$i" python3 - <<'PY'
-   import json
-   import os
+3. **Run structural assertions** from `eval.json` (`assertions` + `assertion_policy`)
+   against that output:
+
+   ```bash
+   EVAL="$EVAL" OUTPUT_FILE="$OUTPUT_FILE" python3 - <<'PY'
+   import json, os
    from pathlib import Path
-   from evals import run_eval
+   from evals.artifacts import load_eval_spec
    from evals.assertion_gate import evaluate_assertion_gate, synthetic_gated_verdict
 
-   output_path = (
-       Path("evals/runs/_outputs")
-       / os.environ["RUN_LABEL"]
-       / f"case-{int(os.environ['CASE_INDEX']):02d}.txt"
-   )
-   gate = evaluate_assertion_gate(
-       output_path.read_text(encoding="utf-8"),
-       run_eval.ASSERTIONS,
-       policy=run_eval.ASSERTION_POLICY,
-   )
+   spec = load_eval_spec(os.environ["EVAL"])
+   output = Path(os.environ["OUTPUT_FILE"]).read_text(encoding="utf-8")
+   gate = evaluate_assertion_gate(output, spec.assertions, spec.assertion_policy)
    print(json.dumps({
        "gate": gate,
        "synthetic_verdict": synthetic_gated_verdict(gate) if gate["judge_skipped"] else None,
@@ -107,40 +107,35 @@ Read the dataset's `cases` array. For **each** case (index `i`):
    PY
    ```
 
-4. **If `judge_skipped: true`, do not dispatch a grade-subagent.** Write a verdict
-   JSON with the synthetic score-1 verdict from `synthetic_gated_verdict(gate)`,
-   the raw output, and the assertion evidence.
+   Run this from `$PE` (e.g. `(cd "$PE" && EVAL=... OUTPUT_FILE=... python3 - <<'PY' ...)`)
+   so `evals` imports resolve.
+
+4. **If `judge_skipped: true`**, do not dispatch a grade-subagent. Write a verdict JSON
+   with the synthetic score-1 verdict from `synthetic_gated_verdict(gate)`, the raw output,
+   and the assertion evidence.
 5. **Otherwise dispatch a grade-subagent** (Task tool): give it the case's
-   `task_description`, `prompt_inputs`, `solution_criteria`, the global
-   `EXTRA_CRITERIA` (from `evals/run_eval.py`), and the execute-subagent's output.
-   Instruct it to grade per `${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals/prompts/grading.md`
-   and to emit **only** a JSON object with keys `strengths`, `weaknesses`,
-   `reasoning`, `score` (integer 1-10) — the `verdict_schema()` shape. Subagent
-   frontmatter has no structured-output field, so the JSON discipline is in the
-   instruction; the next step validates it.
-6. **Write the per-case verdict JSON** to `$VERDICTS_DIR/case-<i:02d>.json` with
-   this exact shape (the skill writes the file). Always include assertion evidence
-   beside the judge or synthetic verdict:
+   `task_description`, `prompt_inputs`, `solution_criteria`, the `eval.json`
+   `extra_criteria`, and the execute-subagent's output. Instruct it to grade per
+   `${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals/prompts/grading.md`
+   and emit **only** a JSON object with keys `strengths`, `weaknesses`, `reasoning`,
+   `score` (integer 1-10) — the `verdict_schema()` shape.
+6. **Write the per-case verdict JSON** to `$VERDICTS_DIR/case-<i:02d>.json` with this
+   exact shape (include assertion evidence beside the judge or synthetic verdict):
 
    ```json
    {
-     "test_case": { ...the dataset case verbatim... },
+     "test_case": { "...the cases.json case verbatim..." : "..." },
      "output": "<the execute-subagent's raw output>",
      "assertion_gate": {
        "policy": "gate_mandatory",
        "results": [
-         {
-           "text": "contains 'kcal'",
-           "passed": true,
-           "evidence": "found 'kcal'",
-           "severity": "advisory",
-           "action": "annotate"
-         }
+         { "text": "contains 'kcal'", "passed": true, "evidence": "found 'kcal'",
+           "severity": "advisory", "action": "annotate" }
        ],
        "mandatory_failed": false,
        "judge_skipped": false
      },
-     "verdict": { "strengths": [...], "weaknesses": [...], "reasoning": "...", "score": 8 }
+     "verdict": { "strengths": [], "weaknesses": [], "reasoning": "...", "score": 8 }
    }
    ```
 
@@ -149,92 +144,83 @@ Do the cases in order so filenames sort deterministically (`case-00`, `case-01`,
 ### 3. Assemble the report (deterministic, no model)
 
 ```bash
-python3 -m evals.aggregate \
+(cd "$PE" && python3 -m evals.aggregate \
   --run-label "$RUN_LABEL" \
   --verdicts-dir "$VERDICTS_DIR" \
-  --dataset evals/datasets/<name>.json \
-  --baseline-output evals/runs/<baseline-label>/output.json \
-  --variance-output evals/runs/<run-a>/output.json \
-  --variance-output evals/runs/<run-b>/output.json
+  --dataset "$CASES" \
+  --runs-dir "$RUNS" \
+  --baseline-output "$RUNS/<baseline-label>/output.json" \
+  --variance-output "$RUNS/<run-a>/output.json" \
+  --variance-output "$RUNS/<run-b>/output.json")
 ```
 
-The `--baseline-output` and `--variance-output` flags are explicit. Do not infer a
-"previous" or "latest" run by timestamp. If no baseline is supplied, the report
-analyst section says the baseline delta is not available. If fewer than two variance
-outputs are supplied, it says variance needs >=2 runs. These are advisory report
-sections only; they do not change the run verdict.
+`--runs-dir "$RUNS"` directs the report into the project's `evals/<name>/runs/`. The
+`--baseline-output` / `--variance-output` flags are explicit — do not infer a "previous"
+or "latest" run by timestamp. With no baseline, the report says the delta is unavailable;
+with fewer than two variance outputs, it says variance needs ≥2 runs. These are advisory
+report sections; they do not change the verdict.
 
 This validates every verdict (`schemas.validate_verdict`, which clamps the score and
 **raises** on a malformed one), summarizes, and writes
-`evals/runs/$RUN_LABEL/{output.json,output.html}` via the framework's report writers.
-It prints the run directory. If it exits non-zero, a verdict JSON was malformed —
-re-dispatch the offending grade-subagent and re-write that one file.
+`$RUNS/$RUN_LABEL/{output.json,output.html}`. If it exits non-zero, a verdict JSON was
+malformed — re-dispatch that grade-subagent and re-write the one file.
 
 ### 4. Read the report
 
-Open `evals/runs/$RUN_LABEL/output.html`:
+Open `$RUNS/$RUN_LABEL/output.html`:
 - **Summary:** total cases, average score `/10`, **pass rate** (% scoring ≥ `PASS_THRESHOLD`).
-- **Per-case table:** scenario, inputs, criteria, raw output, color-coded score, judge reasoning.
+- **Per-case table:** scenario, inputs, criteria, raw output, color-coded score, reasoning.
 
-`output.json` holds the full record; each result's `verdict` field carries the
-judge's `strengths`/`weaknesses` — the most useful signal for *why* a case scored low.
+`output.json` holds the full record; each result's `verdict` carries the judge's
+`strengths`/`weaknesses` — the most useful signal for *why* a case scored low.
 
 ### 5. Diagnose and iterate
 
-- **Low scores from real output flaws** → fix the prompt and re-run against the
-  **same** dataset. Compare `output.json` across runs to confirm improvement, **or
-  invoke `/je-dev-skills:prompt-engineering-improve` to automate the loop.**
-- **Low scores from bad criteria** (off-scope, subjective) → the dataset is the
-  problem, not the prompt. Fix via `/je-dev-skills:prompt-evals-create-dataset` (audit step).
-- **Mandatory-criterion failures** cap a score at ≤ 3 — check `EXTRA_CRITERIA` first
-  when scores cluster low.
+- **Low scores from real output flaws** → fix the prompt and re-run against the **same**
+  dataset, **or invoke `/je-dev-skills:prompt-engineering-improve` to automate the loop.**
+- **Low scores from bad criteria** (off-scope, subjective) → the dataset is the problem.
+  Fix via `/je-dev-skills:prompt-evals-create-dataset` (audit step).
+- **Mandatory-criterion failures** cap a score at ≤ 3 — check `extra_criteria` first when
+  scores cluster low.
 
-Beware judge/executor leakage: keep `SUBAGENT_JUDGE_MODEL` strong and **distinct**
-from `SUBAGENT_EXECUTOR_MODEL`. For higher confidence on close calls, widen the dataset.
+Keep `SUBAGENT_JUDGE_MODEL` strong and **distinct** from `SUBAGENT_EXECUTOR_MODEL` to
+avoid self-grading leakage; widen the dataset for higher confidence on close calls.
 
 ## Procedure — Path B (keyed fallback, headless/CI)
 
-Use when you need an unattended/CI run or agentic `Trajectory` grading.
+Use for unattended/CI runs or agentic `Trajectory` grading.
 
-1. Set `EXECUTION_MODE = "anthropic_api"` in `evals/config.py`.
-2. Implement/keep `run_prompt` in `evals/run_eval.py` — it renders the file-backed
-   `<name>.current.md` (via `render()` + `check_placeholders`) and calls the model.
-   For agentic systems return a `Trajectory` (import `from evals.evaluator import
-   Trajectory, Step`) and set `PROCESS_CRITERIA` in `run_eval.py`.
-3. Run:
+1. Set `EXECUTION_MODE = "anthropic_api"` in the framework's `config.py` (or export the
+   override the project uses).
+2. For prompt-file mode, no per-project code is needed — the runner renders
+   `target.prompt_file` and calls the executor. For an embedded agent, use
+   **command-adapter** mode (`target.command`) so the project's own code produces output.
+3. Run from the framework dir with the absolute `$EVAL`:
 
    ```bash
-   pip install -r evals/requirements.txt
-   export ANTHROPIC_API_KEY=...      # name is in evals/config.py (API_KEY_ENV)
-   python3 -m evals.run_eval evaluate <run_label>
-   python3 -m evals.run_eval evaluate-variance <group_label> <k>
+   pip install -r "$PE/evals/requirements.txt"
+   export ANTHROPIC_API_KEY=...      # name is in config.py (API_KEY_ENV)
+   (cd "$PE" && python3 -m evals.run_eval evaluate-artifact "$EVAL" "$RUN_LABEL")
+   (cd "$PE" && python3 -m evals.run_eval evaluate-artifact-variance "$EVAL" "<group>" "<k>")
    ```
 
-   Each case executes the prompt/agent, then runs `run_eval.ASSERTIONS` through
-   `ASSERTION_POLICY` before judge grading. A gated mandatory assertion failure
-   persists `assertion_gate`, writes the deterministic synthetic score-1 verdict,
-   and skips the judge call; advisory assertions are recorded and still grade.
-
-   This makes up to `2 × num_cases` calls for a single-shot prompt (one execute + one
-   grade per case) and writes `evals/runs/<run_label>/{output.json,output.html}`.
-
-   K-run variance multiplies that upper bound by `K`: up to
-   `K × (run + grade) × num_cases`. State that budget to the user before launching.
-   The labels are deterministic and explicit:
-   `<group_label>__k00`, `<group_label>__k01`, and so on. Use the resulting
-   `output.json` files as `--variance-output` inputs to the report analyst section.
+   Each case executes the prompt/agent, runs the `eval.json` assertions through the policy
+   before judge grading (a gated mandatory failure writes the synthetic score-1 verdict and
+   skips the judge), and writes `$RUNS/<run_label>/{output.json,output.html}`. A single-shot
+   run makes up to `2 × num_cases` calls; K-run variance multiplies that by `K`
+   (labels `<group>__k00`, `<group>__k01`, …). State that budget before launching.
 
 ## Definition of done
 
-- A run exists at `evals/runs/<run_label>/` with `output.json` + `output.html`.
-- On Path A, one verdict JSON per case was written under `evals/runs/_verdicts/<run_label>/`
-  and `aggregate.py` exited 0.
+- A run exists at `evals/<name>/runs/<run_label>/` with `output.json` + `output.html`.
+- On Path A, one verdict JSON per case under `runs/_verdicts/<run_label>/` and
+  `aggregate` exited 0.
 - The report was interpreted: average score, pass rate, and the main weakness themes
-  reported back to the user, with a clear next action (fix prompt vs. fix criteria).
+  reported back, with a clear next action (fix prompt vs. fix criteria).
 
 ## Offline check (no API key)
 
-`python3 -m evals.aggregate --run-label check --verdicts-dir <a dir of verdict JSONs>`
-assembles a report from already-written verdicts with **no model call** — use it to
-confirm the aggregation wiring. The framework's own pipeline (fake client) is exercised
-by `python3 -m evals.examples.smoke_test`.
+`(cd "$PE" && python3 -m evals.aggregate --run-label check --verdicts-dir <dir of verdict
+JSONs> --runs-dir <a temp dir>)` assembles a report from already-written verdicts with **no
+model call**. The framework's own pipeline (fake client) is exercised by
+`(cd "$PE" && python3 -m evals.examples.smoke_test)`.
