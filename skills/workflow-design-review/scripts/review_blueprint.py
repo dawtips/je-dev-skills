@@ -307,3 +307,17 @@ def call_judge(client: Any, system_prompt: str, user_prompt: str, model: str = J
         tool_choice={"type": "tool", "name": TOOL_NAME},
     )
     return parse_review_payload(parse_tool_response(message))
+
+
+def compute_flags(result: ReviewResult, threshold: int = PASS_THRESHOLD) -> list[DimensionReview]:
+    return [dimension for dimension in result.dimensions if dimension.score < threshold]
+
+
+def compute_verdict(result: ReviewResult, threshold: int = PASS_THRESHOLD) -> str:
+    return "needs-revision" if compute_flags(result, threshold) else "solid"
+
+
+def compute_exit_code(result: ReviewResult, strict: bool, threshold: int = PASS_THRESHOLD) -> int:
+    if strict and compute_flags(result, threshold):
+        return 1
+    return 0
