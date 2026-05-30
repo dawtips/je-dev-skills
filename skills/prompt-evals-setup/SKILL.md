@@ -38,8 +38,29 @@ TARGET="$PWD"   # or the directory passed as the skill argument
 ls -la "$TARGET/evals" 2>/dev/null && echo "EXISTS" || echo "ABSENT"
 ```
 
-If `evals/` already exists, stop and report. Offer to re-run only if the user
-explicitly confirms overwriting.
+If `evals/` already exists, do NOT clobber it. Instead, run the
+**non-clobbering substrate update**: copy in ONLY the substrate files that are
+missing or that the user has not customized, leaving `config.py`, `run_eval.py`,
+and any `prompts_under_test/*.md` the user edited untouched.
+
+```bash
+SRC="${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals"
+# New top-level substrate modules: safe to add if absent (the framework owns them).
+for f in aggregate.py promptprep.py; do
+  [ -f "$TARGET/evals/$f" ] || cp "$SRC/$f" "$TARGET/evals/$f"
+done
+# New tests for the substrate.
+for f in tests/test_aggregate.py tests/test_promptprep.py; do
+  [ -f "$TARGET/evals/$f" ] || cp "$SRC/$f" "$TARGET/evals/$f"
+done
+cp -Rn "$SRC/tests/fixtures/." "$TARGET/evals/tests/fixtures/" 2>/dev/null || true
+```
+
+For `config.py` (the `EXECUTION_MODE` block) and `run_eval.py` (the file-backed +
+mode-aware changes), do NOT overwrite — these are user-editable. Show the user a diff
+against the bundled versions and let them merge the `EXECUTION_MODE`/subagent-knob
+constants and the mode-aware `main()` by hand if their copy predates the substrate.
+Then report what was added and stop.
 
 ### 2. Copy the bundled framework into the project
 
@@ -53,8 +74,11 @@ find "$TARGET/evals" -name __pycache__ -type d -prune -exec rm -rf {} +
 ```
 
 Verify the tree landed: `evals/evaluator/`, `evals/prompts/`, `evals/config.py`,
-`evals/run_eval.py`, `evals/tests/`, `evals/examples/`, and the `.gitkeep` dirs
-`evals/datasets/`, `evals/runs/`, and `evals/prompts_under_test/`.
+`evals/run_eval.py`, `evals/aggregate.py`, `evals/promptprep.py`, `evals/tests/`,
+`evals/examples/`, and the `.gitkeep` dirs `evals/datasets/`, `evals/runs/`, and
+`evals/prompts_under_test/`. `aggregate.py` (the no-key Path A report assembler) and
+`promptprep.py` (the prompt-prep glue) are part of the substrate — confirm both
+copied.
 
 ### 3. Configure `evals/config.py`
 
