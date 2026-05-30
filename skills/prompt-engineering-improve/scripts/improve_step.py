@@ -131,10 +131,30 @@ def stop_verdict(rounds: list[RoundRecord], params: LoopParams, *, round_index: 
 
 
 def _regression_rule(rounds, params):
+    """Stop when latest is more than regression_band below the prior best."""
+    if len(rounds) < 2:
+        return None
+    best = running_best(rounds[:-1])
+    latest = rounds[-1]
+    if best is not None and (best.avg - latest.avg) > params.regression_band:
+        return Verdict(
+            "stop", "regression_band",
+            f"avg {latest.avg} is {round(best.avg - latest.avg, 2)} below best "
+            f"{best.avg} (> band {params.regression_band}); revert to {best.version}")
     return None
 
 
 def _diminishing_rule(rounds, params):
+    """Stop when the last K consecutive per-round deltas are all below epsilon."""
+    k = params.diminishing_return_rounds
+    if len(rounds) < k + 1:
+        return None
+    deltas = [round(rounds[i].avg - rounds[i - 1].avg, 2) for i in range(1, len(rounds))]
+    last_k = deltas[-k:]
+    if all(d < params.epsilon for d in last_k):
+        return Verdict(
+            "stop", f"diminishing-returns-{k}",
+            f"last {k} deltas {last_k} all < epsilon {params.epsilon}")
     return None
 
 
