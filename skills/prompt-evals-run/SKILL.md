@@ -93,8 +93,17 @@ Do the cases in order so filenames sort deterministically (`case-00`, `case-01`,
 python3 -m evals.aggregate \
   --run-label "$RUN_LABEL" \
   --verdicts-dir "$VERDICTS_DIR" \
-  --dataset evals/datasets/<name>.json
+  --dataset evals/datasets/<name>.json \
+  --baseline-output evals/runs/<baseline-label>/output.json \
+  --variance-output evals/runs/<run-a>/output.json \
+  --variance-output evals/runs/<run-b>/output.json
 ```
+
+The `--baseline-output` and `--variance-output` flags are explicit. Do not infer a
+"previous" or "latest" run by timestamp. If no baseline is supplied, the report
+analyst section says the baseline delta is not available. If fewer than two variance
+outputs are supplied, it says variance needs >=2 runs. These are advisory report
+sections only; they do not change the run verdict.
 
 This validates every verdict (`schemas.validate_verdict`, which clamps the score and
 **raises** on a malformed one), summarizes, and writes

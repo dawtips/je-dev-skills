@@ -32,6 +32,8 @@ from pathlib import Path
 from evals import config
 from evals.evaluator.report import summarize, write_html, write_json
 from evals.evaluator.schemas import validate_verdict
+from evals.report_analyst import build_report_analysis
+from evals.runs_util import load_json
 
 
 def _read_verdict_files(verdicts_dir: str | Path) -> list[Path]:
@@ -109,7 +111,7 @@ def _build_meta(
     """Assemble report meta. Prefer the dataset's provenance; else harvest from the
     first verdict's test_case."""
     task_description = ""
-    dataset_file = dataset or ""
+    dataset_file = str(dataset) if dataset else ""
     if dataset_data is not None:
         provenance = dataset_data.get("provenance", {})
         task_description = provenance.get("task_description", "")
@@ -124,6 +126,21 @@ def _build_meta(
     }
 
 
+def build_report_analysis_for_output(
+    current_output: dict,
+    *,
+    baseline_output: str | Path | None = None,
+    variance_outputs: list[str | Path] | None = None,
+) -> dict:
+    baseline = load_json(baseline_output) if baseline_output else None
+    variance_runs = [load_json(path) for path in (variance_outputs or [])]
+    return build_report_analysis(
+        current_output,
+        baseline=baseline,
+        variance_runs=variance_runs,
+    )
+
+
 def aggregate(
     *,
     run_label: str,
@@ -131,6 +148,9 @@ def aggregate(
     dataset: str | None = None,
     runs_dir: str = config.RUNS_DIR,
     extra_criteria: str | None = None,
+    baseline_output: str | Path | None = None,
+    variance_outputs: list[str | Path] | None = None,
+    include_analysis: bool = True,
 ) -> str:
     """Assemble runs/<run_label>/{output.json,output.html}. Returns the run_dir path."""
     results = load_results(verdicts_dir)
@@ -141,11 +161,21 @@ def aggregate(
     if extra_criteria is None:
         extra_criteria = _default_extra_criteria()
     meta = _build_meta(run_label, dataset, dataset_data, results, extra_criteria)
+    current_output = {"meta": meta, "summary": summary, "results": results}
+    analysis = (
+        build_report_analysis_for_output(
+            current_output,
+            baseline_output=baseline_output,
+            variance_outputs=variance_outputs,
+        )
+        if include_analysis
+        else None
+    )
 
     out_dir = Path(runs_dir) / run_label
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_json(out_dir / "output.json", results, summary, meta)
-    write_html(out_dir / "output.html", results, summary, meta)
+    write_json(out_dir / "output.json", results, summary, meta, analysis=analysis)
+    write_html(out_dir / "output.html", results, summary, meta, analysis=analysis)
     return str(out_dir)
 
 
@@ -168,6 +198,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="optional criteria text to record in report meta; defaults to evals.run_eval.EXTRA_CRITERIA",
     )
+    parser.add_argument(
+        "--baseline-output",
+        default=None,
+        help="explicit baseline run output.json for report-analyst delta",
+    )
+    parser.add_argument(
+        "--variance-output",
+        action="append",
+        default=[],
+        help="explicit run output.json for variance; pass once per run",
+    )
     args = parser.parse_args(argv)
     try:
         run_dir = aggregate(
@@ -176,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
             dataset=args.dataset,
             runs_dir=args.runs_dir,
             extra_criteria=args.extra_criteria,
+            baseline_output=args.baseline_output,
+            variance_outputs=args.variance_output,
         )
     except (OSError, FileNotFoundError) as exc:
         print(f"ERROR: {exc}")
