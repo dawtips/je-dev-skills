@@ -39,7 +39,8 @@ framework rather than routing users between two tools for the same task.
 - **Skill descriptions** are third-person with concrete trigger phrases; **bodies** are
   imperative/infinitive (no second person). Use **progressive disclosure** — lean `SKILL.md`,
   detail in `references/` — where there is enough detail to defer; don't split short linear procedures
-  for its own sake.
+  for its own sake. `tools/skill_lint.py` checks the deterministic parts (frontmatter, `name`==dir,
+  recommended fields, third-person description, `${CLAUDE_PLUGIN_ROOT}` refs resolve, body length).
 - **Review, then adversarially verify, before declaring done.** Run the offline tests and report the
   actual output.
 
@@ -57,4 +58,11 @@ The workflow-blueprint validator's tests:
 
 ```bash
 python3 -m unittest discover -s skills/workflow-design-validate/scripts/tests -t skills/workflow-design-validate/scripts
+```
+
+The skill linter (and its own tests) — run from the repo root:
+
+```bash
+python3 tools/skill_lint.py --root .                              # lint every skill (exit 1 on errors)
+python3 -m unittest discover -s tools/tests -t tools              # the linter's unit tests
 ```
