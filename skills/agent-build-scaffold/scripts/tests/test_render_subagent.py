@@ -30,6 +30,20 @@ class TestRenderSubagent(unittest.TestCase):
             "reason-classifier.md",
         )
 
+    def test_missing_boundaries_raises_scaffold_error(self):
+        from scaffold import ScaffoldError
+
+        bp = load_blueprint(os.path.join(FIXTURES, "broken_partial_contract.blueprint.md"))
+        with self.assertRaisesRegex(ScaffoldError, "boundaries"):
+            render_subagent(bp["subagents"][0])
+
+    def test_empty_tools_raises_scaffold_error(self):
+        from scaffold import ScaffoldError
+
+        bp = load_blueprint(os.path.join(FIXTURES, "broken_partial_contract.blueprint.md"))
+        with self.assertRaisesRegex(ScaffoldError, "tools"):
+            render_subagent(bp["subagents"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

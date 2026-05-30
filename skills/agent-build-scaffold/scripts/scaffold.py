@@ -13,6 +13,11 @@ import yaml
 YAML_FENCE = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
 AGENTIC = "agentic"
 DETERMINISTIC = "deterministic"
+SUBAGENT_CONTRACT_FIELDS = ("objective", "output_format", "tools", "boundaries")
+
+
+class ScaffoldError(ValueError):
+    """Raised when a valid-looking blueprint cannot be rendered safely."""
 
 
 def extract_yaml_block(text: str) -> str:
@@ -95,7 +100,24 @@ def _frontmatter_list(values) -> str:
     return str(values)
 
 
+def _validate_subagent_contract(subagent: dict) -> None:
+    missing = []
+    for field in SUBAGENT_CONTRACT_FIELDS:
+        value = subagent.get(field)
+        if field == "tools":
+            if not (isinstance(value, list) and value):
+                missing.append(field)
+        elif value is None or str(value).strip() == "":
+            missing.append(field)
+    if missing:
+        agent_id = subagent.get("id", "<unknown>")
+        raise ScaffoldError(
+            f"subagent {agent_id!r} has incomplete contract: {', '.join(missing)}"
+        )
+
+
 def render_subagent(subagent: dict) -> str:
+    _validate_subagent_contract(subagent)
     agent_id = str(subagent.get("id", "agent"))
     model = str(subagent.get("model", "inherit"))
     tools = _frontmatter_list(subagent.get("tools", []))
