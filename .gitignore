@@ -44,3 +44,6 @@ Thumbs.db
 .story/snapshots/
 .story/sessions/
 .story/status.json
+
+# Project-local git worktrees
+.worktrees/
