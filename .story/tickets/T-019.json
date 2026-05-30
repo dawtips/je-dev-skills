@@ -1,13 +1,13 @@
 {
   "blockedBy": [],
-  "completedDate": null,
+  "completedDate": "2026-05-30",
   "createdDate": "2026-05-30",
   "description": "Add orchestration that runs the same frozen eval dataset K times through the live eval path, writes distinct run artifacts, then invokes/reuses `evals/variance.py` to compute per-case mean/stddev, flaky cases, aggregate score variance, and suggested regression band. Define run labels/artifact layout and how the report or prompt-evals-run skill surfaces the variance summary. Keep `evals/variance.py` available as an offline CLI over existing `output.json` files. Origin: deferred from `docs/superpowers/plans/2026-05-29-eval-framework-hardening.md` live-path integration.",
   "id": "T-019",
   "order": 50,
   "phase": "backlog",
   "spec": "docs/superpowers/specs/2026-05-30-eval-live-path-integration-spec.md",
-  "status": "inprogress",
+  "status": "complete",
   "title": "Live run-path K-run variance orchestration",
   "type": "task"
 }
