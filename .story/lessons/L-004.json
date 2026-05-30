@@ -1,0 +1,19 @@
+{
+  "content": "When a ticket's acceptance check greps (`grep -F`) for a literal contiguous phrase that spans a token also used as an inline-code span elsewhere (e.g. a slash command), ensure at least one BARE plain-text occurrence of the full phrase exists outside any backticks. A backtick adjacent to the phrase boundary (e.g. `` `...improve` `` ` to automate`) silently breaks the substring match. Verify by inspecting the byte immediately before/after the phrase, not just that the words appear.",
+  "context": "T-020 (je-dev-skills): SKILL.md §5 had to satisfy `grep -F \"prompt-engineering-improve to automate\"`. The user-facing pointer wanted the slash-command form `/je-dev-skills:prompt-engineering-improve` (backticked), which would have put a backtick before the space and failed the grep. Fix: a separate bare occurrence \"invoke prompt-engineering-improve to automate the loop\". Caught pre-implementation by extracting the draft to a temp file and checking the byte before the phrase was a plain space (index 1119).",
+  "createdDate": "2026-05-30",
+  "id": "L-004",
+  "lastValidated": "2026-05-30",
+  "reinforcements": 0,
+  "source": "postmortem",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "verification",
+    "grep",
+    "skill-authoring",
+    "docs"
+  ],
+  "title": "grep -F verification tokens need a bare plain-text occurrence outside code spans",
+  "updatedDate": "2026-05-30"
+}
