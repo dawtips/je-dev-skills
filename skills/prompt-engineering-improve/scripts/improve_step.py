@@ -254,19 +254,92 @@ def build_delta_payload(*, output: dict, state: dict) -> dict:
     }
 
 
+def build_final_report(*, state: dict) -> dict:
+    """Assemble the deterministic final-report.json for a finished loop."""
+    params = LoopParams(**state["params"])
+    rounds_raw = state.get("rounds", [])
+    records = [RoundRecord(version=r["version"], avg=r["avg"], pass_rate=r["pass_rate"])
+               for r in rounds_raw]
+
+    trace = []
+    prior_avg = None
+    for i, r in enumerate(rounds_raw):
+        delta = compute_delta(current_avg=r["avg"], prior_avg=prior_avg)
+        trace.append({
+            "round_index": i,
+            "version": r["version"],
+            "avg": r["avg"],
+            "pass_rate": r["pass_rate"],
+            "delta": delta,
+            "technique": r.get("technique", ""),
+            "decision": r.get("decision", ""),
+            "run_dir": r.get("run_dir", ""),
+        })
+        prior_avg = r["avg"]
+
+    best = running_best(records)
+    held = state.get("held_out")
+    if held is None:
+        held_out_run_count = 0
+        held_out_result = "skipped"
+    else:
+        held_out_run_count = int(held.get("run_count", 0))
+        held_out_result = held.get("result", "skipped")
+
+    return {
+        "name": state.get("name", ""),
+        "params": asdict(params),
+        "rounds": trace,
+        "best_version": best.version if best is not None else None,
+        "best": ({"version": best.version, "avg": best.avg, "pass_rate": best.pass_rate}
+                 if best is not None else None),
+        "held_out_run_count": held_out_run_count,
+        "held_out_result": held_out_result,
+        "extra_criteria_hash": state.get("extra_criteria_hash", ""),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Deterministic per-round loop logic for prompt-engineering-improve.")
-    parser.add_argument("--output-json", required=True,
+    parser.add_argument("--output-json", required=False, default=None,
                         help="this round's evals/runs/<label>/output.json")
     parser.add_argument("--loop-state", required=True,
                         help="the loop-state JSON (params, prior rounds, frozen hash)")
     parser.add_argument("--delta-out", default=None,
                         help="where to write delta.json (default: alongside loop-state)")
+    parser.add_argument("--final-report-out", default=None,
+                        help="finalize mode: write the deterministic final-report.json "
+                             "(round trace + best version + held_out_run_count + hash) "
+                             "and exit; --output-json is not required in this mode")
     parser.add_argument("--check-freeze", action="store_true",
                         help="assert EXTRA_CRITERIA hash unchanged before emitting")
     args = parser.parse_args(argv)
 
+    if args.final_report_out is not None:
+        try:
+            state = load_loop_state(args.loop_state)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        if args.check_freeze:
+            try:
+                assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
+                              current_text=state.get("extra_criteria"))
+            except FreezeViolation as exc:
+                print(f"FREEZE VIOLATION: {exc}")
+                return 2
+        report = build_final_report(state=state)
+        with open(args.final_report_out, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+        print(f"best version: {report['best_version']}")
+        print(f"held_out_run_count: {report['held_out_run_count']}")
+        print(f"wrote {args.final_report_out}")
+        return 0
+
+    if args.output_json is None:
+        print("ERROR: --output-json is required unless --final-report-out is given")
+        return 2
     try:
         output = load_output_json(args.output_json)
         state = load_loop_state(args.loop_state)

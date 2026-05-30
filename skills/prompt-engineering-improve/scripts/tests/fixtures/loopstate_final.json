@@ -1,0 +1,12 @@
+{
+  "name": "mealplan",
+  "current_version": "v2",
+  "extra_criteria": "Must include a caloric total and a macro breakdown.",
+  "extra_criteria_hash": "FILLED_BY_TEST_AT_RUNTIME",
+  "params": {"pass_threshold": 7, "pass_rate_target": 0.80, "max_rounds": 3, "epsilon": 0.25, "diminishing_return_rounds": 2, "regression_band": 0.5},
+  "rounds": [
+    {"version": "v1", "avg": 5.0, "pass_rate": 25.0, "technique": "baseline", "decision": "continue", "run_dir": "evals/runs/improve-mealplan-round-00"},
+    {"version": "v2", "avg": 7.5, "pass_rate": 75.0, "technique": "process steps + multishot examples", "decision": "stop:threshold", "run_dir": "evals/runs/improve-mealplan-round-01"}
+  ],
+  "held_out": {"run_count": 1, "result": {"average_score": 7.2, "pass_rate": 70.0}}
+}
