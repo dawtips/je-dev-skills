@@ -56,5 +56,38 @@ class TestWriteJson(unittest.TestCase):
         self.assertEqual(data["summary"]["total"], 1)
 
 
+class TestReportAnalysisRendering(unittest.TestCase):
+    def test_write_json_includes_analysis_when_supplied(self):
+        import json
+
+        payload = results([9])
+        analysis = {
+            "baseline_delta": {"available": False, "note": "Baseline delta: not available -- pass --baseline-output with a prior run output.json."},
+            "variance": {"available": False, "note": "Variance: not available -- needs >=2 runs of the same frozen dataset."},
+        }
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "out.json"
+            write_json(path, payload, summarize(payload), {"run_label": "x"}, analysis=analysis)
+            data = json.loads(path.read_text())
+
+        self.assertEqual(set(data.keys()), {"meta", "summary", "results", "analysis"})
+        self.assertEqual(data["analysis"], analysis)
+
+    def test_write_html_renders_analysis_section_escaped(self):
+        payload = results([8])
+        analysis = {
+            "baseline_delta": {"available": False, "note": "Baseline delta: not available -- <script>bad()</script>"},
+            "variance": {"available": False, "note": "Variance: not available -- needs >=2 runs of the same frozen dataset."},
+        }
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "out.html"
+            write_html(path, payload, summarize(payload), {"task_description": "t"}, analysis=analysis)
+            html = path.read_text()
+
+        self.assertIn("Report Analyst", html)
+        self.assertIn("&lt;script&gt;bad()&lt;/script&gt;", html)
+        self.assertNotIn("<script>bad()</script>", html)
+
+
 if __name__ == "__main__":
     unittest.main()
