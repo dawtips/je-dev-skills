@@ -11,7 +11,7 @@ version: 0.1.0
 Run a staged discovery interview that turns an idea into a checked
 **workflow blueprint** at `./workflows/<name>.blueprint.md`. The interview fills the
 structured core defined in
-`${CLAUDE_PLUGIN_ROOT}/docs/WORKFLOW_DESIGN_SPEC.md` §4.1 one topic at a time, then
+`${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §4.1 one topic at a time, then
 hands off to `workflow-design-validate`.
 
 The guiding principle is **simplicity-first**: find the simplest workflow that solves

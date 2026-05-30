@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.10+, stdlib `unittest`, PyYAML, Anthropic Python SDK for real review calls, Markdown skill files.
 
-**Spec:** [docs/WORKFLOW_DESIGN_REVIEW_SPEC.md](../../WORKFLOW_DESIGN_REVIEW_SPEC.md). Model default is based on Anthropic's current model overview checked on 2026-05-30: `claude-sonnet-4-6` for the normal cost/latency path, with `claude-opus-4-8` documented as an override for unusually complex blueprints. The model ID lives in one constant and is overridable by environment or CLI.
+**Spec:** [docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md](../specs/WORKFLOW_DESIGN_REVIEW_SPEC.md). Model default is based on Anthropic's current model overview checked on 2026-05-30: `claude-sonnet-4-6` for the normal cost/latency path, with `claude-opus-4-8` documented as an override for unusually complex blueprints. The model ID lives in one constant and is overridable by environment or CLI.
 
 ---
 
@@ -24,8 +24,8 @@ cd /home/dawti/je-dev-skills
 
 Read before coding:
 
-- `docs/WORKFLOW_DESIGN_REVIEW_SPEC.md`
-- `docs/WORKFLOW_DESIGN_SPEC.md`
+- `docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md`
+- `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`
 - `skills/workflow-design-validate/scripts/validate_blueprint.py`
 - `skills/workflow-design-validate/scripts/tests/test_cli.py`
 - `README.md`
@@ -65,7 +65,7 @@ skills/workflow-design-review/
         broken_non_mapping.blueprint.md
         ambiguous_a.blueprint.md
         ambiguous_b.blueprint.md
-docs/WORKFLOW_DESIGN_SPEC.md
+docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md
 README.md
 .claude-plugin/plugin.json
 ```
@@ -84,7 +84,7 @@ Responsibility map:
 | `scripts/tests/test_report.py` | Markdown report path and rendering with injected date/model/threshold. |
 | `scripts/tests/test_smoke.py` | End-to-end fake-client CLI path writes `.review.md` without network/API key. |
 | `README.md` and `.claude-plugin/plugin.json` | Discovery and lifecycle docs include `workflow-design-review`. |
-| `docs/WORKFLOW_DESIGN_SPEC.md` | Roadmap update marks review as specced/built and keeps v0.3+ deferred items separate. |
+| `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` | Roadmap update marks review as specced/built and keeps v0.3+ deferred items separate. |
 
 ## Task 1: Scaffold the Review Skill and Rubric
 
@@ -1688,7 +1688,7 @@ git commit -m "Add workflow review CLI smoke path"
 **Files:**
 - Modify: `README.md`
 - Modify: `.claude-plugin/plugin.json`
-- Modify: `docs/WORKFLOW_DESIGN_SPEC.md`
+- Modify: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`
 
 - [ ] **Step 7.1: Update README workflow-design table**
 
@@ -1705,8 +1705,8 @@ Replace the Workflow Design lifecycle paragraph, which begins with
 The skills form a lifecycle: **interview -> validate -> review (repeat)** -- design the
 blueprint, lint it for structural completeness, then run an advisory semantic
 review for design quality. See the v0.1 design spec at
-[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md) and the v0.2 review
-spec at [docs/WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/WORKFLOW_DESIGN_REVIEW_SPEC.md).
+[docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md) and the v0.2 review
+spec at [docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md).
 ```
 
 - [ ] **Step 7.2: Update plugin metadata**
@@ -1721,7 +1721,7 @@ Add `"semantic-review"` to `keywords`.
 
 - [ ] **Step 7.3: Update v0.1 roadmap text**
 
-In `docs/WORKFLOW_DESIGN_SPEC.md`, find the v0.2+ roadmap section that mentions semantic review. Replace the review bullet with:
+In `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`, find the v0.2+ roadmap section that mentions semantic review. Replace the review bullet with:
 
 ```markdown
 - `workflow-design-review` is specified in
@@ -1736,7 +1736,7 @@ detection listed as future v0.3+ work.
 - [ ] **Step 7.4: Commit**
 
 ```bash
-git add README.md .claude-plugin/plugin.json docs/WORKFLOW_DESIGN_SPEC.md
+git add README.md .claude-plugin/plugin.json docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md
 git commit -m "Document workflow-design-review lifecycle"
 ```
 
@@ -1833,7 +1833,7 @@ If no edits were required, do not create an empty commit.
 - `review_blueprint.py` implements path resolution, full-file loading, YAML/id extraction, context-isolated prompt assembly, structured Anthropic tool output, score validation, weakest-link verdict computation, report rendering, and CLI exit codes.
 - Offline tests cover prompt assembly, parsing, verdict logic, report rendering, and fake-client smoke flow.
 - Real review setup is documented in `SKILL.md`.
-- `README.md`, `.claude-plugin/plugin.json`, and `docs/WORKFLOW_DESIGN_SPEC.md` reflect the review skill and keep v0.3+ work deferred.
+- `README.md`, `.claude-plugin/plugin.json`, and `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` reflect the review skill and keep v0.3+ work deferred.
 - Verification commands in Task 8 pass.
 
 ## Out of Scope

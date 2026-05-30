@@ -15,7 +15,7 @@ Plan status updated:
 - Added `skills/workflow-design-review/` with `SKILL.md`, rubric reference, requirements, and offline tests.
 - Added `review_blueprint.py`, a self-contained advisory semantic reviewer with blueprint path resolution, YAML/full-text loading, context-isolated prompt assembly, structured Anthropic tool output parsing, weakest-link verdict logic, `.review.md` report rendering, and CLI exit codes.
 - Added fake-client test coverage for prompt assembly, parse validation, verdict logic, reports, smoke flow, malformed numeric env overrides, no-key errors, API failures, malformed blueprints, and write failures.
-- Updated `README.md`, `.claude-plugin/plugin.json`, and `docs/WORKFLOW_DESIGN_SPEC.md` to expose the new lifecycle: interview -> validate -> review.
+- Updated `README.md`, `.claude-plugin/plugin.json`, and `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` to expose the new lifecycle: interview -> validate -> review.
 - Fixed `tools/tests/test_skill_lint.py` import path so the plan's root-level test command works.
 
 ## Review Notes

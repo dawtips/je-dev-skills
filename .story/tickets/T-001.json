@@ -2,7 +2,7 @@
   "blockedBy": [],
   "completedDate": "2026-05-29",
   "createdDate": "2026-05-29",
-  "description": "LLM-graded prompt/agent eval lifecycle: vendored Python framework (generate then run then grade then report) plus three skills. Built; 33-test offline suite + smoke. Spec: docs/PROMPT_EVAL_FRAMEWORK_SPEC.md.",
+  "description": "LLM-graded prompt/agent eval lifecycle: vendored Python framework (generate then run then grade then report) plus three skills. Built; 33-test offline suite + smoke. Spec: docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md.",
   "id": "T-001",
   "order": 10,
   "phase": "foundation",

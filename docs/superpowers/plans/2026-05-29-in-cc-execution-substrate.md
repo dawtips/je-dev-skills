@@ -60,7 +60,7 @@ The deterministic-and-tested exemplar to mirror for style: `skills/workflow-desi
 | `skills/prompt-evals-run/SKILL.md` | CHANGED | Run procedure rewritten to Path A (no-key, skill dispatches execute+grade subagents per case → writes per-case verdict JSONs → calls `aggregate.py`); Path B (keyed `EXECUTION_MODE=anthropic_api`) documented as fallback. (NOTE: the §4 "Diagnose and iterate" single-pass re-scope + `diagnosis.md` citation is owned by the prompt-engineering-improve plan; THIS plan owns only the run-procedure rewrite — leave the diagnose step's wording for the other plan, but do not break it.) |
 | `skills/prompt-evals-setup/SKILL.md` | CHANGED | Vendoring step lists `aggregate.py` + `promptprep.py` in the verify tree; add a non-clobbering re-setup note that adds the new substrate files (`aggregate.py`, `promptprep.py`, updated `config.py`/`run_eval.py`) to an existing `./evals` without overwriting user edits. |
 
-**Out of scope for THIS plan** (owned by sibling plans, per the shared interface contract): `improve_step.py` and the loop-param constants block, the `prompt-engineering-*` skills, `agent-build-*`, `README.md`/`plugin.json` wiring, `docs/WORKFLOW_DESIGN_SPEC.md`. Do not touch the framework CORE (`evaluator/*.py`, `prompts/`).
+**Out of scope for THIS plan** (owned by sibling plans, per the shared interface contract): `improve_step.py` and the loop-param constants block, the `prompt-engineering-*` skills, `agent-build-*`, `README.md`/`plugin.json` wiring, `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`. Do not touch the framework CORE (`evaluator/*.py`, `prompts/`).
 
 ---
 
@@ -982,7 +982,7 @@ The "test" for a prose SKILL is a structural grep for required sections + a docu
     `run_eval.py evaluate` loop with the Anthropic SDK for executor and judge.
     Requires the API key; supports agentic `Trajectory`; for headless/CI runs.
 
-  Framework design: `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
+  Framework design: `${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
 
   ## Preconditions
 
@@ -1364,4 +1364,4 @@ The "test" is a structural grep + a real `cp`/file-presence smoke.
 - Architecture spec §2.3 + §5 "`prompt-evals-setup`'s vendoring must ship `aggregate.py` … re-running setup must add them non-clobbering" → **Task 7**.
 - Architecture spec §5 "Composition invariant (named files): CORE unchanged" + offline acceptance "given fixture verdict JSONs, `aggregate.py` produces the correct `output.json`/`output.html` with no API key and no model call" + "keyed fallback still works" → **Task 8**.
 
-**Deferred to sibling plans (not this plan):** `improve_step.py` + loop-param constants block (prompt-engineering-improve plan); the §4 single-pass diagnosis re-scope + `diagnosis.md` citation merged into `prompt-evals-run/SKILL.md` (prompt-engineering-improve plan); `README.md`/`plugin.json`/`docs/WORKFLOW_DESIGN_SPEC.md` wiring and `agent-build-*` (composition/agent-build plans). The framework CORE (`evaluator/*.py`, `prompts/`) is intentionally untouched.
+**Deferred to sibling plans (not this plan):** `improve_step.py` + loop-param constants block (prompt-engineering-improve plan); the §4 single-pass diagnosis re-scope + `diagnosis.md` citation merged into `prompt-evals-run/SKILL.md` (prompt-engineering-improve plan); `README.md`/`plugin.json`/`docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` wiring and `agent-build-*` (composition/agent-build plans). The framework CORE (`evaluator/*.py`, `prompts/`) is intentionally untouched.

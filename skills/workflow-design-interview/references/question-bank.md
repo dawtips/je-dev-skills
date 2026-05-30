@@ -1,7 +1,7 @@
 # Question bank
 
 Per-stage elicitation prompts for `workflow-design-interview`. The interview runs
-the 7 stages from `docs/WORKFLOW_DESIGN_SPEC.md` §6. For each stage this file lists
+the 7 stages from `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §6. For each stage this file lists
 **open questions** (ask first, to elicit) then **closed confirmations** (ask after,
 to lock the answer into the blueprint). Style: open questions then closed
 confirmations; explain-the-why over all-caps; cite volatile Claude details from

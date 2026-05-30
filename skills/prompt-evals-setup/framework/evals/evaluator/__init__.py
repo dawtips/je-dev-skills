@@ -1,6 +1,6 @@
 """Reference implementation of the prompt evaluation framework.
 
-See docs/PROMPT_EVAL_FRAMEWORK_SPEC.md for the full specification.
+See docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md for the full specification.
 """
 
 from .client import AnthropicClient, LLMClient

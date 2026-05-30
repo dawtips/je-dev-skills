@@ -1,5 +1,11 @@
 # Eval Framework Hardening (v0.2) Implementation Plan
 
+> **Status: COMPLETED (2026-05-29).** Story ticket `T-003` is complete. The scoped deliverable landed as the planned offline, deterministic modules at `skills/prompt-evals-setup/framework/evals/`: `runs_util.py`, `run_delta.py`, `variance.py`, `criteria_audit.py`, and `assertions.py`, with matching `unittest` coverage and the README usage section.
+>
+> **Verified (2026-05-30).** `cd skills/prompt-evals-setup/framework && python3 -m unittest discover -s evals/tests -t .` ran 69 tests and passed; `python3 -m evals.examples.smoke_test` printed `SMOKE TEST: PASS`; the framework core invariant held with no changes under `evals/evaluator/` or `evals/prompts/`.
+>
+> **Still deferred by design.** Live-path integration for pre-judge assertion gating and orchestrating K live runs for variance remains deferred to the run-path work. This plan's completed scope is the reusable engines + CLIs over existing dataset and `output.json` artifacts.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add the four `PROMPT_EVAL_FRAMEWORK_SPEC.md` §13 "v0.2 hardening" capabilities — multi-run variance/CI, baseline/previous-run delta, criteria audit (non-discriminating detection), and a deterministic structural-assertion layer — as standalone, offline, unit-tested modules at the vendored `evals/` top level.

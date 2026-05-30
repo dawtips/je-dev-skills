@@ -14,7 +14,7 @@ project. This is the one-time `init` step. After it completes, use
 
 The framework is bundled with this skill at
 `${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework/evals`. The full design
-is at `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md` — consult §11
+is at `${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md` — consult §11
 (Bootstrap Procedure) while working.
 
 ## When to use

@@ -2,7 +2,7 @@
   "blockedBy": [],
   "completedDate": "2026-05-29",
   "createdDate": "2026-05-29",
-  "description": "Staged discovery interview producing a checked blueprint, plus a deterministic completeness validator. Built; 29-test offline suite. Spec: docs/WORKFLOW_DESIGN_SPEC.md.",
+  "description": "Staged discovery interview producing a checked blueprint, plus a deterministic completeness validator. Built; 29-test offline suite. Spec: docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md.",
   "id": "T-002",
   "order": 20,
   "phase": "foundation",

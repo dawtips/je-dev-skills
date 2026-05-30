@@ -2,7 +2,7 @@
 
 LLM-graded prompt/agent evaluation. Generate a diverse test dataset from a
 plain-English task description, run your prompt-under-test against it, and grade
-each output with an LLM judge. Full design: [../docs/PROMPT_EVAL_FRAMEWORK_SPEC.md](../docs/PROMPT_EVAL_FRAMEWORK_SPEC.md).
+each output with an LLM judge. Full design: [../../../../docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md](../../../../docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md).
 
 ## Layout
 

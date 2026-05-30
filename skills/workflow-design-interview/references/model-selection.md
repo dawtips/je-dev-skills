@@ -2,7 +2,7 @@
 
 Guidelines for choosing a Claude `model` and an `effort` level for each agentic step
 or subagent in a blueprint. Loaded by Stage 4 of the interview (the determinism
-pass), alongside `patterns.md`. Source grounding: `docs/WORKFLOW_DESIGN_SPEC.md` §6
+pass), alongside `patterns.md`. Source grounding: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §6
 (stage 4) and §10; the multi-agent research post's effort-scaling heuristics.
 
 > **Claude models only for now.** This skill recommends within the Claude lineup.

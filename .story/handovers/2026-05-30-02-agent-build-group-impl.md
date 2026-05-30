@@ -14,7 +14,7 @@ Plan status updated:
 
 - Added `skills/agent-build-scaffold/` with `SKILL.md`, references, a PyYAML-based deterministic renderer CLI, fixtures, and 29 offline unit tests.
 - Added `skills/agent-build-run/SKILL.md` to drive scaffolded workflows in-session one level deep using generated commands, scripts, subagents, and explicit gate checks.
-- Updated `README.md`, `.claude-plugin/plugin.json`, and `docs/WORKFLOW_DESIGN_SPEC.md` so the plugin reads as one lifecycle: design -> author -> build/run -> measure -> improve.
+- Updated `README.md`, `.claude-plugin/plugin.json`, and `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` so the plugin reads as one lifecycle: design -> author -> build/run -> measure -> improve.
 - Updated Story ticket `T-009` to complete and removed its stale `T-008` blocker.
 
 ## Review Notes

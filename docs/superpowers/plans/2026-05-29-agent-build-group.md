@@ -13,7 +13,7 @@
 **Specs:**
 - [docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](../specs/2026-05-29-agent-build-and-execution-spec.md) — §3 (the `agent-build-*` group + rendering map), §4 (plugin composition), §5 (DoD), §6 (non-goals).
 - [docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md](../specs/2026-05-29-prompt-engineering-skills-design.md) — the lifecycle this group sits inside.
-- [docs/WORKFLOW_DESIGN_SPEC.md](../../WORKFLOW_DESIGN_SPEC.md) §4 (the blueprint schema this group consumes; §4 four-part contract = objective·output_format·tools·boundaries), §9 (roadmap entry relocated by Task 16).
+- [docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](../specs/WORKFLOW_DESIGN_SPEC.md) §4 (the blueprint schema this group consumes; §4 four-part contract = objective·output_format·tools·boundaries), §9 (roadmap entry relocated by Task 16).
 
 **Shared interface contract (do NOT redefine here — owned by sibling plans):** `evals/aggregate.py`, `config.EXECUTION_MODE`, `run_eval.py` mode-awareness + loop-param constants, `check_placeholders`, and `skills/prompt-engineering-improve/scripts/improve_step.py` are built by the **substrate** and **prompt-engineering-improve** plans. This plan COMPOSES the resulting lifecycle (README/manifest/roadmap) but creates none of those files. The framework CORE (`evals/evaluator/*.py`, `evals/prompts/`) is untouched.
 
@@ -50,7 +50,7 @@ skills/agent-build-run/
   SKILL.md                                   # Task 15 — the run skill (drive scaffolded app in-session)
 README.md                                    # Task 16 — unified lifecycle narrative + agent-build row + cost note
 .claude-plugin/plugin.json                   # Task 17 — one-journey description + keywords (keep scoped 'orchestration')
-docs/WORKFLOW_DESIGN_SPEC.md                 # Task 18 — §9 relocate scaffold roadmap entry → agent-build-*
+docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md                 # Task 18 — §9 relocate scaffold roadmap entry → agent-build-*
 ```
 
 The renderer splits one render concern per function (`render_subagent`, `render_step_script`, `render_hook`, `render_hooks_json`, `render_entry_command`, `warn_overpowered_steps`) so each is unit-testable in isolation — mirroring `workflow-design-validate/scripts/validate_blueprint.py`'s one-check-per-function structure. Fixtures are small and concern-focused.
@@ -59,7 +59,7 @@ The renderer splits one render concern per function (`render_subagent`, `render_
 
 ## Conventions reused (read before starting)
 
-- **Blueprint shape** is `workflow-design-validate`'s: one fenced ```` ```yaml ```` block; `steps[].{id,kind,rationale,pattern,side_effecting,reversible,termination,retry,rollback}`; `subagents[].{id,objective,output_format,tools,boundaries,model,effort}`; `rubrics[].{name,scale,levels,gate,judge}`; `dimensions`, `outcomes`, `budgets`, `guardrails`. See `docs/WORKFLOW_DESIGN_SPEC.md` §4.1 and the existing fixture `skills/workflow-design-validate/scripts/tests/fixtures/valid_full.blueprint.md`.
+- **Blueprint shape** is `workflow-design-validate`'s: one fenced ```` ```yaml ```` block; `steps[].{id,kind,rationale,pattern,side_effecting,reversible,termination,retry,rollback}`; `subagents[].{id,objective,output_format,tools,boundaries,model,effort}`; `rubrics[].{name,scale,levels,gate,judge}`; `dimensions`, `outcomes`, `budgets`, `guardrails`. See `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §4.1 and the existing fixture `skills/workflow-design-validate/scripts/tests/fixtures/valid_full.blueprint.md`.
 - **Parsing idiom** (copied from `validate_blueprint.py:13,34-49`): `YAML_FENCE = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)`; `extract_yaml_block` raises `ValueError` unless exactly one block; `load_blueprint` raises `ValueError` if the block is not a mapping. Reuse this verbatim so scaffold and validate agree on what a blueprint is.
 - **Test idiom** (copied from `workflow-design-validate/scripts/tests/test_subagents.py:1-7`): tests import the module directly (`from scaffold import ...`); `FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")`; run with `python3 -m unittest discover` from the `scripts/` dir so `scaffold` is importable as a top-level module.
 - **Skill frontmatter idiom** (copied from `workflow-design-validate/SKILL.md:1-7`): `name`, third-person `description` (what + when, with quoted trigger phrases), `argument-hint`, `allowed-tools`, `version: 0.1.0`. Reference plugin files by `${CLAUDE_PLUGIN_ROOT}/...` path.
@@ -256,7 +256,7 @@ ModuleNotFoundError: No module named 'scaffold'
 """Deterministic renderer: a validated workflow blueprint -> Claude-Code-native artifacts.
 
 Parses the single fenced ```yaml block from a <name>.blueprint.md file (the same
-artifact workflow-design-validate gates on, docs/WORKFLOW_DESIGN_SPEC.md §4) and
+artifact workflow-design-validate gates on, docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md §4) and
 renders:
   - agentic steps      -> .claude/agents/<id>.md subagents (four-part contract:
                           objective, output_format, tools, boundaries; tools ->
@@ -2231,9 +2231,9 @@ Spec §4.2: replace **both** existing per-group lifecycle blurbs with the single
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Replace the top description + the two skill-group sections.** In `README.md`, replace the block from line 3 (`A Claude Code **plugin**...`) through line 28 (the workflow-design lifecycle sentence ending `[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md).`) with the unified narrative. Use the Edit tool with this `old_string` (the current text) → `new_string`.
+- [ ] **Step 1: Replace the top description + the two skill-group sections.** In `README.md`, replace the block from line 3 (`A Claude Code **plugin**...`) through line 28 (the workflow-design lifecycle sentence ending `[docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md).`) with the unified narrative. Use the Edit tool with this `old_string` (the current text) → `new_string`.
 
-`old_string` (read `README.md` lines 3–28 first to copy exactly; it is the block beginning `A Claude Code **plugin** of skills for adding LLM-graded` and ending with `See the design spec at\n[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md).`).
+`old_string` (read `README.md` lines 3–28 first to copy exactly; it is the block beginning `A Claude Code **plugin** of skills for adding LLM-graded` and ending with `See the design spec at\n[docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md).`).
 
 `new_string`:
 ```markdown
@@ -2267,7 +2267,7 @@ billing split — verify the current wording before relying on it). A full eval 
 ~`2 × num_cases` model calls (execute + grade per case).
 
 See the design specs:
-[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md),
+[docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md),
 [docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md),
 and [docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
 ```
@@ -2358,7 +2358,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Spec §4.2: relocate the `workflow-design-scaffold` roadmap entry — it is superseded by `agent-build-*`. Add a one-line pointer so the two specs don't both claim scaffolding.
 
 **Files:**
-- Modify: `docs/WORKFLOW_DESIGN_SPEC.md`
+- Modify: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`
 
 - [ ] **Step 1: Replace the scaffold roadmap bullet.** In §9 (lines 335–337), replace:
 
@@ -2375,7 +2375,7 @@ Spec §4.2: relocate the `workflow-design-scaffold` roadmap entry — it is supe
   blueprint into the Claude-Code layer (subagents / hooks / scripts / an entry-point
   command) is now owned by the **`agent-build-*`** group, which ships scaffold **and** a
   one-level-deep in-session runner. See
-  [docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](superpowers/specs/2026-05-29-agent-build-and-execution-spec.md)
+  [2026-05-29-agent-build-and-execution-spec.md](../specs/2026-05-29-agent-build-and-execution-spec.md)
   §3. This roadmap entry is retained only as a pointer; the deferred-scaffold work is no
   longer planned here.
 ```
@@ -2384,9 +2384,9 @@ Spec §4.2: relocate the `workflow-design-scaffold` roadmap entry — it is supe
 
 ```bash
 cd /home/dawti/je-dev-skills && \
-grep -q "SUPERSEDED → .agent-build-\*\|SUPERSEDED" docs/WORKFLOW_DESIGN_SPEC.md && echo "OK: superseded marker" && \
-grep -q "agent-build-and-execution-spec.md" docs/WORKFLOW_DESIGN_SPEC.md && echo "OK: pointer to agent-build spec" && \
-test "$(grep -c 'render the Claude-Code layer of a validated' docs/WORKFLOW_DESIGN_SPEC.md)" = "0" && echo "OK: old deferred bullet removed"
+grep -q "SUPERSEDED → .agent-build-\*\|SUPERSEDED" docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md && echo "OK: superseded marker" && \
+grep -q "agent-build-and-execution-spec.md" docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md && echo "OK: pointer to agent-build spec" && \
+test "$(grep -c 'render the Claude-Code layer of a validated' docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md)" = "0" && echo "OK: old deferred bullet removed"
 ```
 
 Expected output: all `OK:` lines.
@@ -2394,7 +2394,7 @@ Expected output: all `OK:` lines.
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/dawti/je-dev-skills && git add docs/WORKFLOW_DESIGN_SPEC.md
+cd /home/dawti/je-dev-skills && git add docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md
 git commit -m "WORKFLOW_DESIGN_SPEC §9: relocate scaffold roadmap entry to agent-build-*
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"

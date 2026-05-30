@@ -1,5 +1,11 @@
 # Workflow Design Skills v0.1 Implementation Plan
 
+> **Status: COMPLETED (2026-05-29).** Story ticket `T-002` is complete. The scoped deliverable landed as the v0.1 `workflow-design-*` group: `workflow-design-interview` with its staged reference material and blueprint template, plus `workflow-design-validate` with the deterministic `validate_blueprint.py` checker and offline fixtures.
+>
+> **Verified (2026-05-30).** `cd skills/workflow-design-validate/scripts && python3 -m unittest discover -s tests -v` ran 29 tests and passed. The validator accepts the valid fixtures, rejects incomplete blueprints with gap reports, and the bundled Example 1 from `blueprint-schema.md` validates at `Coverage: 12/12` with `PASS`.
+>
+> **Spec location note.** The workflow design spec has since moved under `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`; references in this plan now point at the moved location.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the v0.1 `workflow-design-*` skill group — a staged discovery interview that emits a Markdown+YAML workflow blueprint, plus a deterministic completeness validator.
@@ -8,7 +14,7 @@
 
 **Tech Stack:** Python 3.10+, PyYAML, stdlib `unittest`, Markdown skills with YAML frontmatter.
 
-**Spec:** [docs/WORKFLOW_DESIGN_SPEC.md](../../WORKFLOW_DESIGN_SPEC.md). Tasks reference it by section (§).
+**Spec:** [docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](../specs/WORKFLOW_DESIGN_SPEC.md). Tasks reference it by section (§).
 
 ---
 
@@ -47,7 +53,7 @@ skills/workflow-design-interview/
     citations.md                        # Task 10
   assets/
     blueprint-template.md               # Task 8
-docs/WORKFLOW_DESIGN_SPEC.md            # Task 1 (reconcile schema)
+docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md            # Task 1 (reconcile schema)
 README.md                              # Task 12
 .claude-plugin/plugin.json             # Task 12
 ```
@@ -61,11 +67,11 @@ The validator splits one concern per check function so each is testable in isola
 The spec says `retry` is "required if side-effecting" and `rollback` "required if reversible," but the YAML has no field declaring those properties, so the check is undecidable. Add two boolean step fields and update the validator-check description to match.
 
 **Files:**
-- Modify: `docs/WORKFLOW_DESIGN_SPEC.md`
+- Modify: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`
 
 - [ ] **Step 1: Add the boolean fields to the §4.1 step schema**
 
-In `docs/WORKFLOW_DESIGN_SPEC.md`, find the `steps:` block in §4.1 and add two lines immediately after the `pattern:` line:
+In `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`, find the `steps:` block in §4.1 and add two lines immediately after the `pattern:` line:
 
 ```yaml
     side_effecting: true|false               # declares external side effects → drives the retry check
@@ -91,7 +97,7 @@ with:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/WORKFLOW_DESIGN_SPEC.md
+git add docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md
 git commit -m "Reconcile blueprint schema: add side_effecting/reversible booleans"
 ```
 
@@ -214,7 +220,7 @@ Expected: FAIL — `ImportError` / `cannot import name 'extract_yaml_block'`.
 """Deterministic completeness validator for workflow blueprints.
 
 Parses the single fenced ```yaml block from a <name>.blueprint.md file and
-checks it against the schema in docs/WORKFLOW_DESIGN_SPEC.md §4.1.
+checks it against the schema in docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md §4.1.
 """
 import argparse
 import re
@@ -1012,7 +1018,7 @@ Edit the `description` to mention both skill groups, and extend `keywords` with 
 
 - [ ] **Step 2: Add a Workflow Design section to `README.md`**
 
-Add a table mirroring the existing Skills table, listing `workflow-design-interview` and `workflow-design-validate` with their invoke commands and one-line descriptions, plus a line noting the lifecycle **interview → validate (repeat)** and a link to [docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md).
+Add a table mirroring the existing Skills table, listing `workflow-design-interview` and `workflow-design-validate` with their invoke commands and one-line descriptions, plus a line noting the lifecycle **interview → validate (repeat)** and a link to [docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md).
 
 - [ ] **Step 3: Run the full validator test suite one last time**
 

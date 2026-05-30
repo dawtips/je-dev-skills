@@ -3,7 +3,7 @@
 The workflow patterns from Anthropic's "Building Effective Agents" (Schluntz &
 Zhang, 19 Dec 2024) plus the augmented-LLM building block, and the simplicity-first
 rules that govern *when* to escalate from one to the next. Loaded by Stage 4 of the
-interview (the determinism pass). Source grounding: `docs/WORKFLOW_DESIGN_SPEC.md`
+interview (the determinism pass). Source grounding: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md`
 §10; see `citations.md` for dated URLs and volatile caveats.
 
 The governing principle from every Anthropic source: **start simple; only add

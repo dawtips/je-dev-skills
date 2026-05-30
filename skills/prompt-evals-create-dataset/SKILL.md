@@ -13,7 +13,7 @@ project's bundled framework (Stage 1: generate). A frozen dataset is generated o
 and evaluated many times — regenerate only when the task or input schema changes.
 
 The framework design (especially §6–§7 on high- vs low-quality inputs) is at
-`${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
+`${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
 
 ## Precondition
 

@@ -28,14 +28,14 @@ Headless/CI runs draw on keyed API usage. A full eval round is roughly two model
 turns per case: execute plus grade.
 
 See the design specs:
-[docs/WORKFLOW_DESIGN_SPEC.md](docs/WORKFLOW_DESIGN_SPEC.md),
-[docs/WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/WORKFLOW_DESIGN_REVIEW_SPEC.md),
+[docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md),
+[docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md),
 [docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md),
 and [docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
 
 ## Design & framework
 
-- **Spec & setup guide:** [docs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
+- **Spec & setup guide:** [docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
 - **Reference implementation (Python):** bundled in
   [skills/prompt-evals-setup/framework/evals/](skills/prompt-evals-setup/framework/evals/),
   copied into a project by the setup skill.

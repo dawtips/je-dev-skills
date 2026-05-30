@@ -11,7 +11,7 @@ version: 0.1.0
 Run a deterministic completeness check over a workflow blueprint and drive the
 fixes until it passes. The check is structural: it parses the single fenced
 `yaml` block from `<name>.blueprint.md` and verifies it against the schema in
-`docs/WORKFLOW_DESIGN_SPEC.md` §4.1 — dimension coverage, per-step contracts,
+`docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §4.1 — dimension coverage, per-step contracts,
 the subagent four-part contract, rubric gates, and Given-When-Then outcomes.
 
 ## Precondition
@@ -82,4 +82,4 @@ justified `{n/a: <rationale>}`) and no structural gaps remain.
 - **Semantic review is planned for v0.2.** An LLM-driven quality review layer
   (does the rationale hold up? are the guardrails sufficient? is the
   decomposition sound?) is out of scope for v0.1 — see
-  `docs/WORKFLOW_DESIGN_SPEC.md` §9.
+  `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §9.

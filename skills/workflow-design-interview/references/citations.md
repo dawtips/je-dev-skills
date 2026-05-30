@@ -2,7 +2,7 @@
 
 Dated source list grounding the `workflow-design-*` skills, plus a **volatile-values**
 subsection for details that change faster than the design (model IDs, tool names,
-community-lore figures). Source grounding: `docs/WORKFLOW_DESIGN_SPEC.md` §10.
+community-lore figures). Source grounding: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §10.
 
 **Convention.** Primary Anthropic sources first; third-party material is secondary
 corroboration. Everything that is liable to change carries an explicit *as of* date.

@@ -2081,7 +2081,7 @@ two skill rows + the `prompt-engineering` keyword refinements; do not re-create 
 
 - [ ] Read `README.md` (already read above) and add a `prompt-engineering-*` group section.
   Using the Edit tool, insert AFTER the "## Workflow Design skills" block (after its
-  lifecycle paragraph ending in `docs/WORKFLOW_DESIGN_SPEC.md).`) the following:
+  lifecycle paragraph ending in `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md).`) the following:
   ```markdown
 
   ## Prompt Engineering skills

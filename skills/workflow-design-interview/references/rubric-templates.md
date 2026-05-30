@@ -1,7 +1,7 @@
 # Rubric templates
 
 Reusable rubric shapes for the blueprint's `rubrics` block, loaded by Stage 6 of the
-interview (success criteria). Source grounding: `docs/WORKFLOW_DESIGN_SPEC.md` §4.1
+interview (success criteria). Source grounding: `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §4.1
 (rubric schema) and §10 (evaluation rigor — LLM-as-judge with explicit rubrics,
 categorical scales, calibration, judge biases).
 
@@ -128,4 +128,4 @@ plugin's `prompt-evals-*` lifecycle:
 When a blueprint reaches the build stage, hand its `rubrics`/`outcomes` to
 `/je-dev-skills:prompt-evals-create-dataset` as the starting point for an eval
 dataset. (This handoff is a documented future integration, not automated in v0.1 —
-see `docs/WORKFLOW_DESIGN_SPEC.md` §8.)
+see `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §8.)

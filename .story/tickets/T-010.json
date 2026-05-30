@@ -2,7 +2,7 @@
   "blockedBy": [],
   "completedDate": "2026-05-29",
   "createdDate": "2026-05-29",
-  "description": "Write the TDD implementation plan for workflow-design-review, derived from docs/WORKFLOW_DESIGN_REVIEW_SPEC.md (dedicated v0.2 spec: 7-dimension rubric, review_blueprint.py judge script, soft exit codes, offline fake-client tests, DoD in its §11). Context-isolation is explicit in its §6.1.",
+  "description": "Write the TDD implementation plan for workflow-design-review, derived from docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md (dedicated v0.2 spec: 7-dimension rubric, review_blueprint.py judge script, soft exit codes, offline fake-client tests, DoD in its §11). Context-isolation is explicit in its §6.1.",
   "id": "T-010",
   "order": 10,
   "phase": "review-layers",

@@ -1,7 +1,7 @@
 """Deterministic completeness validator for workflow blueprints.
 
 Parses the single fenced ```yaml block from a <name>.blueprint.md file and
-checks it against the schema in docs/WORKFLOW_DESIGN_SPEC.md §4.1.
+checks it against the schema in docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md §4.1.
 """
 import argparse
 import re

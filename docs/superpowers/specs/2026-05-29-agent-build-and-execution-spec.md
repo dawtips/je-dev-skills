@@ -252,7 +252,7 @@ The plugin is **one lifecycle**, not separate islands:
   Since `agent-build-run` **ships in this cut**, **keep `orchestration`** as a keyword, precisely
   scoped to the in-CC runtime (it previously over-promised a runtime that did not exist — review
   `no-scaffold-running-agent`).
-- `docs/WORKFLOW_DESIGN_SPEC.md` §9: **relocate** the `workflow-design-scaffold` roadmap entry — it is
+- `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` §9: **relocate** the `workflow-design-scaffold` roadmap entry — it is
   superseded by `agent-build-*` here. Add a one-line pointer so the two specs don't both claim
   scaffolding.
 
@@ -281,7 +281,7 @@ skills/agent-build-scaffold/scripts/     (deterministic renderers + offline unit
 skills/agent-build-run/SKILL.md
 README.md                                (CHANGED: unified lifecycle replaces both island blurbs + agent-build row + cost note)
 .claude-plugin/plugin.json               (CHANGED: one-journey description + keywords incl. scoped 'orchestration')
-docs/WORKFLOW_DESIGN_SPEC.md             (CHANGED: relocate scaffold roadmap entry → agent-build-*)
+docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md             (CHANGED: relocate scaffold roadmap entry → agent-build-*)
 ```
 
 **Acceptance criteria** (split offline vs. interactive, per the runtime reality):

@@ -23,7 +23,7 @@ There are **two execution paths**, selected by `EXECUTION_MODE` in `evals/config
   `run_eval.py evaluate` loop with the Anthropic SDK for executor and judge.
   Requires the API key; supports agentic `Trajectory`; for headless/CI runs.
 
-Framework design: `${CLAUDE_PLUGIN_ROOT}/docs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
+Framework design: `${CLAUDE_PLUGIN_ROOT}/docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md`.
 
 ## Preconditions
 

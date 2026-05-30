@@ -339,7 +339,7 @@ Each elicited requirement maps onto blueprint elements:
 - **`workflow-design-scaffold` - superseded by `agent-build-*`.** Rendering a
   validated blueprint into the Claude-Code layer (subagents, hooks, scripts, and
   an entry-point command) is now owned by the `agent-build-*` group. See
-  [docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](superpowers/specs/2026-05-29-agent-build-and-execution-spec.md)
+  [2026-05-29-agent-build-and-execution-spec.md](2026-05-29-agent-build-and-execution-spec.md)
   §3.
 - **Automated model-selection advisor (v0.3+)** — the *guideline* form ships in v0.1 (§6,
   stage 4: the interview recommends a Claude `model` + `effort` per agentic step /
@@ -407,5 +407,5 @@ Anthropic-reported.
   checklist, per-stage question bank, BEA pattern catalog, model-selection
   guidelines, rubric templates, dated citations.
 - `validate_blueprint.py` + offline tests green.
-- `docs/WORKFLOW_DESIGN_SPEC.md` (this document) written and committed.
+- `docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md` (this document) written and committed.
 - `README.md` + `plugin.json` updated for the new group.
