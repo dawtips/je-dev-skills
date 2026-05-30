@@ -176,15 +176,24 @@ Open `$RUNS/$RUN_LABEL/output.html`:
 
 ### 5. Diagnose and iterate
 
-- **Low scores from real output flaws** → fix the prompt and re-run against the **same**
-  dataset, **or invoke `/je-dev-skills:prompt-engineering-improve` to automate the loop.**
-- **Low scores from bad criteria** (off-scope, subjective) → the dataset is the problem.
-  Fix via `/je-dev-skills:prompt-evals-create-dataset` (audit step).
-- **Mandatory-criterion failures** cap a score at ≤ 3 — check `extra_criteria` first when
-  scores cluster low.
+This is the **single-pass** "what's wrong; fix and re-run" step — diagnose once, then hand
+off. The automated multi-round loop lives in `/je-dev-skills:prompt-engineering-improve`,
+not here. Read the shared reference before diagnosing:
+`${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/references/diagnosis.md` (one home,
+two readers — cite it, never fork it).
 
-Keep `SUBAGENT_JUDGE_MODEL` strong and **distinct** from `SUBAGENT_EXECUTOR_MODEL` to
-avoid self-grading leakage; widen the dataset for higher confidence on close calls.
+- **First gate — the criteria-vs-prompt guard** → before recommending any rewrite, decide
+  whether the **prompt** is wrong or the **success criteria** are. If the judge wants content
+  not in the inputs, the rubric demands an unstated format, the rationale conflicts with the
+  rubric, or it needs hidden domain knowledge, the **dataset** is the problem — fix it via
+  `/je-dev-skills:prompt-evals-create-dataset`, do **not** touch the prompt.
+- **Mandatory-criterion failures first** → any case scoring **≤ 3** failed a mandatory
+  criterion. Check `extra_criteria` and fix that gate before any secondary-criteria polish.
+- **Genuine prompt flaws** → fix the prompt and re-run against the **same** dataset, or
+  invoke prompt-engineering-improve to automate the loop.
+
+Keep `SUBAGENT_JUDGE_MODEL` strong and **distinct** from `SUBAGENT_EXECUTOR_MODEL` to avoid
+self-grading leakage; widen the dataset for higher confidence on close calls.
 
 ## Procedure — Path B (keyed fallback, headless/CI)
 

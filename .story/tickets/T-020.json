@@ -1,13 +1,13 @@
 {
   "blockedBy": [],
-  "completedDate": null,
+  "completedDate": "2026-05-30",
   "createdDate": "2026-05-30",
   "description": "Implement Task 17 from `docs/superpowers/plans/2026-05-29-prompt-engineering-skills.md`: re-scope the current `skills/prompt-evals-run/SKILL.md` Diagnose/iterate section to a single-pass diagnosis handoff. Restore the explicit citation to `${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/references/diagnosis.md`, name the `criteria-vs-prompt guard`, keep the mandatory-criterion-first guidance, and point users to `/je-dev-skills:prompt-engineering-improve` when they want the automated multi-round loop. Keep the later Path A/Path B substrate wording intact. Verification: structural grep for `single-pass`, `prompt-engineering-improve/references/diagnosis.md`, `prompt-engineering-improve to automate`, and `criteria-vs-prompt guard`; confirm no changes under `skills/prompt-evals-setup/framework/evals/evaluator` or `skills/prompt-evals-setup/framework/evals/prompts`.",
   "id": "T-020",
   "order": 30,
   "phase": "prompt-engineering",
   "spec": "docs/superpowers/specs/2026-05-30-prompt-engineering-diagnosis-and-future-spec.md",
-  "status": "open",
+  "status": "complete",
   "title": "Restore prompt-evals-run Task 17 diagnosis handoff",
   "type": "task"
 }
