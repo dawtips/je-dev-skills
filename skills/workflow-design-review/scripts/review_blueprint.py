@@ -390,3 +390,88 @@ def write_report(
         )
     except OSError as exc:
         raise ReviewInputError(f"failed to write report {path}: {exc}") from exc
+
+
+def make_anthropic_client() -> Any:
+    if not os.environ.get(API_KEY_ENV):
+        raise ReviewInputError(f"{API_KEY_ENV} is not set")
+    try:
+        from anthropic import Anthropic
+    except ImportError as exc:
+        raise ReviewInputError(
+            "anthropic package is not installed; run "
+            "pip install -r skills/workflow-design-review/scripts/requirements.txt"
+        ) from exc
+    return Anthropic(api_key=os.environ[API_KEY_ENV])
+
+
+def run_review(
+    blueprint_path: Path,
+    reviewed_date: str,
+    client_factory: Any | None = None,
+    strict: bool = False,
+    model: str = JUDGE_MODEL,
+    threshold: int = PASS_THRESHOLD,
+) -> tuple[int, Path, ReviewResult]:
+    ctx = load_blueprint_context(blueprint_path)
+    rubric = load_rubric()
+    factory = client_factory or make_anthropic_client
+    client = factory()
+    result = call_judge(client, build_system_prompt(rubric), build_user_prompt(ctx), model=model)
+    report_path = report_path_for(ctx.path)
+    write_report(report_path, ctx.path.name, result, reviewed_date, model, threshold)
+    return compute_exit_code(result, strict, threshold), report_path, result
+
+
+def _print_summary(report_path: Path, result: ReviewResult, threshold: int) -> None:
+    flags = compute_flags(result, threshold)
+    verdict = compute_verdict(result, threshold)
+    print(f"Report: {report_path}")
+    print(f"Verdict: {verdict}")
+    if flags:
+        print("Flagged dimensions:")
+        for dimension in flags:
+            print(f"  - {DIMENSION_TITLES[dimension.name]}: {dimension.score}/5")
+    else:
+        print("Flagged dimensions: none")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Review a workflow blueprint semantically.")
+    parser.add_argument("path", nargs="?", help="path to <name>.blueprint.md")
+    parser.add_argument("--date", help="review date to print in the report, e.g. 2026-05-30")
+    parser.add_argument("--strict", action="store_true", help="exit 1 when any dimension is below threshold")
+    parser.add_argument("--model", default=JUDGE_MODEL, help=f"judge model, default: {JUDGE_MODEL}")
+    parser.add_argument("--threshold", type=int, default=PASS_THRESHOLD, help=f"flag threshold, default: {PASS_THRESHOLD}")
+    args = parser.parse_args(argv)
+
+    if args.threshold < 1 or args.threshold > 5:
+        print("ERROR: --threshold must be between 1 and 5", file=sys.stderr)
+        return 2
+    if not args.date:
+        print("ERROR: --date is required to keep reports reproducible", file=sys.stderr)
+        return 2
+
+    try:
+        blueprint_path = resolve_blueprint_path(args.path)
+        rc, report_path, result = run_review(
+            blueprint_path=blueprint_path,
+            reviewed_date=args.date,
+            client_factory=make_anthropic_client,
+            strict=args.strict,
+            model=args.model,
+            threshold=args.threshold,
+        )
+    except (ReviewInputError, JudgeResponseError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"ERROR: judge call failed: {exc}", file=sys.stderr)
+        return 2
+
+    _print_summary(report_path, result, args.threshold)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
