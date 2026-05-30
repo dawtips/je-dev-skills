@@ -51,3 +51,29 @@ def load_loop_state(path: str) -> dict:
         if key not in data:
             raise ValueError(f"{path}: loop-state missing '{key}'")
     return data
+
+
+@dataclass
+class RoundRecord:
+    """One completed round's headline numbers (read from its output.json summary)."""
+    version: str
+    avg: float
+    pass_rate: float
+
+
+def compute_delta(*, current_avg: float, prior_avg: float | None) -> float | None:
+    """Avg-score change vs. the prior round, rounded to 2 dp. None on the baseline."""
+    if prior_avg is None:
+        return None
+    return round(current_avg - prior_avg, 2)
+
+
+def running_best(rounds: list[RoundRecord]) -> RoundRecord | None:
+    """The highest-avg round so far (argmax). Ties -> earliest (stable max by index)."""
+    if not rounds:
+        return None
+    best = rounds[0]
+    for r in rounds[1:]:
+        if r.avg > best.avg:  # strict > keeps the earliest on a tie
+            best = r
+    return best
