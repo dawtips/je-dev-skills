@@ -30,6 +30,20 @@ PROCESS_CRITERIA = None
 DATASET_FILE = f"{config.DATASETS_DIR}/meal_plan.json"
 NUM_CASES = 20
 
+# --- Loop parameters (prompt-engineering-improve) ----------------------------
+# The five loop params live HERE (not config.py) - the existing per-project edit
+# surface. improve_step.py reads them from the loop-state JSON it is handed and
+# stamps the resolved values into each delta.json + the final report.
+# pass_threshold is the one intentional reference back to config.PASS_THRESHOLD.
+LOOP_PARAMS = {
+    "pass_threshold": config.PASS_THRESHOLD,  # 7 - avg-score bar (referenced, not redefined)
+    "pass_rate_target": 0.80,                 # fraction of cases >= threshold to target
+    "max_rounds": 3,                          # hard cap on improvement rounds
+    "epsilon": 0.25,                          # min per-round avg gain that counts as progress
+    "diminishing_return_rounds": 2,           # consecutive sub-epsilon rounds before stopping
+    "regression_band": 0.5,                   # a round regresses only if > band below best
+}
+
 
 # --- 2. Define the prompt under test -----------------------------------------
 def run_prompt(prompt_inputs: dict) -> str:
@@ -64,6 +78,9 @@ def build_evaluator() -> PromptEvaluator:
 
 def main(argv: list[str]) -> int:
     command = argv[1] if len(argv) > 1 else "evaluate"
+    # Optional 3rd positional arg: a run_label so each improve round names its run dir
+    # deterministically (improve-<name>-round-NN). run_evaluation already accepts it.
+    run_label = argv[2] if len(argv) > 2 else None
     evaluator = build_evaluator()
 
     if command == "generate":
@@ -81,6 +98,7 @@ def main(argv: list[str]) -> int:
             dataset_file=DATASET_FILE,
             extra_criteria=EXTRA_CRITERIA,
             process_criteria=PROCESS_CRITERIA,
+            run_label=run_label,
         )
         return 0
 
