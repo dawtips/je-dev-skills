@@ -60,6 +60,37 @@ class TestCli(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(tmp, ".claude/scripts/parse-csv.sh")))
             self.assertTrue(os.path.exists(os.path.join(tmp, ".claude/commands/csv-to-slack.md")))
 
+    def test_main_refuses_to_overwrite_without_force(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, ".claude", "commands")
+            os.makedirs(path)
+            with open(os.path.join(path, "csv-to-slack.md"), "w", encoding="utf-8") as f:
+                f.write("existing")
+            err = io.StringIO()
+            rc = main([
+                os.path.join(FIXTURES, "csv-to-slack.blueprint.md"),
+                "--out-dir",
+                tmp,
+            ], stderr=err)
+            self.assertEqual(rc, 2)
+            self.assertIn("already exists", err.getvalue())
+
+    def test_main_force_allows_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, ".claude", "commands")
+            os.makedirs(path)
+            with open(os.path.join(path, "csv-to-slack.md"), "w", encoding="utf-8") as f:
+                f.write("existing")
+            rc = main([
+                os.path.join(FIXTURES, "csv-to-slack.blueprint.md"),
+                "--out-dir",
+                tmp,
+                "--force",
+            ], stdout=io.StringIO())
+            self.assertEqual(rc, 0)
+            with open(os.path.join(path, "csv-to-slack.md"), encoding="utf-8") as f:
+                self.assertIn("# csv-to-slack", f.read())
+
 
 if __name__ == "__main__":
     unittest.main()

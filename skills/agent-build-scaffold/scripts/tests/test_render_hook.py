@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import tempfile
 import unittest
 
 from scaffold import hook_filename, load_blueprint, render_hook, render_hooks_json
@@ -17,6 +19,31 @@ class TestRenderHook(unittest.TestCase):
         self.assertIn('SCORE_FILE=".agent-build-state/classification-accuracy.score"', hook)
         self.assertIn('if [ "$SCORE" -lt "4" ]; then', hook)
         self.assertIn("exit 2", hook)
+
+    def test_hook_blocks_non_numeric_scores(self):
+        bp = load_blueprint(os.path.join(FIXTURES, "refund-triage.blueprint.md"))
+        hook = render_hook(bp["rubrics"][0])
+        with tempfile.TemporaryDirectory() as tmp:
+            hook_path = os.path.join(tmp, "gate.sh")
+            os.makedirs(os.path.join(tmp, ".agent-build-state"))
+            with open(hook_path, "w", encoding="utf-8") as f:
+                f.write(hook)
+            os.chmod(hook_path, 0o755)
+            with open(
+                os.path.join(tmp, ".agent-build-state", "classification-accuracy.score"),
+                "w",
+                encoding="utf-8",
+            ) as f:
+                f.write("abc")
+            result = subprocess.run(
+                [hook_path],
+                cwd=tmp,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Invalid numeric score", result.stderr)
 
     def test_render_hooks_json_wires_default_subagent_stop_event(self):
         bp = load_blueprint(os.path.join(FIXTURES, "refund-triage.blueprint.md"))

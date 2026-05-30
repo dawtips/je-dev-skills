@@ -25,13 +25,13 @@ entry-point command.
 1. **Install renderer dependency.**
 
    ```bash
-   pip install -r ${CLAUDE_PLUGIN_ROOT}/skills/agent-build-scaffold/scripts/requirements.txt
+   pip3 install -r ${CLAUDE_PLUGIN_ROOT}/skills/agent-build-scaffold/scripts/requirements.txt
    ```
 
 2. **Dry-run first.** Read the target plan and warnings before writing files:
 
    ```bash
-   python ${CLAUDE_PLUGIN_ROOT}/skills/agent-build-scaffold/scripts/scaffold.py <path> --dry-run
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/agent-build-scaffold/scripts/scaffold.py <path> --dry-run
    ```
 
    If warnings say an agentic step looks mechanical, pause and decide whether the
@@ -45,8 +45,12 @@ entry-point command.
 4. **Write the artifacts.**
 
    ```bash
-   python ${CLAUDE_PLUGIN_ROOT}/skills/agent-build-scaffold/scripts/scaffold.py <path>
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/agent-build-scaffold/scripts/scaffold.py <path>
    ```
+
+   Existing generated files are not overwritten by default. Re-run with
+   `--force` only after reviewing the dry-run output and deciding replacement is
+   intentional.
 
    The command writes:
    - `.claude/agents/<id>.md`

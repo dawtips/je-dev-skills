@@ -65,28 +65,36 @@ def _shell_var_name(value: str) -> str:
     return re.sub(r"[^A-Z0-9]+", "_", value.upper()).strip("_")
 
 
+def _comment_lines(label: str, value) -> list[str]:
+    text = str(value or "").splitlines() or [""]
+    lines = [f"# {label}: {text[0]}"]
+    lines.extend(f"#   {line}" for line in text[1:])
+    return lines
+
+
 def render_step_script(step: dict) -> str:
     step_id = str(step.get("id", "step"))
-    rationale = str(step.get("rationale", "")).strip()
     lines = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         "",
         "# AUTO-GENERATED placeholder by agent-build-scaffold. Fill in the real command below.",
-        f"# Step: {step_id}",
-        f"# Rationale: {rationale}",
     ]
+    lines.extend(_comment_lines("Step", step_id))
+    lines.extend(_comment_lines("Rationale", step.get("rationale", "")))
     if step.get("reversible") and step.get("rollback"):
-        lines.append(f"# Rollback: {step['rollback']}")
+        lines.extend(_comment_lines("Rollback", step["rollback"]))
     lines.append("")
 
     if step.get("side_effecting"):
         retry = step.get("retry") or {}
         key = str(retry.get("idempotency_key", "IDEMPOTENCY_KEY"))
         var_name = _shell_var_name(key)
+        step_slug = slugify(step_id)
         lines.extend([
             f'IDEMPOTENCY_KEY="${{{var_name}:?set {var_name}}}"',
-            'MARKER=".agent-build-state/${IDEMPOTENCY_KEY}.done"',
+            'SAFE_IDEMPOTENCY_KEY="$(printf \'%s\' "$IDEMPOTENCY_KEY" | sed \'s/[^A-Za-z0-9_.-]/_/g\')"',
+            f'MARKER=".agent-build-state/{step_slug}-${{SAFE_IDEMPOTENCY_KEY}}.done"',
             "mkdir -p .agent-build-state",
             'if [ -f "$MARKER" ]; then',
             f'  echo "Step {step_id} already completed for $IDEMPOTENCY_KEY"',
@@ -179,6 +187,12 @@ def render_hook(rubric: dict) -> str:
         "  exit 2",
         "fi",
         'SCORE="$(cat "$SCORE_FILE")"',
+        'case "$SCORE" in',
+        "  ''|*[!0-9]*)",
+        f'    echo "Invalid numeric score for rubric {name}: $SCORE" >&2',
+        "    exit 2",
+        "    ;;",
+        "esac",
         f'if [ "$SCORE" -lt "{gate}" ]; then',
         f'  echo "Rubric {name} failed: $SCORE < {gate}" >&2',
         "  exit 2",
@@ -241,6 +255,27 @@ def render_entry_command(bp: dict, workflow_name: str) -> str:
         else:
             lines.append(
                 f"{index}. `{step_id}` - run script `.claude/scripts/{step_script_filename(step)}`."
+            )
+        lines.append("")
+    rubrics = [rubric for rubric in (bp.get("rubrics") or []) if rubric.get("gate") is not None]
+    if rubrics:
+        lines.extend(["## Gates", ""])
+        for rubric in rubrics:
+            name = slugify(str(rubric.get("name", "rubric")))
+            lines.append(
+                f"- {name}: score file `.agent-build-state/{name}.score`, gate `{rubric.get('gate')}`."
+            )
+        lines.append("")
+    side_effects = [step for step in (bp.get("steps") or []) if step.get("side_effecting") or step.get("reversible")]
+    if side_effects:
+        lines.extend(["## Side Effects And Recovery", ""])
+        for step in side_effects:
+            retry = step.get("retry") or {}
+            policy = retry.get("policy", "none")
+            key = retry.get("idempotency_key", "none")
+            rollback = step.get("rollback", "none")
+            lines.append(
+                f"- {step.get('id')}: idempotency key `{key}`; retry `{policy}`; rollback `{rollback}`."
             )
         lines.append("")
     return "\n".join(lines)
@@ -318,6 +353,7 @@ def scaffold_blueprint(
     blueprint_path: str | Path,
     out_dir: str | Path = ".",
     dry_run: bool = False,
+    force: bool = False,
 ) -> tuple[list[Path], list[str]]:
     bp = load_blueprint(str(blueprint_path))
     workflow_name = _workflow_name(blueprint_path)
@@ -326,6 +362,10 @@ def scaffold_blueprint(
     written = [path for path, _, _ in planned]
     if dry_run:
         return written, warnings
+    existing = [path for path in written if path.exists()]
+    if existing and not force:
+        rel = ", ".join(os.path.relpath(path, out_dir) for path in existing)
+        raise ScaffoldError(f"file(s) already exists: {rel}; pass --force to overwrite")
     for path, text, executable in planned:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
@@ -343,12 +383,14 @@ def main(argv=None, stdout=None, stderr=None) -> int:
     parser.add_argument("blueprint", help="path to <name>.blueprint.md")
     parser.add_argument("--out-dir", default=".", help="target project directory")
     parser.add_argument("--dry-run", action="store_true", help="print planned files only")
+    parser.add_argument("--force", action="store_true", help="overwrite existing generated files")
     args = parser.parse_args(argv)
     try:
         paths, warnings = scaffold_blueprint(
             args.blueprint,
             args.out_dir,
             dry_run=args.dry_run,
+            force=args.force,
         )
     except (OSError, ValueError, ScaffoldError) as exc:
         print(f"ERROR: {exc}", file=stderr)

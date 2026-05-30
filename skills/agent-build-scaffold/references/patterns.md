@@ -49,7 +49,8 @@ Side-effecting scripts add an idempotency marker:
 
 ```bash
 IDEMPOTENCY_KEY="${ORDER_ID:?set ORDER_ID}"
-MARKER=".agent-build-state/${IDEMPOTENCY_KEY}.done"
+SAFE_IDEMPOTENCY_KEY="$(printf '%s' "$IDEMPOTENCY_KEY" | sed 's/[^A-Za-z0-9_.-]/_/g')"
+MARKER=".agent-build-state/<step-id>-${SAFE_IDEMPOTENCY_KEY}.done"
 mkdir -p .agent-build-state
 if [ -f "$MARKER" ]; then
   exit 0
@@ -97,6 +98,8 @@ not a hidden executor. It lists steps in blueprint order:
 - Agentic step: dispatch the paired subagent.
 - Deterministic step: run the generated script.
 - Termination: stop when step termination or gates fail.
+- Gates: score-file names and thresholds.
+- Side effects: idempotency key, retry policy, and rollback note.
 - Nesting: one level deep only.
 
 ## State Directory

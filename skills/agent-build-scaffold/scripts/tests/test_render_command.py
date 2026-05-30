@@ -19,6 +19,10 @@ class TestRenderEntryCommand(unittest.TestCase):
         self.assertIn("Termination: a single category is chosen", text)
         self.assertIn("2. `fetch-order` - run script `.claude/scripts/fetch-order.sh`", text)
         self.assertIn("3. `issue-refund` - run script `.claude/scripts/issue-refund.sh`", text)
+        self.assertIn("## Gates", text)
+        self.assertIn("classification-accuracy: score file `.agent-build-state/classification-accuracy.score`, gate `4`", text)
+        self.assertIn("## Side Effects And Recovery", text)
+        self.assertIn("issue-refund: idempotency key `order_id`; retry `exponential`; rollback `void the refund via the orders API`", text)
 
     def test_renders_no_subagent_path_for_deterministic_only_blueprint(self):
         bp = load_blueprint(os.path.join(FIXTURES, "csv-to-slack.blueprint.md"))

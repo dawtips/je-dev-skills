@@ -2,7 +2,7 @@
 name: agent-build-run
 description: This skill should be used when the user asks to "run the scaffolded agent", "drive my agent workflow", "execute the agent-build app", "run the workflow end to end", or after agent-build-scaffold has emitted .claude/ artifacts. It drives the scaffolded application in-session by running deterministic scripts and dispatching agentic steps as subagents, one level deep, honoring rubric gates, loops, and termination conditions with no API key on the interactive path.
 argument-hint: "[workflow name, e.g. refund-triage] [workflow inputs]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Task
+allowed-tools: Bash, Read, Write, Edit, Glob, Agent
 version: 0.1.0
 ---
 

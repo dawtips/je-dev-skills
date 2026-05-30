@@ -17,7 +17,7 @@ runtime verification step before relying on volatile behavior.
 | `steps[].kind: agentic` | paired `.claude/agents/<subagent-id>.md` | `render_subagent` | contained non-determinism |
 | subagent contract: `objective`, `output_format`, `tools`, `boundaries` | `tools` in frontmatter; the other three as body sections | `render_subagent` | declarative |
 | rubric `gate` | `.claude/hooks/<name>-gate.sh` plus `.claude/hooks.json` using default `SubagentStop` wiring and command-hook schema | `render_hook`, `render_hooks_json` | deterministic |
-| side-effecting step | script with `.agent-build-state/<idempotency-key>.done` marker | `render_step_script` | deterministic guard |
+| side-effecting step | script with namespaced, sanitized `.agent-build-state/<step-id>-<safe-idempotency-key>.done` marker | `render_step_script` | deterministic guard |
 | reversible step | script rollback note | `render_step_script` | documentation only |
 | blueprint inputs | slash-command `argument-hint` | `render_entry_command` | deterministic |
 | whole workflow | `.claude/commands/<workflow>.md` | `render_entry_command` | deterministic sequencing |
@@ -30,7 +30,9 @@ runtime verification step before relying on volatile behavior.
 2. The scaffolder warns when an agentic step looks mechanical. Extraction,
    parsing, formatting, lookup, sorting, filtering, and fixed transformations are
    script candidates unless the blueprint gives a genuine judgment signal.
-3. The generated command keeps orchestration one level deep. It may dispatch
+3. Side-effecting markers are namespaced by step and sanitize runtime values
+   before using them in paths.
+4. The generated command keeps orchestration one level deep. It may dispatch
    generated subagents, but generated subagents must not dispatch nested agents.
 
 ## Not Rendered In This Cut
