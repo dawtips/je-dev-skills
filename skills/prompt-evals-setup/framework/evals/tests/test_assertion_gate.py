@@ -55,6 +55,14 @@ class TestAssertionGate(unittest.TestCase):
                 policy="annotate_only",
             )
 
+    def test_advisory_rejects_gate_override(self):
+        with self.assertRaisesRegex(ValueError, "gate override is invalid for advisory assertions"):
+            evaluate_assertion_gate(
+                "no calories here",
+                [{"type": "contains", "value": "kcal", "severity": "advisory", "policy": "gate"}],
+                policy="gate_mandatory",
+            )
+
     def test_synthetic_verdict_is_deterministic_floor(self):
         gate = evaluate_assertion_gate(
             "no calories here",
