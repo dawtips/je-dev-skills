@@ -77,3 +77,62 @@ def running_best(rounds: list[RoundRecord]) -> RoundRecord | None:
         if r.avg > best.avg:  # strict > keeps the earliest on a tie
             best = r
     return best
+
+
+@dataclass
+class LoopParams:
+    """The five loop params (run_eval.py constants block) + pass_threshold (config)."""
+    pass_threshold: int
+    pass_rate_target: float
+    max_rounds: int
+    epsilon: float
+    diminishing_return_rounds: int
+    regression_band: float
+
+
+@dataclass
+class Verdict:
+    decision: str           # "continue" | "stop"
+    rule: str | None        # threshold | pass_rate | diminishing-returns-K | regression_band | max_rounds
+    detail: str = ""
+
+
+def stop_verdict(rounds: list[RoundRecord], params: LoopParams, *, round_index: int) -> Verdict:
+    """Decide continue|stop:<rule> from the completed rounds.
+
+    If several rules fire, report the first in this priority order so
+    success/regression beat the budget cap: threshold, pass_rate,
+    regression_band, diminishing-returns-K, max_rounds. The caller keeps the
+    best version regardless.
+
+    round_index convention: 0-based, where the baseline is round 0 and the
+    improvement rounds are 1..max_rounds.
+    """
+    if not rounds:
+        return Verdict("continue", None, "no rounds yet")
+    latest = rounds[-1]
+
+    if latest.avg >= params.pass_threshold:
+        return Verdict("stop", "threshold",
+                       f"avg {latest.avg} >= pass_threshold {params.pass_threshold}")
+    if latest.pass_rate >= params.pass_rate_target * 100:
+        return Verdict("stop", "pass_rate",
+                       f"pass_rate {latest.pass_rate}% >= target {params.pass_rate_target * 100}%")
+    reg = _regression_rule(rounds, params)
+    if reg is not None:
+        return reg
+    dim = _diminishing_rule(rounds, params)
+    if dim is not None:
+        return dim
+    if round_index >= params.max_rounds:
+        return Verdict("stop", "max_rounds",
+                       f"round_index {round_index} reached cap {params.max_rounds}")
+    return Verdict("continue", None, f"round_index {round_index} of cap {params.max_rounds}")
+
+
+def _regression_rule(rounds, params):
+    return None
+
+
+def _diminishing_rule(rounds, params):
+    return None
