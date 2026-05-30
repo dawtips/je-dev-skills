@@ -69,16 +69,27 @@ Read the dataset's `cases` array. For **each** case (index `i`):
 3. **Run structural assertions** configured in `evals.run_eval.ASSERTIONS` using
    `evals.run_eval.ASSERTION_POLICY`. These checks run locally against the
    execute-subagent's raw output and produce the `assertion_gate` evidence that
-   the skill writes beside the verdict.
+   the skill writes beside the verdict. Persist the raw output first so the
+   assertion helper and later troubleshooting read the same bytes:
 
    ```bash
-   python3 - <<'PY'
+   OUTPUTS_DIR="evals/runs/_outputs/$RUN_LABEL"
+   mkdir -p "$OUTPUTS_DIR"
+   OUTPUT_FILE="$OUTPUTS_DIR/case-$(printf '%02d' "$i").txt"
+   printf '%s' "$RAW_OUTPUT" > "$OUTPUT_FILE"
+
+   RUN_LABEL="$RUN_LABEL" CASE_INDEX="$i" python3 - <<'PY'
    import json
+   import os
    from pathlib import Path
    from evals import run_eval
    from evals.assertion_gate import evaluate_assertion_gate, synthetic_gated_verdict
 
-   output_path = Path("evals/runs/_outputs/$RUN_LABEL/case-<i:02d>.txt")
+   output_path = (
+       Path("evals/runs/_outputs")
+       / os.environ["RUN_LABEL"]
+       / f"case-{int(os.environ['CASE_INDEX']):02d}.txt"
+   )
    gate = evaluate_assertion_gate(
        output_path.read_text(encoding="utf-8"),
        run_eval.ASSERTIONS,
