@@ -1,5 +1,7 @@
 # agent-build-* Group + Plugin Composition Implementation Plan
 
+**Status:** Complete (2026-05-30)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the `agent-build-*` skill group — deterministic renderers (TDD) that turn a validated workflow blueprint + authored prompts into Claude-Code-native artifacts (subagents, hooks, scripts, an entry-point command), a `agent-build-run` skill that drives them in-session one level deep, and unify the plugin's README/manifest/roadmap into a single design→author→build→measure→improve story.
