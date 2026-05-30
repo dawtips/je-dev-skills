@@ -25,9 +25,10 @@ four up front.
   `/je-dev-skills:prompt-evals-create-dataset`). This skill owns **no** eval engine and
   does **not** define success criteria or build datasets.
 - The measurement substrate determines which execution path is available. If
-  `evals/config.py` has `EXECUTION_MODE` and `evals/aggregate.py` exists, the no-key path
-  is available. If those substrate files are absent, use the keyed fallback or stop and
-  install the execution substrate first; do not claim no-key execution is available.
+  `evals/config.py` has `EXECUTION_MODE`, `evals/aggregate.py` exists, and
+  `prompt-evals-run` itself documents the substrate path, the no-key path is available.
+  If those files or instructions are absent, use the keyed fallback or stop and install
+  the execution substrate first; do not claim no-key execution is available.
 - The prompt-under-test lives at `evals/prompts_under_test/<name>.current.md`. On first
   use, migrate any custom `run_prompt` per the substrate's migration note (extract the
   prompt text to `<name>.current.md`; map system/user content to subagent options; route
@@ -36,12 +37,14 @@ four up front.
 
 ## Execution paths (from the architecture spec - consumed, not redefined)
 
-- **No-key path (when the execution substrate is installed,
-  `EXECUTION_MODE=in_claude_code`):** `/je-dev-skills:prompt-evals-run` drives measurement
-  by dispatching execute+grade **subagents** per case (session auth, no API key), and
+- **No-key path (only when the execution substrate is installed,
+  `EXECUTION_MODE=in_claude_code`):** follow the substrate-updated `prompt-evals-run`
+  procedure, which dispatches execute+grade **subagents** per case (session auth, no API
+  key), then runs
   `python -m evals.aggregate --run-label <label> --verdicts-dir <dir> --dataset <path>`
-  writes `evals/runs/<label>/{output.json,output.html}`. **Single-shot only** (subagents
-  can't nest). Auto mode is no-key only while an interactive session drives it.
+  to write `evals/runs/<label>/{output.json,output.html}`. **Single-shot only** (subagents
+  can't nest). This branch does not ship that substrate; if the local `prompt-evals-run`
+  file only documents `ANTHROPIC_API_KEY`, use the keyed fallback below.
 - **Keyed fallback (`EXECUTION_MODE=anthropic_api`, headless/CI):** `python3 -m evals.run_eval evaluate`
   runs `run_evaluation` in-process with `ANTHROPIC_API_KEY`; supports agentic prompts.
 
@@ -82,17 +85,22 @@ delta:     improve_step.py -> delta + best + continue/stop verdict
    JSON** (`evals/improve/<name>/<timestamp>/loop-state.json`): the resolved `params`,
    the frozen `extra_criteria` + its hash (`improve_step.py`'s `extra_criteria_hash`),
    `current_version`, and an empty `rounds` list.
-2. **Diagnose.** Read
+2. **Diagnose and record the completed round.** Read
    `${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/references/diagnosis.md`. Run
    the helper to get the tally:
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/scripts/improve_step.py \
      --output-json evals/runs/improve-<name>-round-NN/output.json \
      --loop-state evals/improve/<name>/<timestamp>/loop-state.json \
-     --delta-out evals/improve/<name>/<timestamp>/round-NN/delta.json
+     --delta-out evals/improve/<name>/<timestamp>/round-NN/delta.json \
+     --check-freeze
    ```
-   Use the tally (mandatory-fail count, %-per-theme) to **name the dominant theme**. Apply
-   the criteria-vs-prompt guard: if it's a criteria problem, **STOP** and route to
+   Act on the helper's exit code even for the baseline: exit 1 means the baseline already
+   hit a stopping rule, so finalize without rewriting; exit 2 means bad input or freeze
+   violation. If the loop continues, append this completed round's
+   `{version, avg, pass_rate, technique, decision, run_dir}` to `rounds` before selecting a
+   rewrite. Use the tally (mandatory-fail count, %-per-theme) to **name the dominant theme**.
+   Apply the criteria-vs-prompt guard: if it's a criteria problem, **STOP** and route to
    `prompt-evals-create-dataset`.
 3. **Select.** Map the dominant theme -> the minimum ladder rung (diagnosis.md table +
    priority/tie-break).
@@ -143,12 +151,15 @@ After the loop stops, write the final report **with the helper, not by hand**:
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-improve/scripts/improve_step.py \
   --loop-state evals/improve/<name>/<timestamp>/loop-state.json \
   --final-report-out evals/improve/<name>/<timestamp>/final-report.json \
+  --held-out-output-json evals/runs/improve-<name>-held-out/output.json \
   --check-freeze
 ```
 
 This stamps the resolved loop params, the round-by-round trace, the winning `best.version`,
 `held_out_run_count`, and the frozen `EXTRA_CRITERIA` hash into `final-report.json` (exit 2 =
-freeze violation). The model never serializes these by hand.
+freeze violation). Pass `--held-out-output-json` when held-out validation ran so the helper
+checks the actual held-out report's `meta.extra_criteria`; omit it only when held-out was
+skipped. The model never serializes these by hand.
 
 ## Output / trace
 

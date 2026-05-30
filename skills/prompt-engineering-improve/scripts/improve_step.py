@@ -338,6 +338,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="finalize mode: write the deterministic final-report.json "
                              "(round trace + best version + held_out_run_count + hash) "
                              "and exit; --output-json is not required in this mode")
+    parser.add_argument("--held-out-output-json", default=None,
+                        help="finalize mode: held-out run output.json to freeze-check "
+                             "against its recorded meta.extra_criteria")
     parser.add_argument("--check-freeze", action="store_true",
                         help="assert EXTRA_CRITERIA hash unchanged before emitting")
     args = parser.parse_args(argv)
@@ -350,8 +353,16 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if args.check_freeze:
             try:
+                held_out_output = (
+                    load_output_json(args.held_out_output_json)
+                    if args.held_out_output_json is not None else None
+                )
                 assert_freeze(frozen_hash=state.get("extra_criteria_hash", ""),
-                              current_text=extra_criteria_text(state=state))
+                              current_text=extra_criteria_text(
+                                  state=state, output=held_out_output))
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                print(f"ERROR: {exc}")
+                return 2
             except FreezeViolation as exc:
                 print(f"FREEZE VIOLATION: {exc}")
                 return 2

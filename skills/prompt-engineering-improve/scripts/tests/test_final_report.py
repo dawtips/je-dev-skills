@@ -62,6 +62,24 @@ class TestFinalReport(unittest.TestCase):
         self.assertIn("extra_criteria_hash", report)
         self.assertIn("params", report)
 
+    def test_cli_finalize_checks_held_out_output_extra_criteria(self):
+        with tempfile.TemporaryDirectory() as d:
+            loopstate = _state_with_hash("loopstate_final.json", d)
+            with open(os.path.join(FIXTURES, "round01_output.json"), encoding="utf-8") as f:
+                held_out_output = json.load(f)
+            held_out_output["meta"]["extra_criteria"] = "Tampered held-out criteria."
+            held_out_path = os.path.join(d, "held-out-output.json")
+            with open(held_out_path, "w", encoding="utf-8") as f:
+                json.dump(held_out_output, f)
+
+            rc = main([
+                "--loop-state", loopstate,
+                "--final-report-out", os.path.join(d, "final-report.json"),
+                "--held-out-output-json", held_out_path,
+                "--check-freeze",
+            ])
+            self.assertEqual(rc, 2)
+
     def test_cli_finalize_freeze_violation_exits_two(self):
         with tempfile.TemporaryDirectory() as d:
             src = os.path.join(FIXTURES, "loopstate_final.json")
