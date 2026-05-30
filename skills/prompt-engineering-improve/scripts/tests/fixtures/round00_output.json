@@ -1,0 +1,10 @@
+{
+  "meta": {"run_label": "improve-mealplan-round-00", "extra_criteria": "Must include a caloric total and a macro breakdown."},
+  "summary": {"total": 4, "average_score": 5.0, "passed": 1, "pass_rate": 25.0},
+  "results": [
+    {"output": "o1", "score": 8, "reasoning": "good", "test_case": {"scenario": "s1", "prompt_inputs": {"goal": "cut"}, "solution_criteria": ["c1"]}, "verdict": {"strengths": ["clear"], "weaknesses": [], "reasoning": "good", "score": 8}},
+    {"output": "o2", "score": 6, "reasoning": "format drift", "test_case": {"scenario": "s2", "prompt_inputs": {"goal": "bulk"}, "solution_criteria": ["c2"]}, "verdict": {"strengths": [], "weaknesses": ["output format inconsistent across sections"], "reasoning": "format drift", "score": 6}},
+    {"output": "o3", "score": 3, "reasoning": "missing macro breakdown", "test_case": {"scenario": "s3", "prompt_inputs": {"goal": "maintain"}, "solution_criteria": ["c3"]}, "verdict": {"strengths": [], "weaknesses": ["missing required macro breakdown"], "reasoning": "missing macro breakdown", "score": 3}},
+    {"output": "o4", "score": 3, "reasoning": "missing caloric total", "test_case": {"scenario": "s4", "prompt_inputs": {"goal": "cut"}, "solution_criteria": ["c4"]}, "verdict": {"strengths": [], "weaknesses": ["missing caloric total content"], "reasoning": "missing caloric total", "score": 3}}
+  ]
+}

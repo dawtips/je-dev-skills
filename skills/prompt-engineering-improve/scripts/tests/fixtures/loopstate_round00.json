@@ -1,0 +1,7 @@
+{
+  "name": "mealplan",
+  "current_version": "v1",
+  "extra_criteria_hash": "PLACEHOLDER_FILLED_BY_TEST",
+  "params": {"pass_threshold": 7, "pass_rate_target": 0.80, "max_rounds": 3, "epsilon": 0.25, "diminishing_return_rounds": 2, "regression_band": 0.5},
+  "rounds": []
+}

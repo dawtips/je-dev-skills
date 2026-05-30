@@ -21,3 +21,33 @@ from dataclasses import dataclass, field, asdict
 
 PASS_THRESHOLD = 7  # mirrors config.PASS_THRESHOLD; mandatory-fail per grading.md is score <= 3.
 MANDATORY_FAIL_MAX = 3
+
+
+def load_output_json(path: str) -> dict:
+    """Load an evals/runs/<label>/output.json.
+
+    Raises FileNotFoundError if absent, ValueError if it lacks the {summary,
+    results} shape report.py writes.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict) or "summary" not in data or "results" not in data:
+        raise ValueError(
+            f"{path}: not a report (expected top-level 'summary' and 'results')")
+    if not isinstance(data["summary"], dict) or "average_score" not in data["summary"]:
+        raise ValueError(f"{path}: 'summary' missing 'average_score'")
+    return data
+
+
+def load_loop_state(path: str) -> dict:
+    """Load the small loop-state JSON.
+
+    Raises FileNotFoundError if absent, ValueError if it lacks 'params' or
+    'rounds'.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    for key in ("params", "rounds"):
+        if key not in data:
+            raise ValueError(f"{path}: loop-state missing '{key}'")
+    return data
