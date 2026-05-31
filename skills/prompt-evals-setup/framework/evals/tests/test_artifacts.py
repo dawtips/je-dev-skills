@@ -163,6 +163,34 @@ class TestLoadAndPaths(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "target\\.output_schema.*JSON object"):
                 load_eval_spec(p)
 
+    def test_load_rejects_non_finite_schema_constants(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            eval_dir = root / "evals" / "x"
+            eval_dir.mkdir(parents=True, exist_ok=True)
+            p = eval_dir / "eval.json"
+            p.write_text(
+                """
+                {
+                  "name": "x",
+                  "target": {
+                    "mode": "prompt_file",
+                    "prompt_file": "p.md",
+                    "output_schema": {
+                      "type": "object",
+                      "properties": {"score": {"type": "number", "enum": [NaN]}},
+                      "required": ["score"],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "invalid JSON constant.*NaN"):
+                load_eval_spec(p)
+
     def _prescribed_eval_json(self, root: Path, name: str, target: dict) -> Path:
         """Write an eval.json at the prescribed <root>/evals/<name>/eval.json path."""
         eval_dir = root / "evals" / name

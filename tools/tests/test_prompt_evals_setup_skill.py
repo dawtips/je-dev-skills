@@ -62,6 +62,24 @@ class TestPromptEvalsSetupSkill(unittest.TestCase):
         ]:
             self.assertIn(token, text)
 
+    def test_run_skill_validates_structured_candidate_before_persisting_output(self):
+        text = RUN.read_text(encoding="utf-8")
+        start = text.index("# With target.output_schema:")
+        end = text.index("# Without target.output_schema:")
+        branch = text[start:end]
+
+        candidate_write = 'printf \'%s\' "$RAW_OUTPUT" > "$CANDIDATE_FILE"'
+        validation = 'python3 -m evals.output_schema --eval-json "$EVAL" --output-file "$CANDIDATE_FILE"'
+        cleanup = 'rm -f "$CANDIDATE_FILE"'
+        publish = 'mv "$CANDIDATE_FILE" "$OUTPUT_FILE"'
+
+        for token in [candidate_write, validation, cleanup, publish]:
+            self.assertIn(token, branch)
+        self.assertLess(branch.index(candidate_write), branch.index(validation))
+        self.assertLess(branch.index(validation), branch.index(cleanup))
+        self.assertLess(branch.index(cleanup), branch.index(publish))
+        self.assertNotIn('> "$OUTPUT_FILE"', branch)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 import io
 import json
+import math
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -162,6 +163,19 @@ class TestValidateOutputSchema(unittest.TestCase):
             }
         with self.assertRaisesRegex(ValueError, "depth"):
             validate_output_schema(child)
+
+    def test_rejects_non_finite_schema_constants(self):
+        with self.assertRaisesRegex(ValueError, "JSON-serializable"):
+            validate_output_schema(
+                {
+                    "type": "object",
+                    "properties": {
+                        "score": {"type": "number", "enum": [math.nan]},
+                    },
+                    "required": ["score"],
+                    "additionalProperties": False,
+                }
+            )
 
 
 class TestValidateOutputAgainstSchema(unittest.TestCase):

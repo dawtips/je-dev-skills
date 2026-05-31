@@ -18,7 +18,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from evals.output_schema import validate_output_schema
+from evals.output_schema import parse_strict_json, validate_output_schema
 
 VALID_MODES = ("prompt_file", "command_adapter")
 
@@ -117,7 +117,7 @@ def load_eval_spec(eval_json_path: str | Path) -> EvalSpec:
     """Load and validate an ``eval.json``, resolving all artifact paths."""
     path = Path(eval_json_path).resolve()
     resolve_project_root(path)  # validate the prescribed layout up front (clear error)
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = parse_strict_json(path.read_text(encoding="utf-8"))
     target_data = data.get("target") or {}
     mode = target_data.get("mode")
     prompt_file = target_data.get("prompt_file")

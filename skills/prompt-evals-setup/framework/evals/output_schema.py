@@ -61,7 +61,9 @@ def _reject_json_constant(value: str) -> None:
 
 def _check_json_size(schema: dict, field: str) -> None:
     try:
-        encoded = json.dumps(schema, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        encoded = json.dumps(
+            schema, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be JSON-serializable") from exc
     if len(encoded) > MAX_OUTPUT_SCHEMA_BYTES:
