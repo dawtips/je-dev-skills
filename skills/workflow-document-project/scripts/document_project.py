@@ -35,13 +35,15 @@ SECRET_DIRS = {".aws", ".ssh", ".gnupg"}
 SECRET_NAMES = {".env", ".npmrc", ".pypirc", "credentials"}
 SECRET_SUFFIXES = {".pem", ".key", ".p12", ".keystore"}
 
-# Redact "<key> = <value>" / "<key>: <value>" secret assignments. The optional
-# [A-Za-z0-9_-]* segments let the keyword sit inside an underscore/dash-joined
-# identifier (e.g. aws_secret_access_key, client_secret) which a bare \b would miss.
+# Redact "<key> = <value>" / "<key>: <value>" secret assignments, including the
+# JSON-quoted-key form "<key>": "<value>". The optional [A-Za-z0-9_-]* segments let
+# the keyword sit inside an underscore/dash-joined identifier (e.g.
+# aws_secret_access_key, client_secret) which a bare \b would miss; the ['"]? before
+# the separator lets a quoted key like "token": "..." match.
 ASSIGNMENT_SECRET_RE = re.compile(
     r"(?i)(?<![A-Za-z0-9])[A-Za-z0-9_-]*"
     r"(?:passwd|password|pwd|secret|token|authorization|bearer|api[_-]?key|access[_-]?key|private[_-]?key)"
-    r"[A-Za-z0-9_-]*\s*[:=]\s*['\"]?[^'\"\n]+"
+    r"[A-Za-z0-9_-]*['\"]?\s*[:=]\s*['\"]?[^'\"\n]+"
 )
 # Known provider key shapes, redacted even when they appear bare (no assignment).
 SECRET_PREFIX_RE = re.compile(
@@ -308,7 +310,13 @@ def parse_synthesis_payload(payload: Any) -> SynthesisPayload:
             raise SynthesisPayloadError(f"blueprint_prose.{key} must be a non-empty string")
     if not str(report_sections.get("summary", "")).strip():
         raise SynthesisPayloadError("report_sections.summary must be a non-empty string")
-    for i, item in enumerate(report_sections.get("feedback") or []):
+    inferences = report_sections.get("inferences")
+    if not isinstance(inferences, list) or not all(isinstance(x, str) and x.strip() for x in inferences):
+        raise SynthesisPayloadError("report_sections.inferences must be a list of non-empty strings")
+    feedback = report_sections.get("feedback")
+    if not isinstance(feedback, list):
+        raise SynthesisPayloadError("report_sections.feedback must be a list")
+    for i, item in enumerate(feedback):
         if not isinstance(item, dict):
             raise SynthesisPayloadError(f"report_sections.feedback[{i}] must be an object")
         if item.get("severity") not in FEEDBACK_SEVERITIES:

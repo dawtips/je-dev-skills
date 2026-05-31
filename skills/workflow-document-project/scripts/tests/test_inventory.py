@@ -131,6 +131,58 @@ class TestInventory(unittest.TestCase):
         self.assertFalse(inventory.strong_workflow_signal)
         self.assertIn("No strong workflow signal found.", inventory.open_questions)
 
+    def test_inventory_walk_drops_secret_files_and_nested_eval_runs(self):
+        # Exercise exclusion through the real rglob walk, not just the path helper.
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "README.md").write_text("# Real\n\nKeep me.\n", encoding="utf-8")
+            (root / ".env").write_text("API_KEY=sk-live-keepoutofinventory\n", encoding="utf-8")
+            (root / "deploy.pem").write_text("-----BEGIN KEY-----\n", encoding="utf-8")
+            (root / ".ssh").mkdir()
+            (root / ".ssh" / "id_rsa").write_text("private\n", encoding="utf-8")
+            runs = root / "framework" / "evals" / "runs" / "r1"
+            runs.mkdir(parents=True)
+            (runs / "out.json").write_text("{}\n", encoding="utf-8")
+            inventory = inventory_project(root, workflow_name="real")
+
+        paths = {a.path for a in inventory.artifacts}
+        self.assertIn("README.md", paths)
+        self.assertNotIn(".env", paths)
+        self.assertNotIn("deploy.pem", paths)
+        self.assertNotIn(".ssh/id_rsa", paths)
+        self.assertNotIn("framework/evals/runs/r1/out.json", paths)
+
+    def test_inventory_redacts_secrets_in_stored_excerpts(self):
+        # The stored excerpt is the only project text any later step sees (spec §5.2).
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "run.py").write_text(
+                'token = "sk-ant-secretvalue0123456789abcdef"\nkeep_this_line()\n', encoding="utf-8"
+            )
+            inventory = inventory_project(root, workflow_name="x")
+
+        excerpt = next(a.excerpt for a in inventory.artifacts if a.path == "scripts/run.py")
+        self.assertNotIn("sk-ant-secretvalue0123456789abcdef", excerpt)
+        self.assertIn("[REDACTED]", excerpt)
+        self.assertIn("keep_this_line", excerpt)
+
+    def test_existing_blueprint_detection_handles_multiple(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            wf = root / "workflows"
+            wf.mkdir()
+            for name in ("beta", "alpha"):
+                (wf / f"{name}.blueprint.md").write_text(
+                    "---\nname: %s\nstatus: draft\n---\n# %s\n" % (name, name), encoding="utf-8"
+                )
+            inventory = inventory_project(root, workflow_name="alpha")
+
+        self.assertEqual(
+            inventory.existing_blueprints,
+            ["workflows/alpha.blueprint.md", "workflows/beta.blueprint.md"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

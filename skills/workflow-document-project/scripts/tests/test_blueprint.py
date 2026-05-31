@@ -33,9 +33,6 @@ def _minimal_inventory(**overrides):
 import importlib.util
 
 
-import importlib.util
-
-
 def _load_validator_module():
     # test_blueprint.py lives at skills/workflow-document-project/scripts/tests/,
     # so the repo root (containing skills/) is parents[4], not parents[5].

@@ -70,11 +70,49 @@ class TestSynthesis(unittest.TestCase):
         with self.assertRaisesRegex(SynthesisPayloadError, "severity"):
             parse_synthesis_payload(bad_feedback)
 
+        # a string `inferences` would otherwise render character-by-character
+        bad_inferences = valid_synthesis_payload()
+        bad_inferences["report_sections"]["inferences"] = "oops not a list"
+        with self.assertRaisesRegex(SynthesisPayloadError, "inferences"):
+            parse_synthesis_payload(bad_inferences)
+
+        # a non-list `feedback` must also be rejected before rendering
+        bad_feedback_type = valid_synthesis_payload()
+        bad_feedback_type["report_sections"]["feedback"] = "oops"
+        with self.assertRaisesRegex(SynthesisPayloadError, "feedback must be a list"):
+            parse_synthesis_payload(bad_feedback_type)
+
     def test_anthropic_transport_rejects_oversize_payload(self):
         client = FakeClient(valid_synthesis_payload())
         huge = {"blob": "x" * (MAX_INPUT_CHARS + 10)}
         with self.assertRaises(DocumentProjectError):
             call_anthropic_synthesis(client=client, inventory=huge, prompt_text="p", model="m")
+
+    def test_run_synthesize_pathb_writes_artifacts_with_fake_client(self):
+        import argparse
+        import tempfile
+        from pathlib import Path
+
+        import document_project
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "run.py").write_text("print('x')\n", encoding="utf-8")
+            original = document_project.make_anthropic_client
+            document_project.make_anthropic_client = lambda: FakeClient(valid_synthesis_payload())
+            try:
+                args = argparse.Namespace(
+                    mode="anthropic_api", root=str(root), name="fixture-review",
+                    date="2026-05-31", model="m", force=False,
+                )
+                rc = document_project.run_synthesize(args)
+            finally:
+                document_project.make_anthropic_client = original
+
+            self.assertEqual(rc, 0)
+            self.assertTrue((root / "workflows" / "fixture-review.blueprint.md").exists())
+            self.assertTrue((root / "workflows" / "fixture-review.project-doc.md").exists())
 
 
 if __name__ == "__main__":

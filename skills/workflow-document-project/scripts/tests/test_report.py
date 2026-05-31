@@ -34,6 +34,11 @@ class TestProjectDocReport(unittest.TestCase):
         self.assertIn("README.md", report)
         self.assertIn("steps.inventory", report)
         self.assertIn("validation: not run", report)
+        # inference body is rendered, not just the heading
+        self.assertIn("Review is judgment-heavy.", report)
+        # both the inventory and the payload open-questions are merged (spec §7)
+        self.assertIn("Confirm fixture boundaries.", report)
+        self.assertIn("Confirm whether notify approval is sufficient.", report)
 
 
 if __name__ == "__main__":
