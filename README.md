@@ -38,8 +38,8 @@ implement + verify → handover → **delete plan**. This is how *this* repo is 
 **Design -> author -> build & run -> measure -> improve**, one journey:
 
 ```text
-workflow-design-* -> prompt-engineering-author -> agent-build-* -> prompt-evals-* -> prompt-engineering-improve
-   (design)             (author prompts)           (build/run)      (measure)          (improve loop)
+workflow-document-project / workflow-design-* -> prompt-engineering-author -> agent-build-* -> prompt-evals-* -> prompt-engineering-improve
+        (project-first design) / (idea-first design)      (author prompts)    (build/run)      (measure)          (improve loop)
 ```
 
 The interactive path runs inside Claude Code on session auth and does not need an
@@ -48,7 +48,7 @@ API key. Headless or CI execution uses the keyed fallback (`ANTHROPIC_API_KEY`).
 | Skill group | Invoke | What it does |
 |-------------|--------|--------------|
 | `dev-workflow-init` | `/je-dev-skills:dev-workflow-init` | Bootstrap the storybloq + superpowers dev workflow into a project: `.story/` memory, `docs/superpowers/{specs,plans}`, and an `AGENTS.md`/`CLAUDE.md` working agreement. |
-| `workflow-design-*` | `/je-dev-skills:workflow-design-{interview,validate,advise,review}` | Turn an idea into a checked `./workflows/<name>.blueprint.md`, lint it for structural completeness, get deterministic per-step Claude model/effort recommendations, and run advisory semantic review. |
+| `workflow-document-project` + `workflow-design-*` | `/je-dev-skills:workflow-document-project`, `/je-dev-skills:workflow-design-{interview,validate,advise,review}` | Start from an existing project inventory or from an idea, produce a draft `./workflows/<name>.blueprint.md`, validate structure, get model/effort advice, and run advisory semantic review. |
 | `prompt-engineering-author` | `/je-dev-skills:prompt-engineering-author` | Author or refactor a strong single-shot prompt from a task description, eval-free. |
 | `agent-build-*` | `/je-dev-skills:agent-build-{scaffold,run}` | Render a validated blueprint plus authored prompts into `.claude/` subagents, hooks, scripts, and an entry-point command, then drive them in-session one level deep. |
 | `prompt-evals-*` | `/je-dev-skills:prompt-evals-{setup,create-dataset,run}` | Scaffold plugin-resident eval artifacts around a prompt, freeze a dataset, run the prompt or agent under test, and grade outputs into a scored report. |
@@ -60,6 +60,7 @@ turns per case: execute plus grade.
 
 See the design specs:
 [WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md),
+[workflow-document-project-spec.md](docs/superpowers/specs/2026-05-30-workflow-document-project-spec.md),
 [WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md),
 [workflow-design-advanced-tooling-spec.md](docs/superpowers/specs/2026-05-30-workflow-design-advanced-tooling-spec.md)
 (the model/effort advisor),

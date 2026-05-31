@@ -105,5 +105,7 @@ python3 tools/skill_lint.py --root .
 python3 -m unittest discover -s tools/tests -t tools
 (cd skills/prompt-evals-setup/framework && python3 -m unittest discover -s evals/tests -t .)
 python3 -m unittest discover -s skills/workflow-design-validate/scripts/tests -t skills/workflow-design-validate/scripts
+python3 -m unittest discover -s skills/workflow-design-review/scripts/tests -t skills/workflow-design-review/scripts
 python3 -m unittest discover -s skills/workflow-design-advise/scripts/tests -t skills/workflow-design-advise/scripts
+python3 -m unittest discover -s skills/workflow-document-project/scripts/tests -t skills/workflow-document-project/scripts
 ```
