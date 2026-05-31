@@ -1,12 +1,12 @@
 {
   "blockedBy": [],
-  "completedDate": null,
+  "completedDate": "2026-05-30",
   "createdDate": "2026-05-30",
   "description": "Enhance the prompt-evals framework so prompts-under-test can be run natively with structured outputs.\n\nScope:\n1. Add optional `output_schema` (JSON Schema) to `eval.json` target blocks.\n2. Plumb `output_schema` through `EvalSpec` / `TargetSpec` in `skills/prompt-evals-setup/framework/evals/artifacts.py`.\n3. Keyed execution path: when `target.output_schema` is present, pass `output_config={\"format\":{\"type\":\"json_schema\",\"schema\": ...}}` to the executor `messages.create` calls in `run_prompt` and the two executor closures in `run_eval.py` and `artifact_runner.py`.\n4. No-key execution path: update the run skill to dispatch the execute-subagent with a forced structured-output tool validated against `target.output_schema`, because Task subagents do not expose `output_config.format` and the forced tool is the equivalent.\n\nAcceptance criteria:\n- Existing eval artifacts without `target.output_schema` keep current behavior.\n- Offline tests cover parsing/plumbing of `output_schema`, keyed executor output_config forwarding, and no-key forced-tool dispatch guidance.\n- Documentation/skill instructions explain both keyed and no-key structured-output paths.",
   "id": "T-022",
   "order": 60,
   "phase": "backlog",
-  "status": "inprogress",
+  "status": "complete",
   "title": "prompt-evals structured-output target support",
   "type": "task"
 }
