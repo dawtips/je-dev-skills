@@ -235,7 +235,8 @@ with a CLI-compatible layout.
 Instead it creates/updates the lightweight project artifacts:
 
 - `evals/<name>/eval.json` (config/spec, incl. target mode + prompt ref/adapter),
-- `evals/<name>/cases.json` once cases are generated (`generate-artifact`),
+- `evals/<name>/cases.json` once cases are frozen (default no-key interactive
+  authoring, or keyed `generate-artifact` for headless/CI),
 - `evals/<name>/runs/` (with `.gitkeep`) for outputs, grades, and reports,
 - a `.gitignore` entry for generated run artifacts (idempotent insertion of
   `evals/*/runs/*` plus a `!evals/*/runs/.gitkeep` negation).
@@ -254,6 +255,12 @@ New deterministic, plugin-owned surface (all offline-testable):
   `evaluate-artifact <eval.json> [run_label]`, and `render-artifact <eval.json>
   <case_index>`. **Legacy `generate`/`evaluate`/`evaluate-variance` behavior is kept
   intact** for already-vendored projects.
+
+`prompt-evals-create-dataset` mirrors the run-path split: the default interactive session
+generates cases and writes the frozen `cases.json` with `generation_mode: in_session_no_key`;
+`generate-artifact <eval.json>` remains the keyed SDK path for unattended runs. Both paths
+produce the same dataset shape consumed by `criteria_audit`, `prompt-evals-run`, and
+`aggregate`.
 
 The other prompt-evals skills (`-create-dataset`, `-run`) are re-pointed at the artifact
 layout rather than a vendored package, with `PYTHONPATH="${CLAUDE_PLUGIN_ROOT}/skills/prompt-evals-setup/framework"`.
