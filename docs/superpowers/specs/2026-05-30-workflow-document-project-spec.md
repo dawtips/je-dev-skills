@@ -189,8 +189,12 @@ classification, dimensions, rubrics, outcomes, and feedback.
 
 ### 6.1 Two execution paths
 
-The skill mirrors the `prompt-evals-*` two-path model and selects between them with an
-`EXECUTION_MODE` setting (default Path A):
+The skill mirrors the `prompt-evals-*` two-path model. The two paths use the labels
+`in_claude_code` (Path A) and `anthropic_api` (Path B). Path A is the default and needs no
+selector — the session performs synthesis and the deterministic `write` subcommand persists
+it. Path B is opt-in via the `synthesize --mode anthropic_api` subcommand. (The deterministic
+core does not branch on a single `EXECUTION_MODE` env var; selection is realized by which
+subcommand is run.)
 
 - **Path A - session-orchestrated, no API key (`in_claude_code`, default).** The
   interactive Claude Code session performs synthesis. The session already holds the
@@ -204,8 +208,11 @@ The skill mirrors the `prompt-evals-*` two-path model and selects between them w
   call using a tool-call schema, exactly as `workflow-design-review` does it (with a fake
   client for offline tests). Path B sends the bounded, redacted inventory payload plus
   excerpts to Anthropic, so it is gated behind the §5.1 secret-exclusion / redaction
-  contract and must print a review-style warning before sending. It exists only for
-  non-interactive runs where no session model is available.
+  contract and must print a review-style warning before sending. The serialized payload is
+  bounded by an aggregate `MAX_INPUT_CHARS` ceiling (mirroring `workflow-design-review`); an
+  over-cap payload is rejected before any network call. Path B exists only for
+  non-interactive runs where no session model is available, and the `anthropic` dependency
+  it requires is listed in the skill's `requirements.txt`.
 
 Both paths consume the identical deterministic payload and produce the identical
 structured output, so only the transport differs.
@@ -225,18 +232,28 @@ redacted excerpts - never hidden conversation history. The prompt tells the mode
 
 ### 6.3 Structured output
 
-The synthesis output is structured data with:
+The synthesis output is structured data with these keys, each carrying the substructure
+the deterministic writer and `workflow-design-validate` depend on. The shared synthesis
+prompt (§6.2) must convey this substructure, and the deterministic parser must enforce it —
+the schema cannot be left implicit, or a prompt-faithful model can return a payload that
+parses but renders empty report sections or a blueprint that fails the validator.
 
-- `blueprint_frontmatter`
-- `blueprint_prose`
-- `blueprint_yaml`
-- `report_sections`
-- `open_questions`
-- `evidence_map`
+- `blueprint_frontmatter` - `{name, version, status: draft, created}`.
+- `blueprint_prose` - non-empty `title`, `purpose`, `stakeholders`, `rationale`.
+- `blueprint_yaml` - the full blueprint schema (§7): per-step `rationale`, `termination` on
+  agentic steps, the six-field subagent contract, all 12 dimensions, rubric `scale`/`levels`/
+  `gate`, and Given-When-Then `outcomes`.
+- `report_sections` - non-empty `summary`, an `inferences` list, and a `feedback` list whose
+  items are `{severity, text}` with `severity` in `{blocker, important, optional}`.
+- `open_questions` - non-empty strings.
+- `evidence_map` - blueprint sections mapped to supporting file-path lists.
 
 On Path A this arrives as one fenced JSON object; on Path B as a tool-call argument
-object. Either way the script validates the shape before writing artifacts and fails
-closed (non-zero exit, no partial write) on a malformed shape.
+object. Either way the script validates the shape — including the required sub-keys above —
+before writing artifacts and fails closed (non-zero exit, no partial write) on a malformed
+shape. On Path A the writer accepts either the bare JSON object or the whole fenced block and
+strips the fence itself, so the fence-handling responsibility is owned by the deterministic
+core, not the session agent.
 
 This synthesis pass is where the ticket's "second review pass" lives: actionable
 feedback over the documented inventory is produced here. Deeper semantic critique of the
@@ -263,7 +280,9 @@ Rules:
   only when project evidence supports it or the report calls it out as a verification
   point.
 - Existing blueprints may be superseded by a newly generated blueprint, but the report
-  must say which existing file was used and why a new output was written.
+  must say which existing file was used and why a new output was written. As a safeguard,
+  the writer refuses to overwrite an existing blueprint already marked `status: validated`
+  unless `--force` is passed, so a user's validated work is never silently destroyed.
 
 ---
 
@@ -283,7 +302,11 @@ Required sections:
    field filled without direct evidence (§7).
 6. **Feedback** - gaps, inconsistencies, missing tests/docs, unclear workflow
    boundaries, and next-step recommendations.
-7. **Generated Artifacts** - paths written and validation status.
+7. **Generated Artifacts** - paths written and the actual validation status. The writer
+   runs `workflow-design-validate` in-process before writing the report, so this field
+   carries the real validator outcome (e.g. `pass (12/12 dimensions)`), never a permanent
+   `not run`. When the inventory found existing blueprints, this section also names which
+   prior file was superseded and that a new draft was written (§7).
 
 Feedback severity levels: `blocker`, `important`, `optional`.
 
@@ -297,12 +320,15 @@ Feedback severity levels: `blocker`, `important`, `optional`.
 2. Install dependencies once if needed.
 3. Run the inventory script.
 4. Review the inventory summary before synthesis if it found no strong workflow signal.
-5. Run synthesis. Default to Path A (`EXECUTION_MODE=in_claude_code`, no API key - the
-   session performs it and parses the fenced JSON). Use Path B (`anthropic_api`) only
-   for headless/CI runs with no session model, and warn before sending project data
-   (see §6).
-6. Write the blueprint and project-doc report.
-7. Run `workflow-design-validate`.
+5. Run synthesis. Default to Path A (`in_claude_code`, no API key - the session performs it
+   and saves the fenced JSON, which the `write` subcommand parses). Use Path B
+   (`synthesize --mode anthropic_api`) only for headless/CI runs with no session model, and
+   warn before sending project data (see §6).
+6. Write the blueprint and project-doc report. The writer validates the blueprint in-process
+   and records the result in the report's `validation:` field, and refuses (without `--force`)
+   to overwrite an existing `status: validated` blueprint.
+7. Run `workflow-design-validate` for the user-visible exit code (the report already carries
+   the result from step 6).
 8. Report exact output paths and validation result.
 
 If no workflow signal is found, the skill should stop after the inventory report and ask
@@ -324,7 +350,9 @@ skills/workflow-document-project/
     tests/
       __init__.py
       fixtures/
+      fake_client.py           # fixed synthesis payload + fake anthropic client
       test_inventory.py
+      test_synthesis.py
       test_report.py
       test_blueprint.py
       test_cli.py

@@ -1,0 +1,20 @@
+{
+  "content": "When a plan embeds the deterministic core as code blocks, that code is unverified prose until you run it. Before trusting or executing the plan, extract the embedded module + tests and run them against the REAL dependency (not a mock) — reassembling from the plan catches transcription/off-by-one bugs that reading cannot. Corollary for any redaction/secret-scrubbing layer that gates outbound data: it must cover the JSON-quoted-key form (\"token\": \"...\"), not just k=v / k: v, and underscore-joined names (aws_secret_access_key); pair every masking test with a preservation test (SHAs/UUIDs/identifiers must survive) so the regex is neither too loose nor too greedy.",
+  "context": "je-dev-skills T-023 (workflow-document-project). A pre-build adversarial review of the spec+plan found two blockers that were pure plan-code defects: a parents[5] off-by-one (should be parents[4]) that errored test_blueprint at import, and a Task-1 assertion for a `status: draft` substring the prompt never contained. Both were invisible on read but obvious on run. The fix was to reassemble the 4 embedded production blocks into a module and run it against the real validate_blueprint.py (got pass 12/12), then build from the corrected plan. Post-build review then caught a CRITICAL: the redactor matched k=v / k: v but NOT \"token\": \"value\", so JSON/.npmrc config secrets egressed on Path B; fixed by allowing an optional quote before the separator. Redaction also needed entropy/key-shape gating to avoid masking git SHAs and snake_case identifiers (the evidence the synthesis cites).",
+  "createdDate": "2026-05-31",
+  "id": "L-006",
+  "lastValidated": "2026-05-31",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "review",
+    "verification",
+    "security",
+    "redaction",
+    "workflow-design"
+  ],
+  "title": "Run a plan's embedded code before trusting it; redaction must cover JSON-quoted-key secrets",
+  "updatedDate": "2026-05-31"
+}
