@@ -13,6 +13,7 @@ client are injected, so tests exercise the full path with no network.
 from __future__ import annotations
 
 import json
+import inspect
 import subprocess
 from typing import Callable
 
@@ -23,8 +24,9 @@ from evals.live_run import run_evaluation
 from evals.promptprep import check_placeholders
 
 # An executor turns a fully-rendered prompt into the model's output text. The keyed
-# CLI wires an AnthropicClient call here; tests pass a pure function.
-Executor = Callable[[str], str]
+# CLI wires an AnthropicClient call here; tests pass a pure function. New executors accept
+# the optional output schema; legacy one-arg executors remain supported when no schema is set.
+Executor = Callable[[str, dict | None], str]
 
 
 def render_prompt_file(spec: EvalSpec, prompt_inputs: dict) -> str:
@@ -62,9 +64,18 @@ def build_run_function(spec: EvalSpec, *, executor: Executor | None = None) -> R
     if mode == "prompt_file":
         if executor is None:
             raise ValueError("prompt_file mode requires an executor callable (prompt -> output)")
+        output_schema = spec.target.output_schema
+        if output_schema is not None and not _executor_accepts_schema(executor):
+            raise ValueError(
+                "target.output_schema requires an executor callable accepting "
+                "(prompt, output_schema)"
+            )
 
         def _run_prompt(prompt_inputs: dict) -> str:
-            return executor(render_prompt_file(spec, prompt_inputs))
+            prompt = render_prompt_file(spec, prompt_inputs)
+            if _executor_accepts_schema(executor):
+                return executor(prompt, output_schema)
+            return executor(prompt)  # type: ignore[misc]
 
         return _run_prompt
 
@@ -76,6 +87,24 @@ def build_run_function(spec: EvalSpec, *, executor: Executor | None = None) -> R
         return _run_adapter
 
     raise ValueError(f"unknown target mode: {mode!r}")
+
+
+def _executor_accepts_schema(executor: Callable) -> bool:
+    """Return whether ``executor(prompt, output_schema)`` is a valid call shape."""
+    try:
+        signature = inspect.signature(executor)
+    except (TypeError, ValueError):
+        return True
+    params = list(signature.parameters.values())
+    if any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in params):
+        return True
+    positional = [
+        param
+        for param in params
+        if param.kind
+        in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    ]
+    return len(positional) >= 2
 
 
 def evaluate_artifact(

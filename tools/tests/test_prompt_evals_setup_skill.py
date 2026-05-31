@@ -44,6 +44,23 @@ class TestPromptEvalsSetupSkill(unittest.TestCase):
         # The in-CC report assembler is repointed at the project's artifact runs dir.
         self.assertIn("--runs-dir", text)
 
+    def test_run_skill_documents_structured_output_paths(self):
+        text = RUN.read_text(encoding="utf-8")
+        for token in [
+            "target.output_schema",
+            "forced structured-output tool",
+            "strict: true",
+            "tool_choice",
+            "output-sink tool",
+            "fail closed",
+            "zero tool calls",
+            "multiple tool calls",
+            "malformed JSON",
+            "max_tokens",
+            "output_config",
+        ]:
+            self.assertIn(token, text)
+
 
 if __name__ == "__main__":
     unittest.main()

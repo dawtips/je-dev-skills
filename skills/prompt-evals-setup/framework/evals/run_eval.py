@@ -73,6 +73,29 @@ LOOP_PARAMS = {
 # candidate <name>.vN.md; the chosen candidate is copied into <name>.current.md
 # before measuring. run_prompt always renders <name>.current.md.
 PROMPT_FILE = f"{config.DATASETS_DIR}/../prompts_under_test/meal_plan.current.md"
+OUTPUT_SCHEMA = None
+
+
+def _output_config_for_schema(output_schema: dict | None) -> dict | None:
+    if output_schema is None:
+        return None
+    return {"format": {"type": "json_schema", "schema": output_schema}}
+
+
+def _run_executor_message(executor_client, prompt: str, output_schema: dict | None = None) -> str:
+    kwargs = {
+        "model": executor_client.model,
+        "max_tokens": 600,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    output_config = _output_config_for_schema(output_schema)
+    if output_config is not None:
+        kwargs["output_config"] = output_config
+    resp = executor_client._client.messages.create(**kwargs)  # noqa: SLF001 (example convenience)
+    stop_reason = getattr(resp, "stop_reason", None)
+    if output_schema is not None and stop_reason in {"refusal", "max_tokens"}:
+        raise ValueError(f"structured output failed with stop_reason={stop_reason!r}")
+    return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
 
 
 # --- 2. Define the prompt under test (KEYED PATH ONLY) -----------------------
@@ -91,12 +114,7 @@ def run_prompt(prompt_inputs: dict) -> str:
     prompt = render(template, **prompt_inputs)
 
     executor = AnthropicClient(config.EXECUTOR_MODEL)
-    resp = executor._client.messages.create(  # noqa: SLF001 (example convenience)
-        model=executor.model,
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    return _run_executor_message(executor, prompt, OUTPUT_SCHEMA)
 
 
 def build_evaluator() -> PromptEvaluator:
@@ -276,13 +294,8 @@ def main(argv: list[str]) -> int:
         run_label = argv[3] if len(argv) > 3 else None
         executor_client = AnthropicClient(config.EXECUTOR_MODEL)
 
-        def _executor(prompt: str) -> str:
-            resp = executor_client._client.messages.create(  # noqa: SLF001 (example convenience)
-                model=executor_client.model,
-                max_tokens=600,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+        def _executor(prompt: str, output_schema: dict | None = None) -> str:
+            return _run_executor_message(executor_client, prompt, output_schema)
 
         artifact_runner.evaluate_artifact(
             spec,
@@ -317,13 +330,8 @@ def main(argv: list[str]) -> int:
         executor_client = AnthropicClient(config.EXECUTOR_MODEL)
         judge_client = AnthropicClient(config.JUDGE_MODEL)
 
-        def _variance_executor(prompt: str) -> str:
-            resp = executor_client._client.messages.create(  # noqa: SLF001 (example convenience)
-                model=executor_client.model,
-                max_tokens=600,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+        def _variance_executor(prompt: str, output_schema: dict | None = None) -> str:
+            return _run_executor_message(executor_client, prompt, output_schema)
 
         def run_once(label: str) -> dict:
             return artifact_runner.evaluate_artifact(
