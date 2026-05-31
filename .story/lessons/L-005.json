@@ -1,10 +1,10 @@
 {
   "content": "A bugfix is new code and a frequent source of fresh regressions; run an independent adversarial review round scoped to the fix commit itself, not only the original. Stop when findings converge to zero/nits, not after a fixed number of rounds. Relatedly, never keep a tested-but-unreachable branch — make a dial genuinely reachable end-to-end or delete it.",
-  "context": "je-dev-skills T-015 (workflow-design-advise). Round-1 review found 16 issues incl. a dead `budget_pressure` branch (unit-tested but no derive path set it). After fixing, a round-2 review *scoped to the fix commit* found 4 issues — one a regression the round-1 `_agreement` fix introduced (a half-specified-but-wrong subagent escaped `--strict`). Round 3 found 1 nit. Convergence 16→4→1→clean; each fix behaviorally verified. Fixing the budget dial meant making it reachable (a human `--budget` flag capping effort), not leaving dead code.",
+  "context": "je-dev-skills T-015 (workflow-design-advise). Round-1 review found 16 issues incl. a dead `budget_pressure` branch (unit-tested but no derive path set it). After fixing, a round-2 review *scoped to the fix commit* found 4 issues - one a regression the round-1 `_agreement` fix introduced (a half-specified-but-wrong subagent escaped `--strict`). Round 3 found 1 nit. Convergence 16->4->1->clean; each fix behaviorally verified. Fixing the budget dial meant making it reachable (a human `--budget` flag capping effort), not leaving dead code. Reinforced by T-022: review of the first fail-closed fix commit found a remaining non-finite schema constant gap and a weak no-key candidate-flow test.",
   "createdDate": "2026-05-30",
   "id": "L-005",
   "lastValidated": "2026-05-30",
-  "reinforcements": 0,
+  "reinforcements": 1,
   "source": "review",
   "status": "active",
   "supersedes": null,

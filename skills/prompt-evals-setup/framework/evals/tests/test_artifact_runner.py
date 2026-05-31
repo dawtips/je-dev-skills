@@ -48,6 +48,20 @@ def _prompt_eval(root: Path):
     return load_eval_spec(root / "evals" / "planner" / "eval.json")
 
 
+def _prompt_eval_with_schema(root: Path):
+    spec = _prompt_eval(root)
+    ej = root / "evals" / "planner" / "eval.json"
+    data = json.loads(ej.read_text(encoding="utf-8"))
+    data["target"]["output_schema"] = {
+        "type": "object",
+        "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+        "required": ["items"],
+        "additionalProperties": False,
+    }
+    ej.write_text(json.dumps(data), encoding="utf-8")
+    return load_eval_spec(ej)
+
+
 def _adapter_eval(root: Path):
     scaffold_eval_artifacts(
         root, "agent", mode="command_adapter", command=[sys.executable, str(_ADAPTER)]
@@ -119,6 +133,28 @@ class TestBuildRunFunction(unittest.TestCase):
             spec = _prompt_eval(Path(d).resolve())
             run_fn = build_run_function(spec, executor=lambda prompt: prompt.upper())
             self.assertEqual(run_fn({"goal": "retention"}), "PLAN FOR RETENTION")
+
+    def test_prompt_file_run_function_passes_output_schema_to_executor(self):
+        with tempfile.TemporaryDirectory() as d:
+            spec = _prompt_eval_with_schema(Path(d).resolve())
+            seen = {}
+
+            def executor(prompt, output_schema):
+                seen["prompt"] = prompt
+                seen["output_schema"] = output_schema
+                return '{"items":["ok"]}'
+
+            run_fn = build_run_function(spec, executor=executor)
+
+            self.assertEqual(run_fn({"goal": "retention"}), '{"items":["ok"]}')
+            self.assertEqual(seen["prompt"], "Plan for retention")
+            self.assertEqual(seen["output_schema"], spec.target.output_schema)
+
+    def test_prompt_file_run_function_rejects_legacy_executor_when_schema_present(self):
+        with tempfile.TemporaryDirectory() as d:
+            spec = _prompt_eval_with_schema(Path(d).resolve())
+            with self.assertRaisesRegex(ValueError, "target\\.output_schema.*executor"):
+                build_run_function(spec, executor=lambda prompt: prompt)
 
     def test_prompt_file_mode_requires_executor(self):
         with tempfile.TemporaryDirectory() as d:

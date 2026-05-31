@@ -77,15 +77,42 @@ Read `cases.json`'s `cases` array. For **each** case (index `i`):
    ```
 
 2. **Dispatch an execute-subagent** (Task tool, session auth, no key): give it `$RENDERED`
-   as its full instruction and ask for ONLY the prompt's raw output. Use
-   `config.SUBAGENT_EXECUTOR_MODEL` / `config.SUBAGENT_EFFORT`. Single-shot turn — no
-   nested subagents. Persist the raw output first so the assertion helper reads the same
-   bytes:
+   as its full instruction. Use `config.SUBAGENT_EXECUTOR_MODEL` /
+   `config.SUBAGENT_EFFORT`. Single-shot turn — no nested subagents.
+
+   If `target.output_schema` is absent, ask for ONLY the prompt's raw output.
+
+   If `target.output_schema` is present, do not accept raw prose. Dispatch with a
+   **forced structured-output tool** named `prompt_eval_output`: the tool is an
+   output-sink tool, its input schema is exactly `target.output_schema`, and its
+   documented Claude API equivalent is a strict tool (`strict: true`) selected with
+   forced-tool behavior (`tool_choice: {"type": "tool", "name": "prompt_eval_output"}`).
+   The execute-subagent should have only this output-sink tool available — no
+   workspace, network, or subagent tools. If the current client cannot provide a real
+   forced tool boundary, **fail closed** and use Path B instead.
+
+   The structured execute-subagent must call `prompt_eval_output` exactly once. Treat
+   zero tool calls, multiple tool calls, prose/markdown instead of tool arguments,
+   malformed JSON, refusal, or `max_tokens` truncation as execution failure; re-dispatch
+   the case or record the case as failed. Persist the tool arguments JSON as the raw
+   output only after deterministic validation succeeds:
 
    ```bash
    OUTPUT_FILE="$OUTPUTS_DIR/case-$(printf '%02d' "$i").txt"
+   # With target.output_schema:
+   CANDIDATE_FILE="$(mktemp)"
+   printf '%s' "$RAW_OUTPUT" > "$CANDIDATE_FILE"
+   (cd "$PE" && python3 -m evals.output_schema --eval-json "$EVAL" --output-file "$CANDIDATE_FILE") \
+     || { rm -f "$CANDIDATE_FILE"; exit 1; }
+   mv "$CANDIDATE_FILE" "$OUTPUT_FILE"
+
+   # Without target.output_schema:
    printf '%s' "$RAW_OUTPUT" > "$OUTPUT_FILE"
    ```
+
+   Run the validation branch only when `target.output_schema` is configured. A non-zero
+   validation exit means the candidate bytes are not valid prompt-under-test output; delete
+   the candidate and do not send anything to the judge.
 
 3. **Run structural assertions** from `eval.json` (`assertions` + `assertion_policy`)
    against that output:
@@ -202,8 +229,11 @@ Use for unattended/CI runs or agentic `Trajectory` grading.
 1. Set `EXECUTION_MODE = "anthropic_api"` in the framework's `config.py` (or export the
    override the project uses).
 2. For prompt-file mode, no per-project code is needed — the runner renders
-   `target.prompt_file` and calls the executor. For an embedded agent, use
-   **command-adapter** mode (`target.command`) so the project's own code produces output.
+   `target.prompt_file` and calls the executor. If `target.output_schema` is configured,
+   `evaluate-artifact` passes it to Claude JSON outputs as
+   `output_config={"format":{"type":"json_schema","schema": target.output_schema}}`; if
+   absent, `output_config` is omitted. For an embedded agent, use **command-adapter** mode
+   (`target.command`) so the project's own code produces output.
 3. Run from the framework dir with the absolute `$EVAL`:
 
    ```bash
