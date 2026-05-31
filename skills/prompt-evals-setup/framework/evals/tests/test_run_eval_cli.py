@@ -230,25 +230,32 @@ class TestRunEvalCli(unittest.TestCase):
 
 
 class FakeMessages:
-    def __init__(self, *, stop_reason="end_turn"):
+    def __init__(self, *, stop_reason="end_turn", text='{"items":["ok"]}'):
         self.calls = []
         self.stop_reason = stop_reason
+        self.text = text
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
-        block = SimpleNamespace(type="text", text='{"items":["ok"]}')
+        block = SimpleNamespace(type="text", text=self.text)
         return SimpleNamespace(content=[block], stop_reason=self.stop_reason)
 
 
 class FakeExecutorClient:
     model = "fake-executor"
 
-    def __init__(self, *, stop_reason="end_turn"):
-        self.messages = FakeMessages(stop_reason=stop_reason)
+    def __init__(self, *, stop_reason="end_turn", text='{"items":["ok"]}'):
+        self.messages = FakeMessages(stop_reason=stop_reason, text=text)
         self._client = SimpleNamespace(messages=self.messages)
 
 
 class TestExecutorStructuredOutputs(unittest.TestCase):
+    def _run(self, argv):
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            rc = run_eval.main(["run_eval.py", *argv])
+        return rc, stdout.getvalue()
+
     def test_run_executor_message_includes_output_config_with_schema(self):
         schema = {
             "type": "object",
@@ -275,10 +282,33 @@ class TestExecutorStructuredOutputs(unittest.TestCase):
 
     def test_run_executor_message_rejects_structured_refusal(self):
         client = FakeExecutorClient(stop_reason="refusal")
-        schema = {"type": "object", "properties": {}, "required": []}
+        schema = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
 
         with self.assertRaisesRegex(ValueError, "refusal"):
             run_eval._run_executor_message(client, "Prompt", schema)
+
+    def test_run_executor_message_rejects_structured_max_tokens(self):
+        client = FakeExecutorClient(stop_reason="max_tokens")
+        schema = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+
+        with self.assertRaisesRegex(ValueError, "max_tokens"):
+            run_eval._run_executor_message(client, "Prompt", schema)
+
+    def test_run_executor_message_validates_schema_drift(self):
+        client = FakeExecutorClient(text='{"items":[2]}')
+        schema = {
+            "type": "object",
+            "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+            "required": ["items"],
+            "additionalProperties": False,
+        }
+
+        with self.assertRaisesRegex(ValueError, "items\\[0\\].*string"):
+            run_eval._run_executor_message(client, "Prompt", schema)
+
+    def test_output_config_helper_validates_legacy_output_schema(self):
+        with self.assertRaisesRegex(ValueError, "additionalProperties.*false"):
+            run_eval._output_config_for_schema({"type": "object", "properties": {}, "required": []})
 
     def test_run_prompt_uses_module_output_schema(self):
         with tempfile.TemporaryDirectory() as d:
@@ -289,6 +319,7 @@ class TestExecutorStructuredOutputs(unittest.TestCase):
                 "type": "object",
                 "properties": {"items": {"type": "array", "items": {"type": "string"}}},
                 "required": ["items"],
+                "additionalProperties": False,
             }
 
             with (
@@ -310,6 +341,7 @@ class TestExecutorStructuredOutputs(unittest.TestCase):
                 "type": "object",
                 "properties": {"items": {"type": "array", "items": {"type": "string"}}},
                 "required": ["items"],
+                "additionalProperties": False,
             }
             data = json.loads(eval_json.read_text(encoding="utf-8"))
             data["target"]["output_schema"] = schema
@@ -338,6 +370,62 @@ class TestExecutorStructuredOutputs(unittest.TestCase):
                 fake_executor.messages.calls[0]["output_config"],
                 {"format": {"type": "json_schema", "schema": schema}},
             )
+
+    def test_evaluate_artifact_variance_executor_closure_forwards_schema(self):
+        with tempfile.TemporaryDirectory() as d:
+            eval_json = _scaffold_prompt_project(Path(d).resolve())
+            schema = {
+                "type": "object",
+                "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+                "required": ["items"],
+                "additionalProperties": False,
+            }
+            data = json.loads(eval_json.read_text(encoding="utf-8"))
+            data["target"]["output_schema"] = schema
+            eval_json.write_text(json.dumps(data), encoding="utf-8")
+            fake_executor = FakeExecutorClient()
+            fake_judge = SimpleNamespace(model="fake-judge")
+            captured = {}
+
+            def fake_evaluate_artifact(spec, *, judge_client, executor, run_label=None):
+                captured["spec"] = spec
+                captured["executor"] = executor
+                return {"run_label": run_label}
+
+            def fake_run_k_variance(*, group_label, k, runs_dir, run_once):
+                run_once("grp__k00")
+                return {"group_label": group_label, "k": k, "runs_dir": runs_dir}
+
+            with (
+                patch.object(run_eval.config, "EXECUTION_MODE", "anthropic_api"),
+                patch.object(run_eval, "AnthropicClient", side_effect=[fake_executor, fake_judge]),
+                patch.object(run_eval.artifact_runner, "evaluate_artifact", side_effect=fake_evaluate_artifact),
+                patch.object(run_eval, "run_k_variance", side_effect=fake_run_k_variance),
+                redirect_stdout(io.StringIO()),
+            ):
+                rc = run_eval.main(
+                    ["run_eval.py", "evaluate-artifact-variance", str(eval_json), "grp", "2"]
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(captured["spec"].target.output_schema, schema)
+            self.assertEqual(captured["executor"]("Prompt", schema), '{"items":["ok"]}')
+            self.assertEqual(
+                fake_executor.messages.calls[0]["output_config"],
+                {"format": {"type": "json_schema", "schema": schema}},
+            )
+
+    def test_evaluate_artifact_reports_invalid_schema_without_traceback(self):
+        with tempfile.TemporaryDirectory() as d:
+            eval_json = _scaffold_prompt_project(Path(d).resolve())
+            data = json.loads(eval_json.read_text(encoding="utf-8"))
+            data["target"]["output_schema"] = {"type": "object", "properties": {}, "required": []}
+            eval_json.write_text(json.dumps(data), encoding="utf-8")
+            with patch.object(run_eval.config, "EXECUTION_MODE", "anthropic_api"):
+                rc, out = self._run(["evaluate-artifact", str(eval_json)])
+
+            self.assertEqual(rc, 2)
+            self.assertIn("target.output_schema", out)
 
 
 if __name__ == "__main__":

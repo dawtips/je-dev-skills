@@ -58,6 +58,7 @@ class TestPromptEvalsSetupSkill(unittest.TestCase):
             "malformed JSON",
             "max_tokens",
             "output_config",
+            "CANDIDATE_FILE",
         ]:
             self.assertIn(token, text)
 

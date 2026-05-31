@@ -65,11 +65,13 @@ def validate_output_against_schema(value: object, schema: dict) -> object:
 ```
 
 The schema validator rejects non-object roots, root `type` values other than `"object"`,
-non-object `properties`, non-string `required` entries, reference/recursive keywords, and
-schemas over byte/depth/optional-parameter limits. It also rejects `anyOf` and type arrays
-for v1 so the local subset does not trip Claude's documented union-complexity limit. Add
-`output_schema: dict | None = None` to `TargetSpec`, call `validate_output_schema()` in
-`load_eval_spec()`, and pass the validated schema into `TargetSpec`.
+missing node `type`, unclosed object schemas, arrays without `items`, non-object
+`properties`, non-string `required` entries, unsupported validation keywords,
+reference/recursive keywords, and schemas over byte/depth/optional-parameter limits. It
+also rejects `anyOf` and type arrays for v1 so the local subset does not trip Claude's
+documented union-complexity limit. Add `output_schema: dict | None = None` to `TargetSpec`,
+call `validate_output_schema()` in `load_eval_spec()`, and pass the validated schema into
+`TargetSpec`.
 
 - [ ] **Step 4: Run green tests**
 

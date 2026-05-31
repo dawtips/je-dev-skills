@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
-from typing import Any
 
 MAX_OUTPUT_SCHEMA_BYTES = 16_384
 MAX_OUTPUT_SCHEMA_DEPTH = 12
@@ -21,6 +21,9 @@ MAX_OUTPUT_SCHEMA_OPTIONAL_PROPERTIES = 24
 _REFERENCE_KEYS = {"$ref", "$defs", "definitions", "$recursiveRef", "$dynamicRef"}
 _UNION_KEYS = {"anyOf", "oneOf", "allOf"}
 _SUPPORTED_TYPES = {"object", "array", "string", "integer", "number", "boolean", "null"}
+_METADATA_KEYS = {"description", "title"}
+_STRUCTURAL_KEYS = {"type", "properties", "required", "additionalProperties", "items", "enum"}
+_SUPPORTED_KEYS = _STRUCTURAL_KEYS | _METADATA_KEYS
 
 
 def validate_output_schema(schema: object, *, field: str = "target.output_schema") -> dict:
@@ -45,6 +48,15 @@ def validate_output_against_schema(value: object, schema: dict) -> object:
     validate_output_schema(schema)
     _validate_value(value, schema, "output")
     return value
+
+
+def parse_strict_json(text: str) -> object:
+    """Parse strict JSON, rejecting Python's default NaN/Infinity extensions."""
+    return json.loads(text, parse_constant=_reject_json_constant)
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON constant {value}")
 
 
 def _check_json_size(schema: dict, field: str) -> None:
@@ -86,11 +98,15 @@ def _validate_schema_node(schema: object, path: str) -> int:
     for key in _UNION_KEYS:
         if key in schema:
             raise ValueError(f"{path} does not support {key}")
+    for key in sorted(set(schema) - _SUPPORTED_KEYS):
+        raise ValueError(f"{path} does not support {key}")
 
     schema_type = schema.get("type")
+    if schema_type is None:
+        raise ValueError(f"{path}.type is required")
     if isinstance(schema_type, list):
         raise ValueError(f"{path} does not support type arrays")
-    if schema_type is not None and schema_type not in _SUPPORTED_TYPES:
+    if schema_type not in _SUPPORTED_TYPES:
         raise ValueError(f"{path}.type must be one of {sorted(_SUPPORTED_TYPES)}")
 
     properties = schema.get("properties")
@@ -103,6 +119,15 @@ def _validate_schema_node(schema: object, path: str) -> int:
     required_set = set(required)
 
     optional = 0
+    if schema_type == "object":
+        if schema.get("additionalProperties") is not False:
+            raise ValueError(f"{path}.additionalProperties must be false")
+        unknown_required = required_set - set((properties or {}).keys())
+        if unknown_required:
+            raise ValueError(
+                f"{path}.required references unknown properties: {sorted(unknown_required)}"
+            )
+
     if properties:
         optional += len(set(properties) - required_set)
         for name, child in properties.items():
@@ -111,6 +136,8 @@ def _validate_schema_node(schema: object, path: str) -> int:
             optional += _validate_schema_node(child, f"{path}.properties.{name}")
 
     items = schema.get("items")
+    if schema_type == "array" and items is None:
+        raise ValueError(f"{path}.items is required for array schemas")
     if items is not None:
         optional += _validate_schema_node(items, f"{path}.items")
 
@@ -141,7 +168,11 @@ def _validate_value(value: object, schema: dict, path: str) -> None:
         if not isinstance(value, int) or isinstance(value, bool):
             raise ValueError(f"{path} must be an integer")
     elif schema_type == "number":
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+        ):
             raise ValueError(f"{path} must be a number")
     elif schema_type == "boolean":
         if not isinstance(value, bool):
@@ -196,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
         if schema is None:
             print("no target.output_schema configured")
             return 0
-        output = json.loads(Path(args.output_file).read_text(encoding="utf-8"))
+        output = parse_strict_json(Path(args.output_file).read_text(encoding="utf-8"))
         validate_output_against_schema(output, schema)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

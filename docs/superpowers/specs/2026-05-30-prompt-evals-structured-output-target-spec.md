@@ -52,8 +52,13 @@ the schema reaches any model/tool surface:
 - the schema must be a JSON object whose root `type` is `"object"`,
 - `properties`, when present, must be an object,
 - `required`, when present, must be an array of strings,
+- every schema node must declare a supported `type`,
+- every object node must set `additionalProperties: false`,
+- every array node must declare an `items` schema,
 - `$ref`, `$defs`, `definitions`, `$recursiveRef`, and `$dynamicRef` are rejected because
   the framework does not resolve references and should not accept recursive contracts,
+- unsupported validation keywords such as `minItems`, `minimum`, or `format` are rejected
+  rather than accepted and ignored,
 - `anyOf` and type arrays are rejected for v1 because the Claude docs count union-typed
   parameters against a small complexity limit and because the local validator is intentionally
   a supported-subset checker,

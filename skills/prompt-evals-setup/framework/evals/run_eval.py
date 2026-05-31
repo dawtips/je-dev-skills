@@ -34,6 +34,11 @@ from evals.artifacts import load_eval_spec, scaffold_eval_artifacts
 from evals.evaluator import AnthropicClient, PromptEvaluator
 from evals.evaluator.templates import render
 from evals.live_run import run_evaluation as run_live_evaluation
+from evals.output_schema import (
+    parse_strict_json,
+    validate_output_against_schema,
+    validate_output_schema,
+)
 from evals.promptprep import check_placeholders
 from evals.variance_runner import run_k_variance, variance_labels
 
@@ -79,6 +84,7 @@ OUTPUT_SCHEMA = None
 def _output_config_for_schema(output_schema: dict | None) -> dict | None:
     if output_schema is None:
         return None
+    output_schema = validate_output_schema(output_schema)
     return {"format": {"type": "json_schema", "schema": output_schema}}
 
 
@@ -95,7 +101,20 @@ def _run_executor_message(executor_client, prompt: str, output_schema: dict | No
     stop_reason = getattr(resp, "stop_reason", None)
     if output_schema is not None and stop_reason in {"refusal", "max_tokens"}:
         raise ValueError(f"structured output failed with stop_reason={stop_reason!r}")
-    return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    if output_schema is None:
+        return text
+    parsed = parse_strict_json(text)
+    validated = validate_output_against_schema(parsed, output_schema)
+    return json.dumps(validated, separators=(",", ":"))
+
+
+def _load_eval_spec_for_cli(eval_json_path: str):
+    try:
+        return load_eval_spec(eval_json_path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}")
+        return None
 
 
 # --- 2. Define the prompt under test (KEYED PATH ONLY) -----------------------
@@ -238,7 +257,9 @@ def main(argv: list[str]) -> int:
         if len(argv) != 4:
             print("usage: python -m evals.run_eval render-artifact <eval.json> <case_index>")
             return 2
-        spec = load_eval_spec(argv[2])
+        spec = _load_eval_spec_for_cli(argv[2])
+        if spec is None:
+            return 2
         if spec.target.mode != "prompt_file":
             print("error: render-artifact only applies to prompt_file mode")
             return 2
@@ -264,7 +285,9 @@ def main(argv: list[str]) -> int:
         if len(argv) < 3:
             print("usage: python -m evals.run_eval generate-artifact <eval.json>")
             return 2
-        spec = load_eval_spec(argv[2])
+        spec = _load_eval_spec_for_cli(argv[2])
+        if spec is None:
+            return 2
         gen = spec.generation or {}
         task = gen.get("task_description")
         spec_inputs = gen.get("prompt_inputs_spec")
@@ -290,7 +313,9 @@ def main(argv: list[str]) -> int:
         if config.EXECUTION_MODE != "anthropic_api":
             print(_IN_CC_GUIDANCE)
             return 3
-        spec = load_eval_spec(argv[2])
+        spec = _load_eval_spec_for_cli(argv[2])
+        if spec is None:
+            return 2
         run_label = argv[3] if len(argv) > 3 else None
         executor_client = AnthropicClient(config.EXECUTOR_MODEL)
 
@@ -315,7 +340,9 @@ def main(argv: list[str]) -> int:
         if config.EXECUTION_MODE != "anthropic_api":
             print(_IN_CC_GUIDANCE)
             return 3
-        spec = load_eval_spec(argv[2])
+        spec = _load_eval_spec_for_cli(argv[2])
+        if spec is None:
+            return 2
         group_label = argv[3]
         try:
             k = int(argv[4])

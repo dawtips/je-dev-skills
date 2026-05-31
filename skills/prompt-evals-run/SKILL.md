@@ -99,13 +99,20 @@ Read `cases.json`'s `cases` array. For **each** case (index `i`):
 
    ```bash
    OUTPUT_FILE="$OUTPUTS_DIR/case-$(printf '%02d' "$i").txt"
+   # With target.output_schema:
+   CANDIDATE_FILE="$(mktemp)"
+   printf '%s' "$RAW_OUTPUT" > "$CANDIDATE_FILE"
+   (cd "$PE" && python3 -m evals.output_schema --eval-json "$EVAL" --output-file "$CANDIDATE_FILE") \
+     || { rm -f "$CANDIDATE_FILE"; exit 1; }
+   mv "$CANDIDATE_FILE" "$OUTPUT_FILE"
+
+   # Without target.output_schema:
    printf '%s' "$RAW_OUTPUT" > "$OUTPUT_FILE"
-   (cd "$PE" && python3 -m evals.output_schema --eval-json "$EVAL" --output-file "$OUTPUT_FILE")
    ```
 
-   The validation command exits 0 when no schema is configured, so it is safe in both
-   branches. With `target.output_schema`, non-zero means the bytes in `$OUTPUT_FILE` are
-   not valid prompt-under-test output and must not be sent to the judge.
+   Run the validation branch only when `target.output_schema` is configured. A non-zero
+   validation exit means the candidate bytes are not valid prompt-under-test output; delete
+   the candidate and do not send anything to the judge.
 
 3. **Run structural assertions** from `eval.json` (`assertions` + `assertion_policy`)
    against that output:
