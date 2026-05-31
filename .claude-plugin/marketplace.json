@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "je-dev-skills",
+  "description": "Skills for building agent applications inside Claude Code end to end — design, author, build & run, measure, and improve.",
+  "owner": {
+    "name": "dawtips",
+    "email": "dawtips@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "je-dev-skills",
+      "source": "./",
+      "description": "Build agent apps inside Claude Code end to end: design & review workflow blueprints, author prompts, scaffold/run native artifacts, measure with evals, and improve in an eval-driven loop.",
+      "version": "0.1.0",
+      "category": "development",
+      "author": {
+        "name": "dawtips",
+        "email": "dawtips@gmail.com"
+      },
+      "homepage": "https://github.com/dawtips/je-dev-skills"
+    }
+  ]
+}

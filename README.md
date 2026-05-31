@@ -3,6 +3,28 @@
 A Claude Code **plugin** that helps build agent applications end to end, with
 deterministic code over non-deterministic model work wherever possible.
 
+## Install
+
+**From the marketplace** (recommended):
+
+```text
+/plugin marketplace add dawtips/je-dev-skills
+/plugin install je-dev-skills@je-dev-skills
+```
+
+The first command registers this repo's marketplace (defined in
+[.claude-plugin/marketplace.json](.claude-plugin/marketplace.json)); the second installs the
+`je-dev-skills` plugin from it. Once installed, the skills below are available as
+`/je-dev-skills:<skill>`.
+
+**Local / development** — point Claude Code straight at a checkout, no marketplace needed:
+
+```bash
+claude --plugin-dir /path/to/je-dev-skills
+# then, in a target project:
+/je-dev-skills:prompt-evals-setup
+```
+
 ## Project setup
 
 Starting a new project? `/je-dev-skills:dev-workflow-init` scaffolds the **storybloq +
@@ -26,7 +48,7 @@ API key. Headless or CI execution uses the keyed fallback (`ANTHROPIC_API_KEY`).
 | Skill group | Invoke | What it does |
 |-------------|--------|--------------|
 | `dev-workflow-init` | `/je-dev-skills:dev-workflow-init` | Bootstrap the storybloq + superpowers dev workflow into a project: `.story/` memory, `docs/superpowers/{specs,plans}`, and an `AGENTS.md`/`CLAUDE.md` working agreement. |
-| `workflow-design-*` | `/je-dev-skills:workflow-design-{interview,validate,review}` | Turn an idea into a checked `./workflows/<name>.blueprint.md`, lint it for structural completeness, and run advisory semantic review. |
+| `workflow-design-*` | `/je-dev-skills:workflow-design-{interview,validate,advise,review}` | Turn an idea into a checked `./workflows/<name>.blueprint.md`, lint it for structural completeness, get deterministic per-step Claude model/effort recommendations, and run advisory semantic review. |
 | `prompt-engineering-author` | `/je-dev-skills:prompt-engineering-author` | Author or refactor a strong single-shot prompt from a task description, eval-free. |
 | `agent-build-*` | `/je-dev-skills:agent-build-{scaffold,run}` | Render a validated blueprint plus authored prompts into `.claude/` subagents, hooks, scripts, and an entry-point command, then drive them in-session one level deep. |
 | `prompt-evals-*` | `/je-dev-skills:prompt-evals-{setup,create-dataset,run}` | Scaffold plugin-resident eval artifacts around a prompt, freeze a dataset, run the prompt or agent under test, and grade outputs into a scored report. |
@@ -37,25 +59,24 @@ Headless/CI runs draw on keyed API usage. A full eval round is roughly two model
 turns per case: execute plus grade.
 
 See the design specs:
-[docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md),
-[docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md),
-[docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md](docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md),
-and [docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
+[WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md),
+[WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md),
+[workflow-design-advanced-tooling-spec.md](docs/superpowers/specs/2026-05-30-workflow-design-advanced-tooling-spec.md)
+(the model/effort advisor),
+[agent-build-and-execution-spec.md](docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md),
+and [prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
 
 ## Design & framework
 
-- **Spec & setup guide:** [docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
+- **Spec & setup guide:** [PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
 - **Reference implementation (Python):** bundled in
   [skills/prompt-evals-setup/framework/evals/](skills/prompt-evals-setup/framework/evals/),
   copied into a project by the setup skill.
 
-## Install / try locally
+## Development
 
-```bash
-claude --plugin-dir /path/to/je-dev-skills
-# then, in a target project:
-/je-dev-skills:prompt-evals-setup
-```
+This repo follows its own working agreement — read [AGENTS.md](AGENTS.md) (tool-neutral) and
+[CONTRIBUTING.md](CONTRIBUTING.md) before changing skills.
 
 The framework's own tests run offline (no API key):
 
@@ -64,3 +85,6 @@ cd skills/prompt-evals-setup/framework
 python3 -m unittest discover -s evals/tests -t .
 python3 -m evals.examples.smoke_test
 ```
+
+The full offline suite (linter + every test group) is listed in [AGENTS.md](AGENTS.md);
+run it from the repo root before declaring work done.
