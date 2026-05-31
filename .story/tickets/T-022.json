@@ -6,7 +6,7 @@
   "id": "T-022",
   "order": 60,
   "phase": "backlog",
-  "status": "open",
+  "status": "inprogress",
   "title": "prompt-evals structured-output target support",
   "type": "task"
 }
