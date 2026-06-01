@@ -8,5 +8,5 @@
   },
   "repository": "https://github.com/dawtips/je-dev-skills",
   "license": "MIT",
-  "keywords": ["agent-development", "evaluation", "evals", "prompt-engineering", "prompt-authoring", "prompt-improvement", "llm-as-judge", "testing", "agents", "workflow", "orchestration", "blueprint", "agent-design", "semantic-review", "scaffold", "subagents", "project-setup", "storybloq", "superpowers", "project-documentation", "project-inventory", "inventory", "workflow-documentation"]
+  "keywords": ["agent-development", "evaluation", "evals", "prompt-engineering", "prompt-authoring", "prompt-improvement", "llm-as-judge", "testing", "agents", "workflow", "orchestration", "blueprint", "agent-design", "semantic-review", "scaffold", "subagents", "project-setup", "storybloq", "superpowers", "project-documentation", "project-inventory", "inventory", "workflow-documentation", "mermaid", "diagram", "visualization"]
 }
