@@ -118,8 +118,8 @@ Tier 1: deterministic `yaml`→Mermaid generator with offline fixture tests; emi
 diagram artifact; encodes ordering/parallel/gates/determinism coloring; parent spec §9
 updated. Tier 2 only opens as its own ticket if Tier 1 is shown insufficient.
 
-### 3.6 Status — Tier 1 building (T-016)
-Tier 1 is being built now: the user requested the visual aid, and per §3.4 Tier 1 is
+### 3.6 Status — Tier 1 shipped (T-016)
+Tier 1 is shipped: the user requested the visual aid, and per §3.4 Tier 1 is
 **ungated** ("could ship whenever a visual aid is wanted"), so this is within contract, not
 a gate override. **Tier 2 stays gated and is not built.** Lives in
 `skills/workflow-design-visualize/` (`scripts/visualize_blueprint.py` + offline tests).

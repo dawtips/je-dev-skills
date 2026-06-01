@@ -355,9 +355,11 @@ Each elicited requirement maps onto blueprint elements:
   ordering, parallel sections, approval gates, and deterministic-vs-agentic coloring)
   plus **drill-down** into each step's and subagent's details. Two tiers, cheapest
   first:
-  - *Tier 1 — Mermaid:* deterministically generate a Mermaid flowchart from the same
-    fenced `yaml` block and emit it alongside the blueprint. Renders for free in
-    GitHub / VSCode / Markdown previews, zero runtime. The likely default tier.
+  - *Tier 1 — Mermaid (shipped as `workflow-design-visualize`, T-016):* deterministically
+    generates a Mermaid flowchart from the same fenced `yaml` block and emits a sibling
+    `<name>.diagram.md` (flowchart in steps-list order + drill-down tables). Renders for
+    free in GitHub / VSCode / Markdown previews, zero runtime. See
+    `2026-05-30-workflow-design-advanced-tooling-spec.md` §3.6.
   - *Tier 2 — browser viewer:* a small interactive view (clickable nodes → step /
     subagent detail panels), only if Tier 1 proves insufficient.
 
