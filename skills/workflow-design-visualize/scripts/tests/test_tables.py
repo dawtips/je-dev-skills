@@ -22,6 +22,10 @@ class TestStepTable(unittest.TestCase):
         out = render_step_table([{"id": "x", "termination": "a | b\nc"}])
         self.assertIn("a \\| b c", out)
 
+    def test_escapes_html_like_chars(self):
+        out = render_step_table([{"id": "x", "termination": "cell <b>bold</b> & x"}])
+        self.assertIn("cell &lt;b&gt;bold&lt;/b&gt; &amp; x", out)
+
 
 class TestSubagentTable(unittest.TestCase):
     def test_empty(self):

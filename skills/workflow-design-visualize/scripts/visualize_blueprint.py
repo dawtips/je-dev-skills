@@ -19,6 +19,14 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
 VALID_KINDS = {"deterministic", "agentic"}
 GATE_LABELS = {"notify": "notify gate", "explicit": "explicit gate"}
 
+# Mermaid flowchart reserved tokens — a node id equal to one of these makes the
+# whole diagram unparseable, so sanitize_node_id prefixes them. (Exact tokens
+# verified against Mermaid's parser; capitalized variants are fine.)
+MERMAID_RESERVED = {
+    "end", "subgraph", "graph", "flowchart", "class", "classDef",
+    "style", "click", "call", "href", "linkStyle", "direction",
+}
+
 
 def extract_yaml_block(text: str) -> str:
     blocks = YAML_FENCE.findall(text)
@@ -42,6 +50,8 @@ def sanitize_node_id(raw, used) -> str:
     """Map a step/subagent id to a unique Mermaid-safe node id."""
     base = re.sub(r"[^0-9A-Za-z_]", "_", str(raw)).strip("_") or "node"
     if base[0].isdigit():
+        base = "n_" + base
+    if base in MERMAID_RESERVED:
         base = "n_" + base
     candidate = base
     i = 2
@@ -159,7 +169,9 @@ def render_mermaid(bp: dict) -> str:
 def _cell(value) -> str:
     if value is None:
         return ""
-    return re.sub(r"\s+", " ", str(value)).replace("|", "\\|").strip()
+    s = re.sub(r"\s+", " ", str(value))
+    s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return s.replace("`", "&#96;").replace("|", "\\|").strip()
 
 
 def _yn(value) -> str:
@@ -238,11 +250,12 @@ def render_document(bp: dict, name: str) -> str:
         "```",
         "",
         "Nodes follow the blueprint's `steps` list order. Color and shape encode "
-        "`kind` (rectangle = deterministic, rounded = agentic); a `· <pattern>` tag "
-        "marks a step's `pattern`; a hexagon after a step is its `approval_gate`. "
-        "Subagents are shown in a separate cluster — the v0.1 schema has no field "
-        "linking a step to the subagent it delegates to, so no edges are drawn "
-        "between them.",
+        "`kind` (rectangle = deterministic, rounded = agentic; a missing or "
+        "unrecognized `kind` is a gray rectangle labeled `unspecified`); a "
+        "`· <pattern>` tag marks a step's `pattern` when it is not `none`; a hexagon "
+        "after a step is its `approval_gate`. Subagents are shown in a separate "
+        "cluster — the v0.1 schema has no field linking a step to the subagent it "
+        "delegates to, so no edges are drawn between them.",
         "",
         "## Step details",
         "",

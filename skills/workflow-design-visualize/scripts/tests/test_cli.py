@@ -59,6 +59,8 @@ class TestCli(unittest.TestCase):
                 rc = main([MINIMAL, "--out", out_path])
             self.assertEqual(rc, 0)
             self.assertTrue(os.path.isfile(out_path))
+            with open(out_path, encoding="utf-8") as f:
+                self.assertEqual(f.read(), render_document(load_blueprint(MINIMAL), "minimal"))
         finally:
             shutil.rmtree(tmp)
 
@@ -74,6 +76,7 @@ class TestCli(unittest.TestCase):
         with contextlib.redirect_stdout(buf):
             rc = main([os.path.join(FIXTURES, "does_not_exist.blueprint.md")])
         self.assertEqual(rc, 2)
+        self.assertIn("ERROR", buf.getvalue())
 
     def test_deterministic_across_hash_seeds(self):
         script = os.path.join(

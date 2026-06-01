@@ -168,9 +168,10 @@ The decisions that refine this contract:
    rule scorer over a model call — both offline-testable.
 3. **Volatile model IDs isolated.** Any Claude model reference lives in one named constant
    with an update-here comment.
-4. **Gated, not scheduled.** Both stay deferred until their gate fires; building either is
-   a recorded decision against evidence, not a roadmap default. T-015 is explicitly
-   "maybe-never."
+4. **Gated, not scheduled.** Building any deferred tier is a recorded decision against
+   evidence, not a roadmap default. The shipped Tier-1 forms were such decisions (T-015
+   §2.6 — a deliberate override of the §2.4 "maybe-never" gate; T-016 §3.6 — under the
+   §3.4 ungated allowance). **Tier 2 of the viewer stays deferred** until its §3.4 gate fires.
 
 ---
 
@@ -182,4 +183,5 @@ The decisions that refine this contract:
 - **Not here:** any execution engine — the blueprint stays a design artifact (parent spec
   §9 "Other non-goals").
 - **Not here:** non-Claude models in the advisor (parent spec §9: Claude only).
-- Both tickets remain **open/deferred** until their §2.4 / §3.4 gates fire.
+- The viewer's **Tier 2 stays deferred** until its §3.4 gate fires; the Tier-1 forms of
+  both features are shipped (T-015 §2.6, T-016 §3.6).

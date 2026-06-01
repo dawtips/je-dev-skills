@@ -23,6 +23,15 @@ class TestSanitizeNodeId(unittest.TestCase):
     def test_all_special_falls_back(self):
         self.assertEqual(sanitize_node_id("***", set()), "node")
 
+    def test_reserved_keywords_prefixed(self):
+        self.assertEqual(sanitize_node_id("end", set()), "n_end")
+        self.assertEqual(sanitize_node_id("subgraph", set()), "n_subgraph")
+        self.assertEqual(sanitize_node_id("class", set()), "n_class")
+
+    def test_non_reserved_similar_ids_unaffected(self):
+        self.assertEqual(sanitize_node_id("end_step", set()), "end_step")
+        self.assertEqual(sanitize_node_id("the_end", set()), "the_end")
+
 
 class TestEscapeLabel(unittest.TestCase):
     def test_escapes_markup_chars(self):

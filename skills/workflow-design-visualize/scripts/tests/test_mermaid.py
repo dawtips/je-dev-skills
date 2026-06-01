@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from visualize_blueprint import load_blueprint, render_mermaid
+from visualize_blueprint import _kind_tag, load_blueprint, render_mermaid
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -74,6 +74,32 @@ class TestRenderMermaid(unittest.TestCase):
         self.assertIn('    a__gate{{"notify gate"}}', out)
         self.assertIn("    a --> a__gate", out)
         self.assertIn("    a__gate --> b", out)
+
+    def test_reserved_keyword_id_is_mermaid_safe(self):
+        out = render_mermaid({"steps": [{"id": "end", "kind": "deterministic", "pattern": "none"}]})
+        self.assertIn('    n_end["end<br/>deterministic"]', out)
+        self.assertNotIn("\n    end[", out)
+
+    def test_unspecified_kind(self):
+        out = render_mermaid({"steps": [{"id": "x"}]})
+        self.assertIn('    x["x<br/>unspecified"]', out)
+        self.assertIn("    classDef unspecified fill:#e5e7eb,stroke:#374151,color:#0b1324;", out)
+        self.assertIn("    class x unspecified;", out)
+
+    def test_unknown_kind_keeps_raw_tag_but_unspecified_style(self):
+        out = render_mermaid({"steps": [{"id": "y", "kind": "magic"}]})
+        self.assertIn('    y["y<br/>magic"]', out)
+        self.assertIn("    class y unspecified;", out)
+
+    def test_subagent_model_effort_label_variants(self):
+        out1 = render_mermaid({"subagents": [{"id": "w", "model": "sonnet"}]})
+        self.assertIn('    w(["w<br/>sonnet"])', out1)
+        out2 = render_mermaid({"subagents": [{"id": "w"}]})
+        self.assertIn('    w(["w<br/>inherit"])', out2)
+
+    def test_kind_tag_suppresses_empty_pattern(self):
+        self.assertEqual(_kind_tag({"kind": "agentic", "pattern": ""}), "agentic")
+        self.assertEqual(_kind_tag({"kind": "agentic", "pattern": "   "}), "agentic")
 
 
 if __name__ == "__main__":

@@ -12,7 +12,8 @@ Render a workflow blueprint to a Mermaid diagram. It reads the single fenced
 `yaml` block of `<name>.blueprint.md` and writes a sibling `<name>.diagram.md`
 holding a `flowchart` of the steps in **list order** — colored and shaped by
 `kind` (rectangle = deterministic, rounded = agentic), with a `· <pattern>` tag
-on each step, a hexagon `approval_gate` node after any gated step, and a separate
+on any step whose `pattern` is not `none`, a hexagon
+`approval_gate` node after any gated step, and a separate
 cluster for `subagents` — plus per-step and per-subagent drill-down tables. It is
 offline and deterministic: no API key, no model call, no timestamp, so
 regenerating produces byte-identical output.
