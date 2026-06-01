@@ -39,7 +39,8 @@ passes — a picture of an incomplete blueprint can mislead.
    python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-visualize/scripts/visualize_blueprint.py <path>
    ```
 
-   It writes a sibling `<name>.diagram.md` and prints `Wrote <path>`. Exit codes:
+   It writes a sibling `<name>.diagram.md` and prints `Wrote <output path>`
+   (the path of the generated diagram, not the input). Exit codes:
    `0` = written, `2` = file unreadable or the blueprint has anything other than
    exactly one fenced `yaml` block. Add `--stdout` to print the artifact instead
    of writing it, or `--out <path>` to choose the output file.

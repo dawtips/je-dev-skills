@@ -11,6 +11,7 @@ class TestWorkflowDesignVisualizeSkill(unittest.TestCase):
     def test_skill_frontmatter_and_procedure(self):
         text = SKILL.read_text(encoding="utf-8")
         self.assertIn("name: workflow-design-visualize", text)
+        self.assertIn("version:", text)
         self.assertIn("allowed-tools: Bash, Read, Glob", text)
         self.assertIn("<name>.diagram.md", text)
         self.assertIn("mermaid", text)
@@ -30,7 +31,7 @@ class TestWorkflowDesignVisualizeSkill(unittest.TestCase):
     def test_readme_and_plugin_metadata_include_visualize(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         plugin = (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
-        self.assertIn("visualize", readme)
+        self.assertIn("workflow-design-visualize", readme)
         self.assertIn("mermaid", plugin)
         self.assertIn("diagram", plugin)
 
