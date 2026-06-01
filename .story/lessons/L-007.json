@@ -1,0 +1,20 @@
+{
+  "content": "When generating Mermaid from arbitrary identifiers, sanitizing to `[0-9A-Za-z_]` is not enough: a node id equal to a bare reserved token (`end`, `subgraph`, `graph`, `flowchart`, `class`, `classDef`, `style`, `click`, `call`, `href`, `linkStyle`, `direction`) makes the *entire* diagram unparseable. Keep a reserved-word set and prefix collisions (e.g. `end` → `n_end`); test it against the real Mermaid parser, not just by eye.",
+  "context": "T-016 workflow-design-visualize. The deterministic yaml→Mermaid generator slugified ids to [0-9A-Za-z_] and prefixed leading digits, but a valid blueprint with a natural terminal step `id: end` emitted `end[\"...\"]`, which Mermaid v11.15.0's parser rejects with a hard Parse error — a silently non-renderable artifact (CLI still exited 0). Two code-reading review rounds missed it; an adversarial review lens that fed the emitted block into the real Mermaid parser under jsdom caught it. Fixed in commit ba64d82 with a MERMAID_RESERVED guard + tests.",
+  "createdDate": "2026-05-31",
+  "id": "L-007",
+  "lastValidated": "2026-05-31",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "mermaid",
+    "code-generation",
+    "escaping",
+    "workflow-design",
+    "adversarial-review"
+  ],
+  "title": "Mermaid node ids must dodge reserved keywords, not just illegal characters",
+  "updatedDate": "2026-05-31"
+}
