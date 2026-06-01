@@ -156,5 +156,69 @@ def render_mermaid(bp: dict) -> str:
     return "\n".join(out)
 
 
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    return str(value).replace("\n", " ").replace("|", "\\|").strip()
+
+
+def _yn(value) -> str:
+    if value is True:
+        return "yes"
+    if value is False:
+        return "no"
+    return _cell(value)
+
+
+def render_step_table(steps) -> str:
+    steps = steps or []
+    if not steps:
+        return "_No steps defined._"
+    rows = [
+        "| id | kind | pattern | gate | side-effecting | reversible | termination |",
+        "|----|------|---------|------|----------------|------------|-------------|",
+    ]
+    for step in steps:
+        step = step if isinstance(step, dict) else {}
+        rows.append(
+            "| {id} | {kind} | {pattern} | {gate} | {se} | {rev} | {term} |".format(
+                id=_cell(step.get("id")),
+                kind=_cell(step.get("kind")),
+                pattern=_cell(step.get("pattern")),
+                gate=_cell(step.get("approval_gate")),
+                se=_yn(step.get("side_effecting")),
+                rev=_yn(step.get("reversible")),
+                term=_cell(step.get("termination")),
+            )
+        )
+    return "\n".join(rows)
+
+
+def render_subagent_table(subs) -> str:
+    subs = subs or []
+    if not subs:
+        return "_No delegated subagents._"
+    rows = [
+        "| id | model | effort | objective | output_format | tools | boundaries |",
+        "|----|-------|--------|-----------|---------------|-------|------------|",
+    ]
+    for sa in subs:
+        sa = sa if isinstance(sa, dict) else {}
+        tools = sa.get("tools")
+        tools_str = ", ".join(str(t) for t in tools) if isinstance(tools, list) else tools
+        rows.append(
+            "| {id} | {model} | {effort} | {obj} | {of} | {tools} | {bnd} |".format(
+                id=_cell(sa.get("id")),
+                model=_cell(sa.get("model")),
+                effort=_cell(sa.get("effort")),
+                obj=_cell(sa.get("objective")),
+                of=_cell(sa.get("output_format")),
+                tools=_cell(tools_str),
+                bnd=_cell(sa.get("boundaries")),
+            )
+        )
+    return "\n".join(rows)
+
+
 if __name__ == "__main__":
     sys.exit(main())
