@@ -2,6 +2,8 @@ import contextlib
 import io
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -10,6 +12,7 @@ from visualize_blueprint import (blueprint_name, default_out_path, load_blueprin
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 MINIMAL = os.path.join(FIXTURES, "minimal.blueprint.md")
+MULTI = os.path.join(FIXTURES, "multi.blueprint.md")
 
 
 class TestPaths(unittest.TestCase):
@@ -71,6 +74,23 @@ class TestCli(unittest.TestCase):
         with contextlib.redirect_stdout(buf):
             rc = main([os.path.join(FIXTURES, "does_not_exist.blueprint.md")])
         self.assertEqual(rc, 2)
+
+    def test_deterministic_across_hash_seeds(self):
+        script = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "visualize_blueprint.py",
+        )
+
+        def run(seed):
+            env = dict(os.environ, PYTHONHASHSEED=seed)
+            res = subprocess.run(
+                [sys.executable, script, MULTI, "--stdout"],
+                capture_output=True, text=True, env=env,
+            )
+            self.assertEqual(res.returncode, 0)
+            return res.stdout
+
+        self.assertEqual(run("0"), run("1"))
 
 
 if __name__ == "__main__":

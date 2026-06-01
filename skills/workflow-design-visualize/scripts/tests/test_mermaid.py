@@ -65,6 +65,16 @@ class TestRenderMermaid(unittest.TestCase):
         # all three step nodes are distinct ids (no collision)
         self.assertIn("    step__2 --> ", out)
 
+    def test_gate_on_non_last_step_sits_between(self):
+        bp = {"steps": [
+            {"id": "a", "kind": "deterministic", "pattern": "none", "approval_gate": "notify"},
+            {"id": "b", "kind": "deterministic", "pattern": "none"},
+        ]}
+        out = render_mermaid(bp)
+        self.assertIn('    a__gate{{"notify gate"}}', out)
+        self.assertIn("    a --> a__gate", out)
+        self.assertIn("    a__gate --> b", out)
+
 
 if __name__ == "__main__":
     unittest.main()

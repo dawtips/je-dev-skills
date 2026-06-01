@@ -90,7 +90,7 @@ def render_mermaid(bp: dict) -> str:
     if not isinstance(subagents, list):
         subagents = []
 
-    used = set()
+    used = {"sg_subagents"}  # reserve the subgraph container id so a colliding step/subagent id is disambiguated
     node_lines, sub_lines = [], []
     det_ids, ag_ids, unspec_ids, gate_ids, sub_ids = [], [], [], [], []
     flow = []
@@ -159,7 +159,7 @@ def render_mermaid(bp: dict) -> str:
 def _cell(value) -> str:
     if value is None:
         return ""
-    return str(value).replace("\n", " ").replace("|", "\\|").strip()
+    return re.sub(r"\s+", " ", str(value)).replace("|", "\\|").strip()
 
 
 def _yn(value) -> str:
@@ -179,7 +179,8 @@ def render_step_table(steps) -> str:
         "|----|------|---------|------|----------------|------------|-------------|",
     ]
     for step in steps:
-        step = step if isinstance(step, dict) else {}
+        if not isinstance(step, dict):
+            continue
         rows.append(
             "| {id} | {kind} | {pattern} | {gate} | {se} | {rev} | {term} |".format(
                 id=_cell(step.get("id")),
@@ -203,7 +204,8 @@ def render_subagent_table(subs) -> str:
         "|----|-------|--------|-----------|---------------|-------|------------|",
     ]
     for sa in subs:
-        sa = sa if isinstance(sa, dict) else {}
+        if not isinstance(sa, dict):
+            continue
         tools = sa.get("tools")
         tools_str = ", ".join(str(t) for t in tools) if isinstance(tools, list) else tools
         rows.append(
