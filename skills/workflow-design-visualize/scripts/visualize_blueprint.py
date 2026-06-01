@@ -38,5 +38,30 @@ def load_blueprint(path: str) -> dict:
     return parsed
 
 
+def sanitize_node_id(raw, used) -> str:
+    """Map a step/subagent id to a unique Mermaid-safe node id."""
+    base = re.sub(r"[^0-9A-Za-z_]", "_", str(raw)).strip("_") or "node"
+    if base[0].isdigit():
+        base = "n_" + base
+    candidate = base
+    i = 2
+    while candidate in used:
+        candidate = f"{base}__{i}"
+        i += 1
+    used.add(candidate)
+    return candidate
+
+
+def escape_label(text) -> str:
+    """Escape a field value for safe use inside a quoted Mermaid label."""
+    s = "" if text is None else str(text)
+    s = s.replace("&", "&amp;")
+    s = s.replace("<", "&lt;").replace(">", "&gt;")
+    s = s.replace('"', "&quot;")
+    s = s.replace("[", "&#91;").replace("]", "&#93;")
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 if __name__ == "__main__":
     sys.exit(main())
