@@ -254,5 +254,45 @@ def render_document(bp: dict, name: str) -> str:
     return "\n".join(parts)
 
 
+def default_out_path(in_path: str) -> str:
+    if in_path.endswith(".blueprint.md"):
+        return in_path[: -len(".blueprint.md")] + ".diagram.md"
+    if in_path.endswith(".md"):
+        return in_path[: -len(".md")] + ".diagram.md"
+    return in_path + ".diagram.md"
+
+
+def blueprint_name(in_path: str) -> str:
+    base = os.path.basename(in_path)
+    for suf in (".blueprint.md", ".md"):
+        if base.endswith(suf):
+            return base[: -len(suf)]
+    return base
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Render a workflow blueprint to a Mermaid diagram artifact.")
+    parser.add_argument("path", help="path to <name>.blueprint.md")
+    parser.add_argument("--out", help="output path (default: sibling <name>.diagram.md)")
+    parser.add_argument("--stdout", action="store_true",
+                        help="print the artifact to stdout instead of writing a file")
+    args = parser.parse_args(argv)
+    try:
+        bp = load_blueprint(args.path)
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: {exc}")
+        return 2
+    doc = render_document(bp, blueprint_name(args.path))
+    if args.stdout:
+        sys.stdout.write(doc)
+        return 0
+    out_path = args.out or default_out_path(args.path)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(doc)
+    print(f"Wrote {out_path}")
+    return 0
+
+
 if __name__ == "__main__":
     sys.exit(main())
