@@ -118,6 +118,46 @@ Tier 1: deterministic `yaml`→Mermaid generator with offline fixture tests; emi
 diagram artifact; encodes ordering/parallel/gates/determinism coloring; parent spec §9
 updated. Tier 2 only opens as its own ticket if Tier 1 is shown insufficient.
 
+### 3.6 Status — Tier 1 building (T-016)
+Tier 1 is being built now: the user requested the visual aid, and per §3.4 Tier 1 is
+**ungated** ("could ship whenever a visual aid is wanted"), so this is within contract, not
+a gate override. **Tier 2 stays gated and is not built.** Lives in
+`skills/workflow-design-visualize/` (`scripts/visualize_blueprint.py` + offline tests).
+The decisions that refine this contract:
+
+- **Skill: `workflow-design-visualize`.** A new `workflow-design-*` member, run after
+  `workflow-design-validate` passes. Offline, deterministic, no API key, no model call — a
+  pure `yaml`→Mermaid transform mirroring `workflow-design-validate`'s analyzer shape.
+- **Artifact: a Markdown sibling `<name>.diagram.md`.** Emitted next to the blueprint
+  (mirrors the `.review.md` convention). It holds one fenced `mermaid` block plus a
+  **drill-down** details section — a per-step table and a per-subagent table — which is
+  Tier 1's static stand-in for §3.1's interactive drill-down. The file carries **no
+  timestamp**, so regenerated output is byte-stable and diffable.
+- **Edges = `steps` list order.** `step[i] → step[i+1]`, following the ordered `steps`
+  list (parent spec §7: ordering comes from the steps DAG). The v0.1 schema (§4.1) has no
+  explicit `next`/`depends_on` field, so a data-flow DAG would have to string-match
+  free-form `inputs`/`outputs` (e.g. `run_id`, `topic`) — fuzzy and drift-prone. List
+  order is unambiguous and **cannot drift** from the validated structure (§3.3).
+- **Encoding maps one-to-one to schema fields — no inference (§3.3).**
+  - `kind` → node **color *and* shape** (deterministic = rectangle + one `classDef`;
+    agentic = rounded + another), with the kind also written in the label text so the
+    diagram reads without color (accessibility).
+  - `pattern` → a `· <pattern>` tag in the node label when not `none` (kept off the shape
+    to avoid Mermaid multi-class merge quirks; the full pattern is in the detail table).
+  - `approval_gate` → a hexagon gate node inserted **after** the step it is declared on
+    (`step → gate → next`); `none` inserts nothing. The "after the step" placement (the
+    step's result passes a human gate before the flow continues) is the documented
+    convention.
+  - `subagents` → a separate `subgraph` cluster, one node per subagent labeled with `id`
+    plus `model`/`effort`. **No fabricated step→subagent edges** — the v0.1 schema has no
+    field linking a step to the subagent it delegates to, and inventing one is exactly the
+    drift §3.3 forbids; the relationship is carried by the detail table and a caption.
+- **Robust, deterministic core.** Mermaid-safe node ids (slugified, duplicate `id`s
+  disambiguated, no leading digit), label escaping (`"`, `[`, `]`, `&`, `<`, `>`),
+  graceful `steps: []` and missing-optional-field handling, and exit `2` on the same
+  bad-input conditions as the validator (not exactly one fenced `yaml` block; the block is
+  not a mapping). Offline `unittest` fixtures assert golden Mermaid strings.
+
 ---
 
 ## 4. Shared design rules
