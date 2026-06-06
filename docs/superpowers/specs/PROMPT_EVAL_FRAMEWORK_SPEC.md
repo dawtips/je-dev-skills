@@ -313,7 +313,7 @@ All in [`evals/config.py`](config.py):
 |---------|---------|-------|
 | `PROVIDER` | `"anthropic"` | Swap by implementing `LLMClient` and passing your client in. |
 | `GENERATOR_MODEL` | `claude-sonnet-4-6` | Builds ideas + test cases. |
-| `EXECUTOR_MODEL` | `claude-haiku-4-5-...` | Default for the system under test. |
+| `EXECUTOR_MODEL` | `claude-sonnet-4-6` | Default for the system under test. (Was Haiku through 2026-06-06; Haiku-class fix-construction slips dominated critic-suite failures. Baselines are executor-scoped — runs from before the switch are not comparable.) |
 | `JUDGE_MODEL` | `claude-opus-4-8` | Strong, and different from executor (reduces self-grading bias). |
 | `API_KEY_ENV` | `ANTHROPIC_API_KEY` | Where the client reads the key. |
 | `IDEA/TESTCASE/GRADING_TEMPERATURE` | 1.0 / 0.7 / 0.0 | Diversity / realism / determinism. |

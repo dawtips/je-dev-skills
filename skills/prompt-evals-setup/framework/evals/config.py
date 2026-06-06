@@ -13,7 +13,9 @@ PROVIDER = "anthropic"
 GENERATOR_MODEL = "claude-sonnet-4-6"
 
 # Default model for the prompt/agent UNDER TEST (your run_function may override).
-EXECUTOR_MODEL = "claude-haiku-4-5-20251001"
+# Switched Haiku -> Sonnet 2026-06-06: Haiku-class fix-construction slips dominated
+# critic-suite failures; keep the executor distinct from the Opus judge.
+EXECUTOR_MODEL = "claude-sonnet-4-6"
 
 # Judge model. Deliberately a STRONG model, and ideally different from the
 # executor to reduce self-grading bias (see spec Â§Known Limitations).
@@ -31,7 +33,7 @@ EXECUTION_MODE = "in_claude_code"
 
 # Interactive no-key path knobs. These are instructions for the SKILL.md
 # orchestration layer; Python never dispatches subagents directly.
-SUBAGENT_EXECUTOR_MODEL = "claude-haiku-4-5-20251001"
+SUBAGENT_EXECUTOR_MODEL = "claude-sonnet-4-6"
 SUBAGENT_JUDGE_MODEL = "claude-opus-4-8"
 SUBAGENT_EFFORT = "medium"
 
