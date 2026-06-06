@@ -11,7 +11,7 @@
       "name": "je-dev-skills",
       "source": "./",
       "description": "Build agent apps inside Claude Code end to end: design & review workflow blueprints, author prompts, scaffold/run native artifacts, measure with evals, and improve in an eval-driven loop.",
-      "version": "0.1.0",
+      "version": "0.3.2",
       "category": "development",
       "author": {
         "name": "dawtips",
