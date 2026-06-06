@@ -18,6 +18,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from evals.output_schema import parse_strict_json, validate_output_schema
+
 VALID_MODES = ("prompt_file", "command_adapter")
 
 
@@ -48,6 +50,7 @@ class TargetSpec:
     mode: str
     prompt_file: str | None = None  # project-root-relative path (prompt_file mode)
     command: list[str] | None = None  # argv for the adapter subprocess (command_adapter mode)
+    output_schema: dict | None = None  # optional JSON Schema for prompt-under-test output
 
 
 @dataclass(frozen=True)
@@ -114,16 +117,24 @@ def load_eval_spec(eval_json_path: str | Path) -> EvalSpec:
     """Load and validate an ``eval.json``, resolving all artifact paths."""
     path = Path(eval_json_path).resolve()
     resolve_project_root(path)  # validate the prescribed layout up front (clear error)
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = parse_strict_json(path.read_text(encoding="utf-8"))
     target_data = data.get("target") or {}
     mode = target_data.get("mode")
     prompt_file = target_data.get("prompt_file")
     command = target_data.get("command")
+    output_schema = target_data.get("output_schema")
+    if output_schema is not None:
+        output_schema = validate_output_schema(output_schema)
     _validate_target(mode, prompt_file, command)
     return EvalSpec(
         name=data.get("name", path.parent.name),
         eval_json=path,
-        target=TargetSpec(mode=mode, prompt_file=prompt_file, command=command),
+        target=TargetSpec(
+            mode=mode,
+            prompt_file=prompt_file,
+            command=command,
+            output_schema=output_schema,
+        ),
         cases_file_rel=data.get("cases_file", "cases.json"),
         runs_dir_rel=data.get("runs_dir", "runs"),
         extra_criteria=data.get("extra_criteria"),
@@ -141,6 +152,7 @@ def scaffold_eval_artifacts(
     mode: str,
     prompt_file: str | None = None,
     command: list[str] | None = None,
+    output_schema: dict | None = None,
 ) -> EvalSpec:
     """Create the ``evals/<name>/`` artifact layout without copying the framework.
 
@@ -160,6 +172,8 @@ def scaffold_eval_artifacts(
         target["prompt_file"] = prompt_file
     else:
         target["command"] = list(command)
+    if output_schema is not None:
+        target["output_schema"] = validate_output_schema(output_schema)
 
     eval_json = eval_dir / "eval.json"
     if not eval_json.exists():

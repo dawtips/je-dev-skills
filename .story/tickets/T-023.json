@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-05-31",
+  "createdDate": "2026-05-30",
+  "description": "Add a workflow-skills capability that reviews a target project, documents what is already present, then performs a second review pass to provide actionable feedback.\n\nAcceptance criteria:\n- The workflow skill can inspect a project/workflow workspace and produce a structured inventory of relevant artifacts: skills, workflow docs, specs/plans, tests, scripts, and obvious entry points.\n- The inventory distinguishes observed facts from inferences and open questions, so downstream feedback is grounded in project evidence.\n- A review pass evaluates the documented inventory and source context for gaps, inconsistencies, missing tests/docs, unclear workflow boundaries, and next-step recommendations.\n- Output is suitable for a user-facing review report and for later durable project documentation without requiring live LLM judgment for deterministic discovery steps.\n- Offline tests cover the deterministic inventory/report-shaping logic; LLM use is reserved for judgment-oriented feedback.",
+  "id": "T-023",
+  "order": 70,
+  "phase": "backlog",
+  "status": "complete",
+  "title": "workflow skills project inventory and feedback review",
+  "type": "feature"
+}
