@@ -80,5 +80,78 @@ class TestLiveRunAssertions(unittest.TestCase):
             self.assertFalse(result["results"][0]["assertion_gate"]["judge_skipped"])
 
 
+class TestLiveRunResilience(unittest.TestCase):
+    def _two_case_dataset(self, path):
+        payload = {
+            "provenance": {"task_description": "t"},
+            "cases": [
+                {"task_description": "t", "scenario": "ok",
+                 "prompt_inputs": {"goal": "fine"}, "solution_criteria": ["x"]},
+                {"task_description": "t", "scenario": "boom",
+                 "prompt_inputs": {"goal": "boom"}, "solution_criteria": ["x"]},
+            ],
+        }
+        path.write_text(json.dumps(payload))
+
+    def test_executor_failure_is_isolated_scored_and_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset = Path(d) / "dataset.json"
+            runs_dir = Path(d) / "runs"
+            self._two_case_dataset(dataset)
+
+            def flaky(inputs):
+                if inputs.get("goal") == "boom":
+                    raise RuntimeError("executor exploded")
+                return "an answer"
+
+            result = run_evaluation(
+                judge_client=CountingJudge(fixed_score=8),
+                run_function=flaky,
+                dataset_file=str(dataset),
+                assertions=[],
+                runs_dir=str(runs_dir),
+                run_label="flaky",
+            )
+
+            # The good case still ran; the bad case is isolated, not fatal.
+            self.assertEqual(len(result["results"]), 2)
+            self.assertEqual(len(result["errors"]), 1)
+            errored = next(r for r in result["results"] if r.get("error"))
+            ok = next(r for r in result["results"] if not r.get("error"))
+            self.assertEqual(errored["score"], 1)
+            self.assertIn("executor exploded", errored["error"])
+            self.assertEqual(ok["score"], 8)
+            # The report was still written and records the failure in meta.
+            out = json.loads((runs_dir / "flaky" / "output.json").read_text())
+            self.assertEqual(len(out["results"]), 2)
+            self.assertEqual(len(out["meta"]["errors"]), 1)
+            self.assertEqual(out["meta"]["errors"][0]["scenario"], "boom")
+
+    def test_grade_failure_is_isolated(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset = Path(d) / "dataset.json"
+            write_dataset(dataset)
+
+            class BoomJudge(FakeLLMClient):
+                def complete_json(self, **kwargs):
+                    if kwargs.get("tag") == "grade":
+                        raise RuntimeError("judge 500")
+                    return super().complete_json(**kwargs)
+
+            result = run_evaluation(
+                judge_client=BoomJudge(fixed_score=8),
+                run_function=lambda inputs: "kcal 2000",
+                dataset_file=str(dataset),
+                assertions=[],
+                runs_dir=str(Path(d) / "runs"),
+                run_label="grade-boom",
+            )
+
+            res0 = result["results"][0]
+            self.assertEqual(res0["score"], 1)
+            self.assertIn("judge 500", res0["error"])
+            self.assertEqual(len(result["errors"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

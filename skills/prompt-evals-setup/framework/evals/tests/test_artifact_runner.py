@@ -126,6 +126,21 @@ class TestCommandAdapterMode(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 run_command_adapter(spec, {"prompt_inputs": {"goal": "x"}})
 
+    def test_adapter_times_out_instead_of_hanging(self):
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            scaffold_eval_artifacts(
+                root,
+                "agent",
+                mode="command_adapter",
+                command=[sys.executable, "-c", "import time; time.sleep(30)"],
+            )
+            spec = load_eval_spec(root / "evals" / "agent" / "eval.json")
+            with self.assertRaises(subprocess.TimeoutExpired):
+                run_command_adapter(spec, {"prompt_inputs": {"goal": "x"}}, timeout=0.5)
+
 
 class TestBuildRunFunction(unittest.TestCase):
     def test_prompt_file_run_function_renders_then_calls_executor(self):

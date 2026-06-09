@@ -17,6 +17,7 @@ import inspect
 import subprocess
 from typing import Callable
 
+from evals import config
 from evals.artifacts import EvalSpec
 from evals.evaluator.run import RunFunction
 from evals.evaluator.templates import render
@@ -40,8 +41,15 @@ def render_prompt_file(spec: EvalSpec, prompt_inputs: dict) -> str:
     return render(template, **prompt_inputs)
 
 
-def run_command_adapter(spec: EvalSpec, case: dict) -> str:
-    """Invoke the project command adapter: case JSON on stdin, output text on stdout."""
+def run_command_adapter(
+    spec: EvalSpec, case: dict, *, timeout: float | None = config.ADAPTER_TIMEOUT_SECONDS
+) -> str:
+    """Invoke the project command adapter: case JSON on stdin, output text on stdout.
+
+    ``timeout`` (seconds) bounds the subprocess so a hung adapter cannot block its
+    worker thread forever; on expiry ``subprocess.run`` raises ``TimeoutExpired``,
+    which the per-case run handler records as a case failure.
+    """
     if not spec.command:
         raise ValueError("run_command_adapter requires a command_adapter-mode eval spec")
     proc = subprocess.run(
@@ -51,6 +59,7 @@ def run_command_adapter(spec: EvalSpec, case: dict) -> str:
         text=True,
         cwd=str(spec.project_root),
         check=True,
+        timeout=timeout,
     )
     return proc.stdout
 
