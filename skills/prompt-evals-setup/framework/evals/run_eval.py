@@ -8,8 +8,8 @@ Two execution modes, selected by config.EXECUTION_MODE:
       A synchronous Python function cannot dispatch a subagent, so the `evaluate`
       command here prints that guidance and exits non-zero in this mode.
 
-  "anthropic_api" (keyed headless/CI fallback): the `evaluate` command runs
-      PromptEvaluator.run_evaluation in-process with AnthropicClient. Requires
+  "anthropic_api" (keyed headless/CI fallback): the `evaluate` command runs the eval
+      in-process via evals.live_run.run_evaluation with AnthropicClient. Requires
       ANTHROPIC_API_KEY (name in config.API_KEY_ENV) and supports agentic Trajectory.
 
 Prerequisites for the keyed path:

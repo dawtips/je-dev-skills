@@ -17,11 +17,6 @@ def variance_labels(group_label: str, k: int) -> list[str]:
     return [f"{group_label}__k{ordinal:02d}" for ordinal in range(k)]
 
 
-def output_paths_for_labels(runs_dir: str | Path, labels: list[str]) -> list[Path]:
-    base = Path(runs_dir)
-    return [base / label / "output.json" for label in labels]
-
-
 def run_k_variance(
     *,
     group_label: str,

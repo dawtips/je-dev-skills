@@ -10,17 +10,15 @@ from evals import config
 
 from .client import LLMClient
 from .generate import generate_ideas, generate_test_case
-from .grade import grade
-from .report import summarize, write_html, write_json
-from .run import RunFunction, execute
 
 
 class PromptEvaluator:
-    """Generate datasets and evaluate prompts/agents against them.
+    """Generate datasets for prompt/agent evaluation.
 
-    Generation is expensive and one-time; evaluation is cheap and repeated.
-    Freeze a dataset once, then re-run ``run_evaluation`` against it for every
-    prompt revision to compare versions apples-to-apples.
+    Generation is expensive and one-time; evaluation is cheap and repeated. Freeze a
+    dataset once with this class, then run it against every prompt revision via
+    ``evals.live_run.run_evaluation`` (the canonical run path: assertion gating +
+    reporting) to compare versions apples-to-apples.
     """
 
     def __init__(
@@ -70,59 +68,6 @@ class PromptEvaluator:
         path.write_text(json.dumps(dataset, indent=2, ensure_ascii=False), encoding="utf-8")
         self._log(f"wrote dataset -> {path}")
         return dataset
-
-    # --- Stages 2 + 3 --------------------------------------------------------
-    def run_evaluation(
-        self,
-        *,
-        run_function: RunFunction,
-        dataset_file: str,
-        extra_criteria: str | None = None,
-        process_criteria: str | None = None,
-        runs_dir: str = config.RUNS_DIR,
-        run_label: str | None = None,
-    ) -> dict:
-        dataset = json.loads(Path(dataset_file).read_text(encoding="utf-8"))
-        cases = dataset["cases"]
-
-        def work(case: dict) -> dict:
-            trajectory = execute(run_function, case["prompt_inputs"])
-            verdict = grade(
-                self.judge_client,
-                case,
-                trajectory,
-                extra_criteria=extra_criteria,
-                process_criteria=process_criteria,
-            )
-            return {
-                "output": trajectory.final_output,
-                "trajectory": trajectory.to_dict(),
-                "test_case": case,
-                "score": verdict["score"],
-                "reasoning": verdict.get("reasoning", ""),
-                "verdict": verdict,  # full strengths/weaknesses retained
-            }
-
-        results = self._map(work, cases, label="run+grade")
-        summary = summarize(results)
-
-        label = run_label or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        out_dir = Path(runs_dir) / label
-        out_dir.mkdir(parents=True, exist_ok=True)
-        meta = {
-            "task_description": dataset.get("provenance", {}).get("task_description", ""),
-            "dataset_file": dataset_file,
-            "judge_model": getattr(self.judge_client, "model", "unknown"),
-            "run_label": label,
-            "extra_criteria": extra_criteria,
-        }
-        write_json(out_dir / "output.json", results, summary, meta)
-        write_html(out_dir / "output.html", results, summary, meta)
-        self._log(
-            f"run '{label}': avg {summary['average_score']}/10, "
-            f"pass rate {summary['pass_rate']}% -> {out_dir}"
-        )
-        return {"summary": summary, "run_dir": str(out_dir), "results": results}
 
     # --- helpers -------------------------------------------------------------
     def _map(self, fn, items, *, label: str) -> list:
