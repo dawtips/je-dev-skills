@@ -121,7 +121,9 @@ updated. Tier 2 only opens as its own ticket if Tier 1 is shown insufficient.
 ### 3.6 Status — Tier 1 shipped (T-016)
 Tier 1 is shipped: the user requested the visual aid, and per §3.4 Tier 1 is
 **ungated** ("could ship whenever a visual aid is wanted"), so this is within contract, not
-a gate override. **Tier 2 stays gated and is not built.** Lives in
+a gate override. **Tier 2's gate was opened 2026-06-08**; its detailed contract is
+[2026-06-08-workflow-design-interactive-viewer-spec.md](2026-06-08-workflow-design-interactive-viewer-spec.md)
+(T-026), with read-only navigation as the in-scope Phase A. Tier 1 lives in
 `skills/workflow-design-visualize/` (`scripts/visualize_blueprint.py` + offline tests).
 The decisions that refine this contract:
 
@@ -171,7 +173,10 @@ The decisions that refine this contract:
 4. **Gated, not scheduled.** Building any deferred tier is a recorded decision against
    evidence, not a roadmap default. The shipped Tier-1 forms were such decisions (T-015
    §2.6 — a deliberate override of the §2.4 "maybe-never" gate; T-016 §3.6 — under the
-   §3.4 ungated allowance). **Tier 2 of the viewer stays deferred** until its §3.4 gate fires.
+   §3.4 ungated allowance). **Tier 2's §3.4 gate was opened by a recorded decision on
+2026-06-08** (T-026; see
+[2026-06-08-workflow-design-interactive-viewer-spec.md](2026-06-08-workflow-design-interactive-viewer-spec.md)
+§1).
 
 ---
 
@@ -183,5 +188,7 @@ The decisions that refine this contract:
 - **Not here:** any execution engine — the blueprint stays a design artifact (parent spec
   §9 "Other non-goals").
 - **Not here:** non-Claude models in the advisor (parent spec §9: Claude only).
-- The viewer's **Tier 2 stays deferred** until its §3.4 gate fires; the Tier-1 forms of
+- The viewer's **Tier 2 gate was opened 2026-06-08** (T-026; contract in
+  [2026-06-08-workflow-design-interactive-viewer-spec.md](2026-06-08-workflow-design-interactive-viewer-spec.md)).
+  Its **Tier 3 (online) stays a gated sketch** (that spec §7). The Tier-1 forms of
   both features are shipped (T-015 §2.6, T-016 §3.6).

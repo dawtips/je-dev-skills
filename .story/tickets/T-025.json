@@ -1,0 +1,11 @@
+{
+  "blockedBy": [],
+  "createdDate": "2026-06-08",
+  "description": "## Context\n\n`workflow-design-interview` runs a 7-stage elicitation but only plays the captured design back to the user once, at Stage 7 (the saturation check). A misframing introduced in Stage 1 (Frame) or a mis-decomposition in Stage 3 can therefore survive unchallenged through the determinism pass (Stage 4) and the full 12-dimension sweep (Stage 5) before the user ever sees a consolidated restatement.\n\n`zhenya-vlasov/idea-finder` (MIT) uses a technique worth borrowing: its Block 11 reflects the whole captured model back to the user mid-interview (\"here's what you've described; did I miss anything?\") before moving from elicitation into research. The same move here would catch structural errors before the expensive dimension sweep.\n\n## Desired behavior\n\nAdd one mid-interview playback checkpoint, after Stage 3 (functional decomposition) or Stage 4 (determinism pass) and before Stage 5 (dimension sweep): restate the structured core captured so far (purpose, scope cut line, inputs/outputs, the ordered steps and their kind) in a compact form and ask the user to confirm or correct it. This is a closed confirmation in the skill's existing open-then-closed style, not a new stage.\n\n## Acceptance criteria\n\n- `skills/workflow-design-interview/SKILL.md` gains a brief playback-checkpoint step between Stage 4 and Stage 5 (or at the end of Stage 3), framed as a confirmation, not a new elicitation stage.\n- `references/question-bank.md` gains the playback prompt wording.\n- The checkpoint restates only what has been captured; it adds no schema fields and does not change the blueprint structure.\n- `skill_lint.py` passes; the change is SKILL.md + question-bank only, so verification is the linter plus a structural grep for the new checkpoint language.\n\n## Provenance\n\nBorrowed technique, not code, from idea-finder's Block 11 (per CONTRIBUTING: borrow techniques, not code).",
+  "id": "T-025",
+  "order": 90,
+  "phase": "backlog",
+  "status": "open",
+  "title": "Interview mid-point playback checkpoint",
+  "type": "task"
+}

@@ -360,8 +360,11 @@ Each elicited requirement maps onto blueprint elements:
     `<name>.diagram.md` (flowchart in steps-list order + drill-down tables). Renders for
     free in GitHub / VSCode / Markdown previews, zero runtime. See
     `2026-05-30-workflow-design-advanced-tooling-spec.md` §3.6.
-  - *Tier 2 — browser viewer:* a small interactive view (clickable nodes → step /
-    subagent detail panels), only if Tier 1 proves insufficient.
+  - *Tier 2 — browser viewer (gate opened 2026-06-08; T-026):* a self-contained,
+    interactive `<name>.viewer.html` with clickable nodes → step / subagent detail
+    panels, a 12-dimension panel, and filters. Read-only navigation in Phase A;
+    in-browser editing and execution-driving are deferred, gated phases. Contract:
+    [2026-06-08-workflow-design-interactive-viewer-spec.md](2026-06-08-workflow-design-interactive-viewer-spec.md).
 
 All of these are purely additive and read from (or fill) the schema locked in §4 —
 v0.1 is unchanged by them.
