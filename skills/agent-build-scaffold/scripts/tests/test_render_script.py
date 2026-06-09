@@ -1,9 +1,9 @@
 import os
-import subprocess
 import tempfile
 import unittest
 
 from scaffold import load_blueprint, render_step_script, step_script_filename
+from tests._shell import run_bash_script
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -58,8 +58,8 @@ class TestRenderStepScript(unittest.TestCase):
             with open(script_path, "w", encoding="utf-8") as f:
                 f.write(script)
             os.chmod(script_path, 0o755)
-            result = subprocess.run(
-                [script_path],
+            result = run_bash_script(
+                script_path,
                 cwd=tmp,
                 env={**os.environ, "CSV_PATH": "../escape/path"},
                 text=True,

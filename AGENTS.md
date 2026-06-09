@@ -125,6 +125,6 @@ python3 -m unittest discover -s skills/agent-build-scaffold/scripts/tests -t ski
 python3 -m unittest discover -s skills/prompt-engineering-improve/scripts/tests -t skills/prompt-engineering-improve/scripts
 ```
 
-> The `agent-build-scaffold` suite executes the generated `.sh` hook/script artifacts
-> through `subprocess`, so it assumes a POSIX shell and forward-slash paths; run it on
-> Linux/macOS (or WSL), not Windows-native Python.
+> The `agent-build-scaffold` suite executes the generated bash hook/script artifacts
+> through an explicit `bash`, so it runs cross-platform (incl. Windows-native Python with
+> Git Bash on PATH). The script-executing tests skip when no `bash` is found.
