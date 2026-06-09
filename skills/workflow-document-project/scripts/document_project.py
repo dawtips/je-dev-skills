@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -587,6 +588,15 @@ def _existing_blueprint_status(path: Path) -> str | None:
     return status.group(1).strip() if status else None
 
 
+def _stage_temp(directory: Path, base_name: str, suffix: str) -> Path:
+    """Reserve a unique sibling temp file (mkstemp uses O_EXCL) so a user's own
+    ``<name>.tmp``/``.bak`` siblings are never overwritten. The caller fills or
+    renames it; on any failure path the caller unlinks it."""
+    fd, path = tempfile.mkstemp(prefix=base_name + ".", suffix=suffix, dir=str(directory))
+    os.close(fd)
+    return Path(path)
+
+
 def write_artifacts(
     root: str | Path,
     workflow_name: str,
@@ -623,25 +633,28 @@ def write_artifacts(
     # All-or-nothing write (the SKILL.md "no partial write" contract): stage both files
     # as temps, then publish. The blueprint is published first, so back up any existing
     # one and roll it back if publishing the project-doc fails — otherwise a failed
-    # second rename would leave a new blueprint with no matching project-doc. Any OSError
-    # becomes a DocumentProjectError so main() exits 2 cleanly instead of a traceback.
-    bp_tmp = blueprint_path.with_name(blueprint_path.name + ".tmp")
-    pd_tmp = project_doc_path.with_name(project_doc_path.name + ".tmp")
-    bp_bak = blueprint_path.with_name(blueprint_path.name + ".bak")
+    # second rename would leave a new blueprint with no matching project-doc. All temp
+    # and backup names are unique (mkstemp, O_EXCL) so a user's own .tmp/.bak siblings
+    # are never clobbered. Any OSError becomes a DocumentProjectError so main() exits 2
+    # cleanly instead of a traceback.
+    bp_tmp = pd_tmp = bp_bak = None
     try:
         workflows_dir.mkdir(parents=True, exist_ok=True)
+        bp_tmp = _stage_temp(workflows_dir, blueprint_path.name, ".tmp")
+        pd_tmp = _stage_temp(workflows_dir, project_doc_path.name, ".tmp")
         bp_tmp.write_text(blueprint_text, encoding="utf-8")
         pd_tmp.write_text(project_doc_text, encoding="utf-8")
         blueprint_existed = blueprint_path.exists()
+        if blueprint_existed:
+            bp_bak = _stage_temp(workflows_dir, blueprint_path.name, ".bak")
+            os.replace(blueprint_path, bp_bak)  # stash original to roll back to
         try:
-            if blueprint_existed:
-                os.replace(blueprint_path, bp_bak)  # stash original to roll back to
             os.replace(bp_tmp, blueprint_path)
             os.replace(pd_tmp, project_doc_path)
         except OSError:
             # Roll the blueprint back to its pre-run state so neither file is partial.
             try:
-                if blueprint_existed and bp_bak.exists():
+                if bp_bak is not None and bp_bak.exists():
                     os.replace(bp_bak, blueprint_path)
                 elif not blueprint_existed and blueprint_path.is_file():
                     blueprint_path.unlink()
@@ -650,16 +663,18 @@ def write_artifacts(
             raise
     except OSError as exc:
         for leftover in (bp_tmp, pd_tmp, bp_bak):
-            try:
-                leftover.unlink()
-            except OSError:
-                pass
+            if leftover is not None:
+                try:
+                    leftover.unlink()
+                except OSError:
+                    pass
         raise DocumentProjectError(f"failed to write artifacts: {exc}") from exc
     # Success: drop the backup of any prior blueprint.
-    try:
-        bp_bak.unlink()
-    except OSError:
-        pass
+    if bp_bak is not None:
+        try:
+            bp_bak.unlink()
+        except OSError:
+            pass
     return {"blueprint": blueprint_path, "project_doc": project_doc_path}
 
 def _inventory_to_dict(inventory: Inventory) -> dict[str, Any]:

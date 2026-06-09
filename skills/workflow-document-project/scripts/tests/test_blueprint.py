@@ -218,6 +218,23 @@ class TestBlueprintSafety(unittest.TestCase):
             self.assertEqual(sorted(wf.glob("*.tmp")), [])
             self.assertEqual(sorted(wf.glob("*.bak")), [])
 
+    def test_user_owned_bak_file_is_not_clobbered(self):
+        # A user's own <name>.blueprint.md.bak must survive a normal run (unique
+        # mkstemp backup names, not a fixed .bak).
+        payload = parse_synthesis_payload(valid_synthesis_payload())
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            wf = root / "workflows"
+            wf.mkdir(parents=True)
+            (wf / "fixture-review.blueprint.md").write_text("status: draft\n", encoding="utf-8")
+            user_bak = wf / "fixture-review.blueprint.md.bak"
+            user_bak.write_text("USER BACKUP DO NOT TOUCH\n", encoding="utf-8")
+
+            write_artifacts(root, "fixture-review", _minimal_inventory(), payload, "2026-05-31")
+
+            self.assertTrue(user_bak.exists())
+            self.assertEqual(user_bak.read_text(encoding="utf-8"), "USER BACKUP DO NOT TOUCH\n")
+
     def test_validation_degrade_warns_on_stderr(self):
         import contextlib
         import io
