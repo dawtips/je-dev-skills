@@ -37,7 +37,7 @@ passes — a picture of an incomplete blueprint can mislead.
 2. **Run the generator** against the blueprint path:
 
    ```bash
-   python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-visualize/scripts/visualize_blueprint.py <path>
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-visualize/scripts/visualize_blueprint.py <path>
    ```
 
    It writes a sibling `<name>.diagram.md` and prints `Wrote <output path>`

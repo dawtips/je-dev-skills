@@ -73,10 +73,10 @@ before use:
 | Tier | Current model ID | Notes |
 |------|------------------|-------|
 | Haiku | `claude-haiku-4-5` | Fastest / cheapest; easy tasks (classification, extraction). |
-| Sonnet | `claude-sonnet-4-5` | Balanced; moderate reasoning, synthesis, drafting. |
-| Opus | `claude-opus-4-1` (and newer Opus 4.x) | Most capable; hard, open-ended, high-stakes work. |
+| Sonnet | `claude-sonnet-4-6` | Balanced; moderate reasoning, synthesis, drafting. |
+| Opus | `claude-opus-4-8` (and newer Opus 4.x) | Most capable; hard, open-ended, high-stakes work. |
 
-*As of 2026-05-29.* Model IDs and the lineup change frequently — treat this table as
+*As of 2026-06-09.* Model IDs and the lineup change frequently — treat this table as
 a snapshot and confirm the exact current IDs and aliases in the models-overview doc.
 The blueprint schema deliberately stores only the **tier** (`haiku|sonnet|opus|inherit`),
 never a pinned ID, so blueprints survive lineup changes.

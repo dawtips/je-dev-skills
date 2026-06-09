@@ -69,8 +69,9 @@ def lint_skill(skill_dir, plugin_root) -> list[str]:
     md = skill_dir / "SKILL.md"
     if not md.exists():
         return [f"ERROR: {name_tag}: no SKILL.md"]
+    text = md.read_text(encoding="utf-8")
     try:
-        fields, body = parse_frontmatter(md.read_text(encoding="utf-8"))
+        fields, body = parse_frontmatter(text)
     except ValueError as e:
         return [f"ERROR: {name_tag}: {e}"]
 
@@ -94,7 +95,7 @@ def lint_skill(skill_dir, plugin_root) -> list[str]:
         if field not in fields:
             issues.append(f"WARN: {name_tag}: frontmatter missing recommended '{field}'")
 
-    for ref in extract_plugin_root_refs(md.read_text(encoding="utf-8")):
+    for ref in extract_plugin_root_refs(text):
         if not (plugin_root / ref).exists():
             issues.append(f"ERROR: {name_tag}: broken ${{CLAUDE_PLUGIN_ROOT}} ref: {ref}")
 

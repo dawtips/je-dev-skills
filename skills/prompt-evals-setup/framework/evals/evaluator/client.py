@@ -43,11 +43,21 @@ class LLMClient(Protocol):
         ...
 
 
-# Models that reject sampling params (temperature/top_p/top_k) — Claude Opus
-# 4.7 onward. Sending temperature to these returns a 400, so we omit it and let
-# the model self-regulate (temperature=0 never guaranteed identical outputs
-# anyway). Determinism-sensitive grading relies on the model, not this knob.
-_NO_SAMPLING_PREFIXES = ("claude-opus-4-7", "claude-opus-4-8")
+# Claude Opus 4.7+ reject sampling params (temperature/top_p/top_k): sending
+# temperature returns a 400. Opus 4.6 and earlier still accept them, so we parse
+# the 4.x minor version rather than matching the whole family — that omits the
+# param for 4.7/4.8 (and any future 4.9+) without stripping it from a pinned 4.6
+# judge that still honours GRADING_TEMPERATURE. An unparseable/alias id keeps the
+# param (a loud 400 is easier to debug than silent loss of determinism).
+def _rejects_sampling_params(model: str) -> bool:
+    prefix = "claude-opus-4-"
+    if not model.startswith(prefix):
+        return False
+    minor = model[len(prefix):].split("-", 1)[0]
+    # A 1-2 digit token is the .x minor (4-7, 4-8, …). A longer all-digit token is
+    # a snapshot date on the bare 4.0 id (claude-opus-4-YYYYMMDD), i.e. no minor
+    # segment -> Opus 4.0, which still accepts sampling.
+    return minor.isdigit() and len(minor) <= 2 and int(minor) >= 7
 
 
 class AnthropicClient:
@@ -92,7 +102,7 @@ class AnthropicClient:
             "messages": [{"role": "user", "content": user}],
         }
         # Opus 4.7+ removed sampling params; sending temperature returns 400.
-        if not self.model.startswith(_NO_SAMPLING_PREFIXES):
+        if not _rejects_sampling_params(self.model):
             kwargs["temperature"] = temperature
         # Structured outputs constrain the response to the given JSON Schema,
         # so no markdown fence or prefill is needed to get clean JSON.

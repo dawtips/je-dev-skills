@@ -118,4 +118,11 @@ python3 -m unittest discover -s skills/workflow-design-review/scripts/tests -t s
 python3 -m unittest discover -s skills/workflow-design-advise/scripts/tests -t skills/workflow-design-advise/scripts
 python3 -m unittest discover -s skills/workflow-document-project/scripts/tests -t skills/workflow-document-project/scripts
 python3 -m unittest discover -s skills/workflow-design-visualize/scripts/tests -t skills/workflow-design-visualize/scripts
+python3 -m unittest discover -s skills/dev-workflow-init/scripts/tests -t skills/dev-workflow-init/scripts
+python3 -m unittest discover -s skills/agent-build-scaffold/scripts/tests -t skills/agent-build-scaffold/scripts
+python3 -m unittest discover -s skills/prompt-engineering-improve/scripts/tests -t skills/prompt-engineering-improve/scripts
 ```
+
+> The `agent-build-scaffold` suite executes the generated `.sh` hook/script artifacts
+> through `subprocess`, so it assumes a POSIX shell and forward-slash paths; run it on
+> Linux/macOS (or WSL), not Windows-native Python.

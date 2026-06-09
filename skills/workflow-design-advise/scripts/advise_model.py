@@ -29,8 +29,8 @@ import yaml
 # when the lineup changes -- never scatter model IDs elsewhere.
 MODEL_IDS = {
     "haiku": "claude-haiku-4-5",
-    "sonnet": "claude-sonnet-4-5",
-    "opus": "claude-opus-4-1",
+    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-4-8",
 }
 
 TIERS = ("haiku", "sonnet", "opus")          # cheap -> capable

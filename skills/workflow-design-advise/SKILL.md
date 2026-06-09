@@ -35,7 +35,7 @@ passes — advice on an incomplete blueprint is premature.
 2. **Run the advisor** against the blueprint path:
 
    ```bash
-   python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-advise/scripts/advise_model.py <path> --date <YYYY-MM-DD>
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-advise/scripts/advise_model.py <path> --date <YYYY-MM-DD>
    ```
 
    Exit codes: `0` = report produced, `2` = file unreadable, not exactly one
@@ -83,4 +83,4 @@ have had their difficulty confirmed by a human.
   guideline proves insufficient. Claude models only.
 - **Tiers, not IDs.** Blueprints store a tier; concrete model IDs live in one
   constant in `advise_model.py`, re-verified against the volatile-values table
-  in `references/citations.md`.
+  in `${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-interview/references/citations.md`.

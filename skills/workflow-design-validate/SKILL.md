@@ -36,7 +36,7 @@ A blueprint file must exist. Blueprints are written by
 2. **Run the validator** against the blueprint path:
 
    ```bash
-   python ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-validate/scripts/validate_blueprint.py <path>
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/workflow-design-validate/scripts/validate_blueprint.py <path>
    ```
 
    Exit codes: `0` = PASS, `1` = gaps found, `2` = file unreadable or the
