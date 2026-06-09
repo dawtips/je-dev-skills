@@ -1,0 +1,18 @@
+{
+  "content": "When adding per-case recovery to a pipeline (catch -> record a failure result instead of aborting the run), the catch must cover only transient/runtime errors (API 429/5xx, malformed model output, hung subprocess). Deterministic, pre-flight errors — missing/wrong-typed dataset fields, prompt/template-contract mismatches, bad config — must be validated up front or re-raised so they fail the whole run loudly. Absorbing them produces a normal-looking low-scoring report that masks a configuration bug. Pattern: validate the schema before the worker pool (presence AND type), keep a small _CONFIG_ERRORS tuple the guard re-raises, and only then catch Exception for the genuinely flaky steps.",
+  "context": "je-dev-skills PR #7 (live_run per-case resilience) took 3 Codex P2 rounds, all the same root issue: the broad except that isolated transient executor/judge failures was also swallowing dataset-schema errors (missing prompt_inputs, prompt_inputs: null) and prompt/cases contract errors (MissingPlaceholderError). Fix: up-front _validate_cases (presence+type) + re-raise _CONFIG_ERRORS, catch Exception only around execute()/grade().",
+  "createdDate": "2026-06-09",
+  "id": "L-008",
+  "lastValidated": "2026-06-09",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "error-handling",
+    "resilience",
+    "eval-framework"
+  ],
+  "title": "Isolate only transient errors; let deterministic config/schema/contract errors fail loudly",
+  "updatedDate": "2026-06-09"
+}

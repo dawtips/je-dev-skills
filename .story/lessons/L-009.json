@@ -1,0 +1,18 @@
+{
+  "content": "When a change loosens a branch, adds a recovery/guard, or parses an external format (model IDs, version strings, dataset schemas), the adversarial reviewer (Codex) tends to surface ONE uncovered edge case per review round. Iterating reactively costs a round-trip each. Instead, when you write such code, enumerate the whole input space up front and cover every direction in the first commit + tests: e.g. model-ID parsing needed (1) 4.7+ family cutoff, (2) bare dated 4.0 snapshot vs (3) dated minor form; atomic-write needed (1) write fail, (2) second-rename fail with rollback, (3) not clobbering user .tmp/.bak siblings. Ask 'what other shapes can this input take?' before pushing.",
+  "context": "je-dev-skills PRs #6/#7/#8 each took 2-3 Codex P2 rounds where every round was a fresh edge case of the same loosened branch (opus prefix -> 4.6 over-reach -> snapshot date; atomic write -> 2nd-rename gap -> fixed .bak name clobber). The fixes were always 'cover the other direction too'.",
+  "createdDate": "2026-06-09",
+  "id": "L-009",
+  "lastValidated": "2026-06-09",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "process",
+    "review",
+    "prompt-engineering"
+  ],
+  "title": "Enumerate all edge cases up front on a loosened guard/parser — Codex probes one per round",
+  "updatedDate": "2026-06-09"
+}
