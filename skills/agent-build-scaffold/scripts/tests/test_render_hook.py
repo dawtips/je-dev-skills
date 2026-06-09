@@ -76,6 +76,11 @@ class TestRenderHook(unittest.TestCase):
         with self.assertRaisesRegex(ScaffoldError, "gate"):
             render_hook({"name": "bad", "gate": "high"})
 
+    def test_zero_gate_is_rejected_as_fail_open(self):
+        # gate: 0 -> `[ "$SCORE" -lt "0" ]` is always false (never blocks).
+        with self.assertRaisesRegex(ScaffoldError, "gate"):
+            render_hook({"name": "bad", "gate": 0})
+
     def test_hook_filename_slugifies_name(self):
         self.assertEqual(
             hook_filename({"name": "Classification Accuracy!"}),

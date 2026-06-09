@@ -70,9 +70,12 @@ and [prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prom
 ## Design & framework
 
 - **Spec & setup guide:** [PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md)
-- **Reference implementation (Python):** bundled in
-  [skills/prompt-evals-setup/framework/evals/](skills/prompt-evals-setup/framework/evals/),
-  copied into a project by the setup skill.
+- **Framework (Python):** **plugin-resident** in
+  [skills/prompt-evals-setup/framework/evals/](skills/prompt-evals-setup/framework/evals/)
+  and never copied into your project. The setup skill scaffolds only the per-project
+  `evals/<name>/` artifacts (`eval.json`, `cases.json`, `runs/`); the shared
+  runner/grader/reporting machinery stays in the plugin and resolves via
+  `${CLAUDE_PLUGIN_ROOT}`.
 
 ## Development
 

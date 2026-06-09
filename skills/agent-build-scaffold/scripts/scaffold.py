@@ -206,7 +206,9 @@ def _parse_positive_int(value, label: str) -> int:
     if isinstance(value, bool) or value is None:
         raise ScaffoldError(f"{label} must be a positive integer")
     text = str(value).strip()
-    if not re.fullmatch(r"[0-9]+", text):
+    # Reject zero: a gate of 0 renders `[ "$SCORE" -lt "0" ]`, which is always
+    # false, so the gate would silently never block (fail-open). Require >= 1.
+    if not re.fullmatch(r"[1-9][0-9]*", text):
         raise ScaffoldError(f"{label} must be a positive integer")
     return int(text)
 

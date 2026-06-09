@@ -44,10 +44,12 @@ class LLMClient(Protocol):
 
 
 # Models that reject sampling params (temperature/top_p/top_k) — Claude Opus
-# 4.7 onward. Sending temperature to these returns a 400, so we omit it and let
-# the model self-regulate (temperature=0 never guaranteed identical outputs
-# anyway). Determinism-sensitive grading relies on the model, not this knob.
-_NO_SAMPLING_PREFIXES = ("claude-opus-4-7", "claude-opus-4-8")
+# 4.7 onward. Sending temperature to those returns a 400. We match the whole
+# Opus 4.x family by prefix so a future 4.9+ does not regress into a 400; the
+# only cost is that pre-4.7 Opus (none used in this repo) also omit temperature,
+# which is always safe (temperature=0 never guaranteed identical outputs anyway).
+# Determinism-sensitive grading relies on the model, not this knob.
+_NO_SAMPLING_PREFIXES = ("claude-opus-4-",)
 
 
 class AnthropicClient:
