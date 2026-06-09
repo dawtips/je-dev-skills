@@ -1,3 +1,5 @@
+import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -127,3 +129,72 @@ class TestBlueprintRendering(unittest.TestCase):
         self.assertEqual(coverage, (12, 12))
         self.assertEqual(gaps, [])
         self.assertEqual(parsed["status"], "draft")
+
+
+class TestBlueprintSafety(unittest.TestCase):
+    def test_frontmatter_with_special_chars_stays_valid_yaml(self):
+        # A model-supplied frontmatter value with a newline and YAML-special chars
+        # must not break the --- block (WR-009).
+        raw = valid_synthesis_payload()
+        raw["blueprint_frontmatter"]["created"] = "line1\nline2: trap # not a comment"
+        payload = parse_synthesis_payload(raw)
+        text = render_blueprint(payload)
+
+        block = re.search(r"(?s)\A---\n(.*?)\n---", text).group(1)
+        parsed_fm = yaml.safe_load(block)
+        self.assertEqual(parsed_fm["status"], "draft")
+        self.assertEqual(parsed_fm["name"], "fixture-review")
+        self.assertEqual(parsed_fm["created"], "line1\nline2: trap # not a comment")
+        # The status line stays regex-readable for _existing_blueprint_status.
+        self.assertRegex(block, r"(?m)^status:\s*draft\s*$")
+
+    def test_write_failure_raises_document_error_and_leaves_no_partial(self):
+        from unittest import mock
+
+        payload = parse_synthesis_payload(valid_synthesis_payload())
+        real_replace = os.replace
+        calls = {"n": 0}
+
+        def flaky_replace(src, dst):
+            calls["n"] += 1
+            if calls["n"] == 1:  # fail on the first rename (the blueprint)
+                raise OSError("simulated disk full")
+            return real_replace(src, dst)
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            with mock.patch("document_project.os.replace", side_effect=flaky_replace):
+                with self.assertRaises(DocumentProjectError):
+                    write_artifacts(root, "fixture-review", _minimal_inventory(), payload, "2026-05-31")
+
+            wf = root / "workflows"
+            self.assertFalse((wf / "fixture-review.blueprint.md").exists())
+            self.assertFalse((wf / "fixture-review.project-doc.md").exists())
+            self.assertEqual(sorted(wf.glob("*.tmp")), [])  # no leftover temp files
+
+    def test_validation_degrade_warns_on_stderr(self):
+        import contextlib
+        import io
+        from types import SimpleNamespace
+        from unittest import mock
+
+        import document_project as dp
+
+        def boom_validate(_parsed):
+            raise RuntimeError("validator API drift")
+
+        fake = SimpleNamespace(
+            extract_yaml_block=lambda _text: "status: draft",
+            validate=boom_validate,
+        )
+        err = io.StringIO()
+        with mock.patch.object(dp, "_validator_module", return_value=fake), \
+                contextlib.redirect_stderr(err):
+            status = dp.blueprint_validation_status("anything")
+
+        self.assertEqual(status, "not run")
+        self.assertIn("validation could not run", err.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

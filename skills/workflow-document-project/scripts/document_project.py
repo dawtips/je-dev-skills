@@ -434,7 +434,10 @@ def render_blueprint(payload: SynthesisPayload) -> str:
     yaml_data = dict(payload.blueprint_yaml)
     yaml_data["status"] = "draft"
     prose = payload.blueprint_prose
-    frontmatter_text = "\n".join(f"{key}: {value}" for key, value in frontmatter.items())
+    # Serialize via YAML, not f-string concat: frontmatter values come from the model,
+    # so a newline or ': '/'#'/leading-quote in a value would otherwise break the
+    # `---` block (and the status read in _existing_blueprint_status).
+    frontmatter_text = yaml.safe_dump(frontmatter, sort_keys=False, allow_unicode=False).rstrip()
     yaml_text = yaml.safe_dump(yaml_data, sort_keys=False, allow_unicode=False)
     return "\n".join(
         [
@@ -552,7 +555,8 @@ def _validator_module() -> Any | None:
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-    except Exception:
+    except Exception as exc:  # broad: a validator bug must not crash documentation, but say so
+        print(f"WARNING: blueprint validator failed to load: {exc}", file=sys.stderr)
         return None
     return module
 
@@ -564,7 +568,8 @@ def blueprint_validation_status(blueprint_text: str) -> str:
     try:
         parsed = yaml.safe_load(module.extract_yaml_block(blueprint_text))
         gaps, (accounted, total) = module.validate(parsed)
-    except Exception:
+    except Exception as exc:  # broad: validation is advisory and must not crash the run
+        print(f"WARNING: blueprint validation could not run: {exc}", file=sys.stderr)
         return "not run"
     if gaps:
         return f"fail ({len(gaps)} gap(s); {accounted}/{total} dimensions)"
@@ -615,9 +620,25 @@ def write_artifacts(
         date,
         validation_status=validation_status,
     )
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    blueprint_path.write_text(blueprint_text, encoding="utf-8")
-    project_doc_path.write_text(project_doc_text, encoding="utf-8")
+    # Write both via temp files then rename, so a disk-full/permission error leaves
+    # neither final file half-written (the SKILL.md "no partial write" contract), and
+    # surface any OSError as a DocumentProjectError so main() exits 2 cleanly instead
+    # of dumping a traceback (exit 1).
+    bp_tmp = blueprint_path.with_name(blueprint_path.name + ".tmp")
+    pd_tmp = project_doc_path.with_name(project_doc_path.name + ".tmp")
+    try:
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+        bp_tmp.write_text(blueprint_text, encoding="utf-8")
+        pd_tmp.write_text(project_doc_text, encoding="utf-8")
+        os.replace(bp_tmp, blueprint_path)
+        os.replace(pd_tmp, project_doc_path)
+    except OSError as exc:
+        for tmp in (bp_tmp, pd_tmp):
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+        raise DocumentProjectError(f"failed to write artifacts: {exc}") from exc
     return {"blueprint": blueprint_path, "project_doc": project_doc_path}
 
 def _inventory_to_dict(inventory: Inventory) -> dict[str, Any]:
@@ -674,7 +695,10 @@ def run_inventory(args: argparse.Namespace) -> int:
     inventory = inventory_project(root, args.name)
     data = _inventory_to_dict(inventory)
     if args.output:
-        Path(args.output).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        try:
+            Path(args.output).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except OSError as exc:
+            raise DocumentProjectError(f"failed to write inventory: {exc}") from exc
     print(f"Inventory: {len(inventory.artifacts)} artifacts | strong_workflow_signal: {'yes' if inventory.strong_workflow_signal else 'no'}")
     if args.output:
         print(f"Wrote: {args.output}")
