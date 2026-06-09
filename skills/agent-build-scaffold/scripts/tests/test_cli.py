@@ -16,7 +16,8 @@ class TestCli(unittest.TestCase):
                 os.path.join(FIXTURES, "refund-triage.blueprint.md"),
                 tmp,
             )
-            rel = sorted(os.path.relpath(path, tmp) for path in written)
+            # Normalize to forward slashes so the assertions hold on Windows too.
+            rel = sorted(os.path.relpath(path, tmp).replace(os.sep, "/") for path in written)
             self.assertEqual(warnings, [])
             self.assertIn(".claude/agents/reason-classifier.md", rel)
             self.assertIn(".claude/scripts/fetch-order.sh", rel)

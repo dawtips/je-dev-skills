@@ -1,9 +1,9 @@
 import os
-import subprocess
 import tempfile
 import unittest
 
 from scaffold import ScaffoldError, hook_filename, load_blueprint, render_hook
+from tests._shell import run_bash_script
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -35,8 +35,8 @@ class TestRenderHook(unittest.TestCase):
                 encoding="utf-8",
             ) as f:
                 f.write("abc")
-            result = subprocess.run(
-                [hook_path],
+            result = run_bash_script(
+                hook_path,
                 cwd=tmp,
                 text=True,
                 capture_output=True,
@@ -62,8 +62,8 @@ class TestRenderHook(unittest.TestCase):
                 encoding="utf-8",
             ) as f:
                 f.write("5")
-            result = subprocess.run(
-                [hook_path],
+            result = run_bash_script(
+                hook_path,
                 cwd=nested,
                 env={**os.environ, "CLAUDE_PROJECT_DIR": tmp},
                 text=True,
