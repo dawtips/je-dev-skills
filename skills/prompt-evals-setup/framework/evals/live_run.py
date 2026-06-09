@@ -128,24 +128,37 @@ def run_evaluation(
     }
 
 
-# Case fields the run path reads: prompt_inputs (executor input) and the three the
-# judge grades against. A missing one is a dataset/schema error, not a runtime failure.
-_REQUIRED_CASE_FIELDS = ("prompt_inputs", "task_description", "solution_criteria")
+# Case fields the run path reads, with their required JSON types: prompt_inputs is the
+# executor input and MUST be a mapping (check_placeholders/render need .keys()/**kwargs);
+# the judge grades against task_description (str) and solution_criteria (list). A missing
+# OR wrong-typed field is a dataset/schema error, not a runtime failure.
+_REQUIRED_CASE_FIELDS = {
+    "prompt_inputs": dict,
+    "task_description": str,
+    "solution_criteria": list,
+}
 
 
 def _validate_cases(cases: list) -> None:
     """Fail loudly on a malformed dataset BEFORE any executor/judge work runs.
 
-    Schema errors must not be absorbed by the per-case execution-error recovery —
-    otherwise a corrupt dataset would write a normal-looking score-1 report and read
-    as a low-scoring eval rather than a configuration error.
+    Checks presence AND type of the required case fields. Schema errors must not be
+    absorbed by the per-case execution-error recovery — otherwise a corrupt dataset
+    (a missing key, or e.g. ``prompt_inputs: null``) would reach the executor, surface
+    as an AttributeError/KeyError, and get written as a normal-looking score-1 report
+    instead of failing as the configuration error it is.
     """
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             raise ValueError(f"case {index}: expected an object, got {type(case).__name__}")
-        for field in _REQUIRED_CASE_FIELDS:
+        for field, expected_type in _REQUIRED_CASE_FIELDS.items():
             if field not in case:
                 raise ValueError(f"case {index}: dataset is missing required key {field!r}")
+            if not isinstance(case[field], expected_type):
+                raise ValueError(
+                    f"case {index}: {field!r} must be {expected_type.__name__}, "
+                    f"got {type(case[field]).__name__}"
+                )
 
 
 def _execution_error_result(

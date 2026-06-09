@@ -176,6 +176,30 @@ class TestLiveRunResilience(unittest.TestCase):
             # A schema error must not write a partial, normal-looking report.
             self.assertFalse((runs_dir / "bad").exists())
 
+    def test_wrong_typed_prompt_inputs_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset = Path(d) / "dataset.json"
+            runs_dir = Path(d) / "runs"
+            payload = {
+                "provenance": {"task_description": "t"},
+                # prompt_inputs present but null -> not a mapping; must fail up front,
+                # not reach check_placeholders and become a score-1 result.
+                "cases": [{"task_description": "t", "scenario": "bad",
+                           "prompt_inputs": None, "solution_criteria": ["x"]}],
+            }
+            dataset.write_text(json.dumps(payload))
+
+            with self.assertRaisesRegex(ValueError, "prompt_inputs"):
+                run_evaluation(
+                    judge_client=CountingJudge(),
+                    run_function=lambda inputs: "x",
+                    dataset_file=str(dataset),
+                    assertions=[],
+                    runs_dir=str(runs_dir),
+                    run_label="bad2",
+                )
+            self.assertFalse((runs_dir / "bad2").exists())
+
     def test_prompt_render_contract_error_fails_loudly(self):
         with tempfile.TemporaryDirectory() as d:
             dataset = Path(d) / "dataset.json"
