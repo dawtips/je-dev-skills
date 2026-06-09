@@ -171,6 +171,52 @@ class TestBlueprintSafety(unittest.TestCase):
             self.assertFalse((wf / "fixture-review.blueprint.md").exists())
             self.assertFalse((wf / "fixture-review.project-doc.md").exists())
             self.assertEqual(sorted(wf.glob("*.tmp")), [])  # no leftover temp files
+            self.assertEqual(sorted(wf.glob("*.bak")), [])
+
+    def test_second_rename_failure_rolls_back_to_original_blueprint(self):
+        from unittest import mock
+
+        payload = parse_synthesis_payload(valid_synthesis_payload())
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            wf = root / "workflows"
+            wf.mkdir(parents=True)
+            bp = wf / "fixture-review.blueprint.md"
+            pd = wf / "fixture-review.project-doc.md"
+            bp.write_text("ORIGINAL BLUEPRINT\nstatus: draft\n", encoding="utf-8")
+            pd.write_text("ORIGINAL PROJECT DOC\n", encoding="utf-8")
+
+            real_replace = os.replace
+            calls = {"n": 0}
+
+            def flaky(src, dst):
+                # sequence: 1) bp->bak  2) bp_tmp->bp  3) pd_tmp->pd (fail)  4) bak->bp (rollback)
+                calls["n"] += 1
+                if calls["n"] == 3:
+                    raise OSError("project-doc not replaceable")
+                return real_replace(src, dst)
+
+            with mock.patch("document_project.os.replace", side_effect=flaky):
+                with self.assertRaises(DocumentProjectError):
+                    write_artifacts(root, "fixture-review", _minimal_inventory(), payload, "2026-05-31")
+
+            # The original pair is intact — no new blueprint published without its doc.
+            self.assertEqual(bp.read_text(encoding="utf-8"), "ORIGINAL BLUEPRINT\nstatus: draft\n")
+            self.assertEqual(pd.read_text(encoding="utf-8"), "ORIGINAL PROJECT DOC\n")
+            self.assertEqual(sorted(wf.glob("*.tmp")), [])
+            self.assertEqual(sorted(wf.glob("*.bak")), [])
+
+    def test_successful_write_leaves_no_temp_or_backup_files(self):
+        payload = parse_synthesis_payload(valid_synthesis_payload())
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            # Pre-existing draft blueprint so the backup path is exercised.
+            wf = root / "workflows"
+            wf.mkdir(parents=True)
+            (wf / "fixture-review.blueprint.md").write_text("status: draft\n", encoding="utf-8")
+            write_artifacts(root, "fixture-review", _minimal_inventory(), payload, "2026-05-31")
+            self.assertEqual(sorted(wf.glob("*.tmp")), [])
+            self.assertEqual(sorted(wf.glob("*.bak")), [])
 
     def test_validation_degrade_warns_on_stderr(self):
         import contextlib

@@ -620,25 +620,46 @@ def write_artifacts(
         date,
         validation_status=validation_status,
     )
-    # Write both via temp files then rename, so a disk-full/permission error leaves
-    # neither final file half-written (the SKILL.md "no partial write" contract), and
-    # surface any OSError as a DocumentProjectError so main() exits 2 cleanly instead
-    # of dumping a traceback (exit 1).
+    # All-or-nothing write (the SKILL.md "no partial write" contract): stage both files
+    # as temps, then publish. The blueprint is published first, so back up any existing
+    # one and roll it back if publishing the project-doc fails — otherwise a failed
+    # second rename would leave a new blueprint with no matching project-doc. Any OSError
+    # becomes a DocumentProjectError so main() exits 2 cleanly instead of a traceback.
     bp_tmp = blueprint_path.with_name(blueprint_path.name + ".tmp")
     pd_tmp = project_doc_path.with_name(project_doc_path.name + ".tmp")
+    bp_bak = blueprint_path.with_name(blueprint_path.name + ".bak")
     try:
         workflows_dir.mkdir(parents=True, exist_ok=True)
         bp_tmp.write_text(blueprint_text, encoding="utf-8")
         pd_tmp.write_text(project_doc_text, encoding="utf-8")
-        os.replace(bp_tmp, blueprint_path)
-        os.replace(pd_tmp, project_doc_path)
-    except OSError as exc:
-        for tmp in (bp_tmp, pd_tmp):
+        blueprint_existed = blueprint_path.exists()
+        try:
+            if blueprint_existed:
+                os.replace(blueprint_path, bp_bak)  # stash original to roll back to
+            os.replace(bp_tmp, blueprint_path)
+            os.replace(pd_tmp, project_doc_path)
+        except OSError:
+            # Roll the blueprint back to its pre-run state so neither file is partial.
             try:
-                tmp.unlink()
+                if blueprint_existed and bp_bak.exists():
+                    os.replace(bp_bak, blueprint_path)
+                elif not blueprint_existed and blueprint_path.is_file():
+                    blueprint_path.unlink()
+            except OSError:
+                pass
+            raise
+    except OSError as exc:
+        for leftover in (bp_tmp, pd_tmp, bp_bak):
+            try:
+                leftover.unlink()
             except OSError:
                 pass
         raise DocumentProjectError(f"failed to write artifacts: {exc}") from exc
+    # Success: drop the backup of any prior blueprint.
+    try:
+        bp_bak.unlink()
+    except OSError:
+        pass
     return {"blueprint": blueprint_path, "project_doc": project_doc_path}
 
 def _inventory_to_dict(inventory: Inventory) -> dict[str, Any]:
