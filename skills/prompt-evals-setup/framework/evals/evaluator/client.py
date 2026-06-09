@@ -54,7 +54,10 @@ def _rejects_sampling_params(model: str) -> bool:
     if not model.startswith(prefix):
         return False
     minor = model[len(prefix):].split("-", 1)[0]
-    return minor.isdigit() and int(minor) >= 7
+    # A 1-2 digit token is the .x minor (4-7, 4-8, …). A longer all-digit token is
+    # a snapshot date on the bare 4.0 id (claude-opus-4-YYYYMMDD), i.e. no minor
+    # segment -> Opus 4.0, which still accepts sampling.
+    return minor.isdigit() and len(minor) <= 2 and int(minor) >= 7
 
 
 class AnthropicClient:
