@@ -359,15 +359,13 @@ Adjust `PASS_THRESHOLD` and the color bands to match your application's bar.
 ```python
 from evals import config
 from evals.evaluator import AnthropicClient, PromptEvaluator
-
-evaluator = PromptEvaluator(
-    client=AnthropicClient(config.GENERATOR_MODEL),
-    judge_client=AnthropicClient(config.JUDGE_MODEL),   # strong, distinct judge
-    max_concurrent_tasks=config.MAX_CONCURRENT_TASKS,
-)
+from evals.live_run import run_evaluation
 
 # 1. Generate the dataset (once)
-evaluator.generate_dataset(
+PromptEvaluator(
+    client=AnthropicClient(config.GENERATOR_MODEL),
+    max_concurrent_tasks=config.MAX_CONCURRENT_TASKS,
+).generate_dataset(
     task_description="<bounded plain-English goal>",
     prompt_inputs_spec={"<key>": "<description w/ units>"},
     num_cases=20,
@@ -378,8 +376,11 @@ evaluator.generate_dataset(
 def run_prompt(prompt_inputs):
     ...  # build prompt, call model, return raw text
 
-# 3. Evaluate (repeatedly, as you iterate the prompt) against the FROZEN dataset
-evaluator.run_evaluation(
+# 3. Evaluate (repeatedly, as you iterate the prompt) against the FROZEN dataset.
+#    run_evaluation is the canonical run path: it applies the eval's assertions as a
+#    pre-judge gate, then grades with a strong, distinct judge.
+run_evaluation(
+    judge_client=AnthropicClient(config.JUDGE_MODEL),   # strong, distinct judge
     run_function=run_prompt,
     dataset_file="evals/datasets/mytask.json",
     extra_criteria="<global mandatory requirements>",
