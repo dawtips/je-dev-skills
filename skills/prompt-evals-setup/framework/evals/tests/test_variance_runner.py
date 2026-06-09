@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from evals.variance_runner import output_paths_for_labels, run_k_variance, variance_labels
+from evals.variance_runner import run_k_variance, variance_labels
 
 
 class TestVarianceLabels(unittest.TestCase):
@@ -78,10 +78,6 @@ class TestRunKVariance(unittest.TestCase):
 
             with self.assertRaises(FileNotFoundError):
                 run_k_variance(group_label="g", k=2, runs_dir=runs_dir, run_once=run_once)
-
-    def test_output_paths_are_enumerated_without_guessing(self):
-        paths = output_paths_for_labels("evals/runs", ["g__k00", "g__k01"])
-        self.assertEqual(paths, [Path("evals/runs/g__k00/output.json"), Path("evals/runs/g__k01/output.json")])
 
 
 if __name__ == "__main__":

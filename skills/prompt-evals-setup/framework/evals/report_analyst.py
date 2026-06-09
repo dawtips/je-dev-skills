@@ -89,18 +89,6 @@ def build_report_analysis(
     return analysis
 
 
-def analysis_from_paths(
-    current_output: str | Path,
-    *,
-    baseline_output: str | Path | None = None,
-    variance_outputs: list[str | Path] | None = None,
-) -> dict:
-    current = load_json(current_output)
-    baseline = load_json(baseline_output) if baseline_output else None
-    variance_runs = [load_json(path) for path in (variance_outputs or [])]
-    return build_report_analysis(current, baseline=baseline, variance_runs=variance_runs)
-
-
 def render_markdown(analysis: dict) -> str:
     lines = ["## Report Analyst", ""]
     delta = analysis["baseline_delta"]
@@ -164,11 +152,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print machine-readable analysis")
     args = parser.parse_args(argv)
     try:
-        analysis = analysis_from_paths(
-            args.current_output,
-            baseline_output=args.baseline_output,
-            variance_outputs=args.variance_output,
-        )
+        current = load_json(args.current_output)
+        baseline = load_json(args.baseline_output) if args.baseline_output else None
+        variance_runs = [load_json(path) for path in args.variance_output]
+        analysis = build_report_analysis(current, baseline=baseline, variance_runs=variance_runs)
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
