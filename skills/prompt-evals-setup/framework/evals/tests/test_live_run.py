@@ -152,6 +152,29 @@ class TestLiveRunResilience(unittest.TestCase):
             self.assertIn("judge 500", res0["error"])
             self.assertEqual(len(result["errors"]), 1)
 
+    def test_malformed_dataset_fails_loudly_not_as_scored_failure(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset = Path(d) / "dataset.json"
+            runs_dir = Path(d) / "runs"
+            payload = {
+                "provenance": {"task_description": "t"},
+                # case is missing the required 'prompt_inputs' key
+                "cases": [{"task_description": "t", "scenario": "bad", "solution_criteria": ["x"]}],
+            }
+            dataset.write_text(json.dumps(payload))
+
+            with self.assertRaisesRegex(ValueError, "prompt_inputs"):
+                run_evaluation(
+                    judge_client=CountingJudge(),
+                    run_function=lambda inputs: "x",
+                    dataset_file=str(dataset),
+                    assertions=[],
+                    runs_dir=str(runs_dir),
+                    run_label="bad",
+                )
+            # A schema error must not write a partial, normal-looking report.
+            self.assertFalse((runs_dir / "bad").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

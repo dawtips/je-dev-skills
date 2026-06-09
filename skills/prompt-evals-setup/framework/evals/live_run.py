@@ -35,14 +35,16 @@ def run_evaluation(
     """Run a frozen dataset against a prompt/agent, applying assertions before judging."""
     dataset = json.loads(Path(dataset_file).read_text(encoding="utf-8"))
     cases = dataset["cases"]
+    _validate_cases(cases)
     configured_assertions = assertions or []
 
     def work(case: dict) -> dict:
-        # Execute (executor) and grade (judge API) are the flaky, network-bound
-        # steps; isolate each so one case's failure becomes a scored failure rather
-        # than aborting the whole run with no artifacts. Assertion-gate evaluation is
-        # deterministic config validation and stays outside the guard so a genuine
-        # misconfiguration still fails loudly for every case.
+        # Execute (executor) and grade (judge API) are the flaky, network-bound steps;
+        # isolate each so one case's failure becomes a scored failure rather than
+        # aborting the whole run with no artifacts. Deterministic, non-transient errors
+        # stay OUTSIDE this guard so they fail loudly: case-schema fields are validated
+        # up front by _validate_cases, and assertion-gate evaluation runs between the
+        # two guards. A malformed dataset is a config error, not a low-scoring eval.
         try:
             trajectory = execute(run_function, case["prompt_inputs"])
         except Exception as exc:  # noqa: BLE001 - any executor failure is per-case
@@ -112,6 +114,26 @@ def run_evaluation(
         "analysis": analysis,
         "errors": errors,
     }
+
+
+# Case fields the run path reads: prompt_inputs (executor input) and the three the
+# judge grades against. A missing one is a dataset/schema error, not a runtime failure.
+_REQUIRED_CASE_FIELDS = ("prompt_inputs", "task_description", "solution_criteria")
+
+
+def _validate_cases(cases: list) -> None:
+    """Fail loudly on a malformed dataset BEFORE any executor/judge work runs.
+
+    Schema errors must not be absorbed by the per-case execution-error recovery —
+    otherwise a corrupt dataset would write a normal-looking score-1 report and read
+    as a low-scoring eval rather than a configuration error.
+    """
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            raise ValueError(f"case {index}: expected an object, got {type(case).__name__}")
+        for field in _REQUIRED_CASE_FIELDS:
+            if field not in case:
+                raise ValueError(f"case {index}: dataset is missing required key {field!r}")
 
 
 def _execution_error_result(
