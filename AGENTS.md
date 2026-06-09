@@ -76,6 +76,15 @@ Do not offer PR, "keep branch", or "what next?" options for completed work. Alwa
 remove the worktree and delete the local branch after the verified local merge. The
 only exception is an explicit user instruction to pause before merge or discard the work.
 
+## Versioning
+
+After a PR (or completed work) is merged to the default branch, **bump the plugin
+version** in `.claude-plugin/plugin.json` with a **direct commit to `main`** (a version
+bump is a meta change, not a feature — it does not need its own PR). Use semver: patch
+for fixes/docs, minor for a new skill or user-visible capability, major for a breaking
+change. Make this the first commit after the merge so `main` always advertises the
+version that includes the just-merged work.
+
 ## Hard rules
 
 - **Never commit a plan to the default branch as a permanent artifact.** Plans live only
