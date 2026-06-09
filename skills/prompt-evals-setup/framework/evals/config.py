@@ -53,6 +53,11 @@ GRADING_TEMPERATURE = 0.0   # deterministic, reproducible scores
 # --- Concurrency -------------------------------------------------------------
 MAX_CONCURRENT_TASKS = 3    # worker-pool width; trade speed vs. rate limits
 
+# Wall-clock limit (seconds) for a command_adapter subprocess. A hung adapter would
+# otherwise block a worker thread forever; on timeout the case is recorded as a
+# failure instead of stalling the whole run. Set to None to disable the limit.
+ADAPTER_TIMEOUT_SECONDS = 120
+
 # --- Scoring / reporting -----------------------------------------------------
 PASS_THRESHOLD = 7          # a case "passes" if score >= this
 COLOR_GREEN_MIN = 8         # HTML report: green if score >= this

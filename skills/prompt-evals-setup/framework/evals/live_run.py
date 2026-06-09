@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -13,7 +14,16 @@ from evals.assertion_gate import evaluate_assertion_gate, synthetic_gated_verdic
 from evals.evaluator.grade import grade
 from evals.evaluator.report import summarize, write_html, write_json
 from evals.evaluator.run import RunFunction, execute
+from evals.promptprep import MissingPlaceholderError
 from evals.report_analyst import build_report_analysis
+
+# Deterministic prompt/dataset contract errors that must fail the run loudly rather
+# than be absorbed as per-case failures. In prompt_file mode the template is rendered
+# inside the executor call, so a placeholder/cases mismatch (MissingPlaceholderError
+# from check_placeholders) surfaces in the execute guard below; re-raise it there.
+# Case-field schema is validated separately, up front, by _validate_cases. Extend this
+# tuple as new deterministic contract errors are introduced.
+_CONFIG_ERRORS = (MissingPlaceholderError,)
 
 
 def run_evaluation(
@@ -34,10 +44,23 @@ def run_evaluation(
     """Run a frozen dataset against a prompt/agent, applying assertions before judging."""
     dataset = json.loads(Path(dataset_file).read_text(encoding="utf-8"))
     cases = dataset["cases"]
+    _validate_cases(cases)
     configured_assertions = assertions or []
 
     def work(case: dict) -> dict:
-        trajectory = execute(run_function, case["prompt_inputs"])
+        # Execute (executor) and grade (judge API) are the flaky, network-bound steps;
+        # isolate each so one case's failure becomes a scored failure rather than
+        # aborting the whole run with no artifacts. Deterministic, non-transient errors
+        # stay OUTSIDE this guard so they fail loudly: case-schema fields are validated
+        # up front by _validate_cases, prompt/cases contract errors (_CONFIG_ERRORS) are
+        # re-raised, and assertion-gate evaluation runs between the two guards. A broken
+        # config is a configuration error, not a low-scoring eval.
+        try:
+            trajectory = execute(run_function, case["prompt_inputs"])
+        except _CONFIG_ERRORS:
+            raise  # deterministic prompt/cases contract error -> fail the run loudly
+        except Exception as exc:  # noqa: BLE001 - any transient executor failure is per-case
+            return _execution_error_result(case, exc)
         gate = evaluate_assertion_gate(
             trajectory.final_output,
             configured_assertions,
@@ -46,13 +69,16 @@ def run_evaluation(
         if gate["judge_skipped"]:
             verdict = synthetic_gated_verdict(gate)
         else:
-            verdict = grade(
-                judge_client,
-                case,
-                trajectory,
-                extra_criteria=extra_criteria,
-                process_criteria=process_criteria,
-            )
+            try:
+                verdict = grade(
+                    judge_client,
+                    case,
+                    trajectory,
+                    extra_criteria=extra_criteria,
+                    process_criteria=process_criteria,
+                )
+            except Exception as exc:  # noqa: BLE001 - any judge failure is per-case
+                return _execution_error_result(case, exc, trajectory=trajectory, gate=gate)
         return {
             "output": trajectory.final_output,
             "trajectory": trajectory.to_dict(),
@@ -65,6 +91,13 @@ def run_evaluation(
 
     results = _map(work, cases, max_workers=max_concurrent_tasks)
     summary = summarize(results)
+    errors = [r for r in results if r.get("error")]
+    if errors:
+        print(
+            f"WARNING: {len(errors)} of {len(cases)} cases failed to execute; "
+            "they are scored 1 and tagged with an 'error' field.",
+            file=sys.stderr,
+        )
 
     label = run_label or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out_dir = Path(runs_dir) / label
@@ -76,6 +109,10 @@ def run_evaluation(
         "run_label": label,
         "extra_criteria": extra_criteria,
         "assertion_policy": assertion_policy,
+        "errors": [
+            {"scenario": r["test_case"].get("scenario", ""), "error": r["error"]}
+            for r in errors
+        ],
     }
     current = {"meta": meta, "summary": summary, "results": results}
     analysis = build_report_analysis(current, baseline=baseline, variance_runs=variance_runs)
@@ -87,6 +124,70 @@ def run_evaluation(
         "run_dir": str(out_dir),
         "results": results,
         "analysis": analysis,
+        "errors": errors,
+    }
+
+
+# Case fields the run path reads, with their required JSON types: prompt_inputs is the
+# executor input and MUST be a mapping (check_placeholders/render need .keys()/**kwargs);
+# the judge grades against task_description (str) and solution_criteria (list). A missing
+# OR wrong-typed field is a dataset/schema error, not a runtime failure.
+_REQUIRED_CASE_FIELDS = {
+    "prompt_inputs": dict,
+    "task_description": str,
+    "solution_criteria": list,
+}
+
+
+def _validate_cases(cases: list) -> None:
+    """Fail loudly on a malformed dataset BEFORE any executor/judge work runs.
+
+    Checks presence AND type of the required case fields. Schema errors must not be
+    absorbed by the per-case execution-error recovery — otherwise a corrupt dataset
+    (a missing key, or e.g. ``prompt_inputs: null``) would reach the executor, surface
+    as an AttributeError/KeyError, and get written as a normal-looking score-1 report
+    instead of failing as the configuration error it is.
+    """
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            raise ValueError(f"case {index}: expected an object, got {type(case).__name__}")
+        for field, expected_type in _REQUIRED_CASE_FIELDS.items():
+            if field not in case:
+                raise ValueError(f"case {index}: dataset is missing required key {field!r}")
+            if not isinstance(case[field], expected_type):
+                raise ValueError(
+                    f"case {index}: {field!r} must be {expected_type.__name__}, "
+                    f"got {type(case[field]).__name__}"
+                )
+
+
+def _execution_error_result(
+    case: dict, exc: Exception, *, trajectory=None, gate: dict | None = None
+) -> dict:
+    """Build a scored failure result for a case whose executor or judge raised.
+
+    Keeps the normal result shape (so ``summarize`` and the report writers work) and
+    adds an ``error`` field so callers can tell an execution error apart from a
+    genuine low-quality grade. Scored 1, mirroring the assertion-gate score floor.
+    """
+    message = f"{type(exc).__name__}: {exc}"
+    output = trajectory.final_output if trajectory is not None else ""
+    trajectory_dict = trajectory.to_dict() if trajectory is not None else {"final_output": "", "steps": []}
+    verdict = {
+        "score": 1,
+        "strengths": [],
+        "weaknesses": [f"execution error: {message}"],
+        "reasoning": f"EXECUTION ERROR (not a quality judgment): {message}",
+    }
+    return {
+        "output": output,
+        "trajectory": trajectory_dict,
+        "test_case": case,
+        "score": verdict["score"],
+        "reasoning": verdict["reasoning"],
+        "verdict": verdict,
+        "assertion_gate": gate,
+        "error": message,
     }
 
 

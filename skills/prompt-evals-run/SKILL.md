@@ -249,6 +249,12 @@ Use for unattended/CI runs or agentic `Trajectory` grading.
    run makes up to `2 × num_cases` calls; K-run variance multiplies that by `K`
    (labels `<group>__k00`, `<group>__k01`, …). State that budget before launching.
 
+   A case whose executor or judge raises (transient API error, malformed grade) is
+   recorded as a scored-1 failure carrying an `error` field — and listed under
+   `meta.errors` — rather than aborting the whole run, so partial results are never
+   lost. Command adapters are bounded by `config.ADAPTER_TIMEOUT_SECONDS` (default 120s)
+   so a hung adapter times out into that same per-case failure.
+
 ## Definition of done
 
 - A run exists at `evals/<name>/runs/<run_label>/` with `output.json` + `output.html`.
