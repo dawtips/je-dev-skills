@@ -47,3 +47,6 @@ Thumbs.db
 
 # Project-local git worktrees
 .worktrees/
+
+# graphify knowledge-graph output (generated; rebuilt by hooks / `graphify update`)
+graphify-out/
