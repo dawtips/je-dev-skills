@@ -79,8 +79,10 @@ only exception is an explicit user instruction to pause before merge or discard 
 ## Versioning
 
 After a PR (or completed work) is merged to the default branch, **bump the plugin
-version** in `.claude-plugin/plugin.json` with a **direct commit to `main`** (a version
-bump is a meta change, not a feature — it does not need its own PR). Use semver: patch
+version** with a **direct commit to `main`** (a version bump is a meta change, not a
+feature — it does not need its own PR). The version lives in **two** files that must
+stay identical: `.claude-plugin/plugin.json` (`version`) and the plugin entry in
+`.claude-plugin/marketplace.json` (`plugins[].version`) — update both. Use semver: patch
 for fixes/docs, minor for a new skill or user-visible capability, major for a breaking
 change. Make this the first commit after the merge so `main` always advertises the
 version that includes the just-merged work.
