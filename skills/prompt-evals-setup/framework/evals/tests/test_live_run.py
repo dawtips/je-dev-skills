@@ -5,6 +5,7 @@ from pathlib import Path
 
 from evals.examples.fake_client import FakeLLMClient
 from evals.live_run import run_evaluation
+from evals.promptprep import MissingPlaceholderError
 
 
 def write_dataset(path):
@@ -174,6 +175,29 @@ class TestLiveRunResilience(unittest.TestCase):
                 )
             # A schema error must not write a partial, normal-looking report.
             self.assertFalse((runs_dir / "bad").exists())
+
+    def test_prompt_render_contract_error_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as d:
+            dataset = Path(d) / "dataset.json"
+            runs_dir = Path(d) / "runs"
+            write_dataset(dataset)
+
+            def render_boom(inputs):
+                # In prompt_file mode the template renders inside the executor call;
+                # check_placeholders raises MissingPlaceholderError on a template/cases
+                # mismatch. That is a deterministic contract error, not a flaky run.
+                raise MissingPlaceholderError("template requires placeholder {missing}")
+
+            with self.assertRaises(MissingPlaceholderError):
+                run_evaluation(
+                    judge_client=CountingJudge(),
+                    run_function=render_boom,
+                    dataset_file=str(dataset),
+                    assertions=[],
+                    runs_dir=str(runs_dir),
+                    run_label="cfg",
+                )
+            self.assertFalse((runs_dir / "cfg").exists())
 
 
 if __name__ == "__main__":

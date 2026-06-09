@@ -14,7 +14,16 @@ from evals.assertion_gate import evaluate_assertion_gate, synthetic_gated_verdic
 from evals.evaluator.grade import grade
 from evals.evaluator.report import summarize, write_html, write_json
 from evals.evaluator.run import RunFunction, execute
+from evals.promptprep import MissingPlaceholderError
 from evals.report_analyst import build_report_analysis
+
+# Deterministic prompt/dataset contract errors that must fail the run loudly rather
+# than be absorbed as per-case failures. In prompt_file mode the template is rendered
+# inside the executor call, so a placeholder/cases mismatch (MissingPlaceholderError
+# from check_placeholders) surfaces in the execute guard below; re-raise it there.
+# Case-field schema is validated separately, up front, by _validate_cases. Extend this
+# tuple as new deterministic contract errors are introduced.
+_CONFIG_ERRORS = (MissingPlaceholderError,)
 
 
 def run_evaluation(
@@ -43,11 +52,14 @@ def run_evaluation(
         # isolate each so one case's failure becomes a scored failure rather than
         # aborting the whole run with no artifacts. Deterministic, non-transient errors
         # stay OUTSIDE this guard so they fail loudly: case-schema fields are validated
-        # up front by _validate_cases, and assertion-gate evaluation runs between the
-        # two guards. A malformed dataset is a config error, not a low-scoring eval.
+        # up front by _validate_cases, prompt/cases contract errors (_CONFIG_ERRORS) are
+        # re-raised, and assertion-gate evaluation runs between the two guards. A broken
+        # config is a configuration error, not a low-scoring eval.
         try:
             trajectory = execute(run_function, case["prompt_inputs"])
-        except Exception as exc:  # noqa: BLE001 - any executor failure is per-case
+        except _CONFIG_ERRORS:
+            raise  # deterministic prompt/cases contract error -> fail the run loudly
+        except Exception as exc:  # noqa: BLE001 - any transient executor failure is per-case
             return _execution_error_result(case, exc)
         gate = evaluate_assertion_gate(
             trajectory.final_output,
