@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -434,7 +435,10 @@ def render_blueprint(payload: SynthesisPayload) -> str:
     yaml_data = dict(payload.blueprint_yaml)
     yaml_data["status"] = "draft"
     prose = payload.blueprint_prose
-    frontmatter_text = "\n".join(f"{key}: {value}" for key, value in frontmatter.items())
+    # Serialize via YAML, not f-string concat: frontmatter values come from the model,
+    # so a newline or ': '/'#'/leading-quote in a value would otherwise break the
+    # `---` block (and the status read in _existing_blueprint_status).
+    frontmatter_text = yaml.safe_dump(frontmatter, sort_keys=False, allow_unicode=False).rstrip()
     yaml_text = yaml.safe_dump(yaml_data, sort_keys=False, allow_unicode=False)
     return "\n".join(
         [
@@ -552,7 +556,8 @@ def _validator_module() -> Any | None:
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-    except Exception:
+    except Exception as exc:  # broad: a validator bug must not crash documentation, but say so
+        print(f"WARNING: blueprint validator failed to load: {exc}", file=sys.stderr)
         return None
     return module
 
@@ -564,7 +569,8 @@ def blueprint_validation_status(blueprint_text: str) -> str:
     try:
         parsed = yaml.safe_load(module.extract_yaml_block(blueprint_text))
         gaps, (accounted, total) = module.validate(parsed)
-    except Exception:
+    except Exception as exc:  # broad: validation is advisory and must not crash the run
+        print(f"WARNING: blueprint validation could not run: {exc}", file=sys.stderr)
         return "not run"
     if gaps:
         return f"fail ({len(gaps)} gap(s); {accounted}/{total} dimensions)"
@@ -580,6 +586,15 @@ def _existing_blueprint_status(path: Path) -> str | None:
     block = match.group(1) if match else text
     status = re.search(r"(?m)^status:\s*(\S+)", block)
     return status.group(1).strip() if status else None
+
+
+def _stage_temp(directory: Path, base_name: str, suffix: str) -> Path:
+    """Reserve a unique sibling temp file (mkstemp uses O_EXCL) so a user's own
+    ``<name>.tmp``/``.bak`` siblings are never overwritten. The caller fills or
+    renames it; on any failure path the caller unlinks it."""
+    fd, path = tempfile.mkstemp(prefix=base_name + ".", suffix=suffix, dir=str(directory))
+    os.close(fd)
+    return Path(path)
 
 
 def write_artifacts(
@@ -615,9 +630,51 @@ def write_artifacts(
         date,
         validation_status=validation_status,
     )
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    blueprint_path.write_text(blueprint_text, encoding="utf-8")
-    project_doc_path.write_text(project_doc_text, encoding="utf-8")
+    # All-or-nothing write (the SKILL.md "no partial write" contract): stage both files
+    # as temps, then publish. The blueprint is published first, so back up any existing
+    # one and roll it back if publishing the project-doc fails — otherwise a failed
+    # second rename would leave a new blueprint with no matching project-doc. All temp
+    # and backup names are unique (mkstemp, O_EXCL) so a user's own .tmp/.bak siblings
+    # are never clobbered. Any OSError becomes a DocumentProjectError so main() exits 2
+    # cleanly instead of a traceback.
+    bp_tmp = pd_tmp = bp_bak = None
+    try:
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+        bp_tmp = _stage_temp(workflows_dir, blueprint_path.name, ".tmp")
+        pd_tmp = _stage_temp(workflows_dir, project_doc_path.name, ".tmp")
+        bp_tmp.write_text(blueprint_text, encoding="utf-8")
+        pd_tmp.write_text(project_doc_text, encoding="utf-8")
+        blueprint_existed = blueprint_path.exists()
+        if blueprint_existed:
+            bp_bak = _stage_temp(workflows_dir, blueprint_path.name, ".bak")
+            os.replace(blueprint_path, bp_bak)  # stash original to roll back to
+        try:
+            os.replace(bp_tmp, blueprint_path)
+            os.replace(pd_tmp, project_doc_path)
+        except OSError:
+            # Roll the blueprint back to its pre-run state so neither file is partial.
+            try:
+                if bp_bak is not None and bp_bak.exists():
+                    os.replace(bp_bak, blueprint_path)
+                elif not blueprint_existed and blueprint_path.is_file():
+                    blueprint_path.unlink()
+            except OSError:
+                pass
+            raise
+    except OSError as exc:
+        for leftover in (bp_tmp, pd_tmp, bp_bak):
+            if leftover is not None:
+                try:
+                    leftover.unlink()
+                except OSError:
+                    pass
+        raise DocumentProjectError(f"failed to write artifacts: {exc}") from exc
+    # Success: drop the backup of any prior blueprint.
+    if bp_bak is not None:
+        try:
+            bp_bak.unlink()
+        except OSError:
+            pass
     return {"blueprint": blueprint_path, "project_doc": project_doc_path}
 
 def _inventory_to_dict(inventory: Inventory) -> dict[str, Any]:
@@ -674,7 +731,10 @@ def run_inventory(args: argparse.Namespace) -> int:
     inventory = inventory_project(root, args.name)
     data = _inventory_to_dict(inventory)
     if args.output:
-        Path(args.output).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        try:
+            Path(args.output).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except OSError as exc:
+            raise DocumentProjectError(f"failed to write inventory: {exc}") from exc
     print(f"Inventory: {len(inventory.artifacts)} artifacts | strong_workflow_signal: {'yes' if inventory.strong_workflow_signal else 'no'}")
     if args.output:
         print(f"Wrote: {args.output}")

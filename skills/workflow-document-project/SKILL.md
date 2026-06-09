@@ -37,7 +37,7 @@ Run from the target project root unless the user supplied a different root. The 
 
 5. Path A (`in_claude_code`), the default in-session path: ask the current session model to synthesize one fenced ` ```json ` object following `${CLAUDE_PLUGIN_ROOT}/skills/workflow-document-project/references/synthesis-prompt.md`. Save the model's response to a temp file. Either the bare JSON object or the whole fenced ` ```json ` block is accepted — the deterministic writer strips the fence (`_load_synthesis_file`) before validating the shape.
 
-6. Write artifacts from the deterministic writer. It validates the synthesis shape, renders the blueprint, runs `workflow-design-validate` on it in-process to fill the report's `validation:` field, refuses (without `--force`) to clobber an existing `status: validated` blueprint, and fails closed (exit 2, no partial write) on a malformed payload:
+6. Write artifacts from the deterministic writer. It validates the synthesis shape, renders the blueprint, runs `workflow-design-validate` on it in-process to fill the report's `validation:` field, refuses (without `--force`) to clobber an existing `status: validated` blueprint, and fails closed (exit 2, no partial write) on a malformed payload or a write error:
 
    ```bash
    SYNTHESIS_FILE="<path-to-saved-synthesis-response>"
