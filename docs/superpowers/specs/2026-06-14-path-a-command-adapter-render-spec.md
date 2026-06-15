@@ -82,14 +82,27 @@ failure itself. The contract:
 - The skill **must check the `render-artifact` exit code** for each case. It captures
   stdout into `$RENDERED` *only* on rc 0 (e.g. `RENDERED=$(… render-artifact …) || { …
   handle failure … }`). It must **never** dispatch the execute-subagent with an empty or
-  partial prompt produced by a failed render.
-- On a non-zero render exit, the skill records a **synthetic scored-1 failure verdict** for
-  that case — `{"strengths":[],"weaknesses":["render_command failed"],"reasoning":"<the
-  CLI's error line>","score":1}` — and continues to the next case (the run is not aborted;
-  partial results are never lost, as in Path B). The render error rides in the verdict's
-  `reasoning`/`weaknesses`, which `evals.aggregate.load_results` preserves verbatim
-  (`reasoning` and the whole `verdict` are kept), so the failure is visible in
-  `output.json`/`output.html` and the case is scored, not omitted.
+  partial prompt produced by a failed render. This guard is **new**: it replaces the
+  currently unguarded capture in `prompt-evals-run/SKILL.md` (the bare
+  `RENDERED=$(… render-artifact …)` line) and applies to **both** render branches —
+  `prompt_file` and `command_adapter` — because one shared line renders both. (Today a
+  `render-artifact` rc 2 for a misconfigured `prompt_file` is likewise silently swallowed
+  into an empty `$RENDERED`; the guard closes that too.)
+- On a non-zero render exit, the skill writes a **complete** per-case verdict file —
+  identical in shape to a normal / `judge_skipped` case file — and continues to the next
+  case (the run is not aborted; partial results are never lost, as in Path B). Only the
+  `verdict` sub-object differs: a synthetic scored-1 failure
+  `{"strengths":[],"weaknesses":["render_command failed"],"reasoning":"<the CLI's error
+  line>","score":1}`. The file **must** carry the **verbatim dataset case as `test_case`**,
+  `"output": ""`, and `"assertion_gate": null` alongside that `verdict`. This completeness
+  is not optional: Path A's `aggregate.load_results` reads `record["test_case"]` (a
+  `KeyError`/abort if absent), and the always-present `--dataset` (`SKILL.md` step 3)
+  triggers `_validate_results_match_dataset`, which requires exactly one verdict per case
+  with `test_case` equal to the dataset case. A verdict-**only** file would make `aggregate`
+  exit non-zero and **abort the whole report** — the exact opposite of this promise. The
+  render error rides in the verdict's `reasoning`/`weaknesses`, which `aggregate.load_results`
+  preserves verbatim, so the failure is visible in `output.json`/`output.html` and the case
+  is scored, not omitted.
 
 A verdict-level `error` field and a `meta.errors` list are a **Path-B-only** concept:
 Path A's `evals.aggregate.load_results` keeps only
@@ -158,8 +171,8 @@ Path A, generate for Path B) without ambiguity.
 | `evals/artifacts.py` | `TargetSpec.render_command`; `EvalSpec.render_command`; parse in `load_eval_spec`; `_validate_target` per §5. |
 | `evals/artifact_runner.py` | `render_command_adapter(spec, prompt_inputs)` (§3 contract); `build_run_function` raises a clear error for a render-only target on Path B. |
 | `evals/run_eval.py` | `render-artifact` branches on mode: `prompt_file` → `render_prompt_file`; `command_adapter` + `render_command` → `render_command_adapter`; else actionable error (rc 2). Catches `CalledProcessError`/`TimeoutExpired` from a failing `render_command` and reports `error: render_command failed …` with rc 2 (no traceback). |
-| `skills/prompt-evals-run/SKILL.md` | Path A precondition + note that `render-artifact` renders a render-capable `command_adapter`; the execute-subagent answers `$RENDERED` identically; **render step checks the exit code and records a synthetic scored-1 failure verdict on a non-zero render (no silent dropped case, §3.2)**. |
-| `evals/tests/test_artifacts.py`, `test_artifact_runner.py`, `test_run_eval_cli.py` | Tests per §7. |
+| `skills/prompt-evals-run/SKILL.md` | Path A precondition + note that `render-artifact` renders a render-capable `command_adapter`; the execute-subagent answers `$RENDERED` identically; the **render step checks the exit code** (guard replaces the shared unguarded render line for both modes) and on a non-zero render writes a **complete** synthetic scored-1 failure verdict file (verbatim `test_case`, `"output": ""`, `"assertion_gate": null`) so the case is scored, not dropped (§3.2). |
+| `evals/tests/test_artifacts.py`, `test_artifact_runner.py`, `test_run_eval_cli.py`, `test_aggregate.py` | Tests per §7 (incl. the render-failure-verdict-survives-aggregation test). |
 | `evals/tests/fixtures/adapters/render_adapter.py` | New fixture: reads `{"prompt_inputs": …}` on stdin, prints an assembled *prompt* on stdout. |
 
 ## 7. Verification plan (TDD, offline, no key)
@@ -180,15 +193,25 @@ no network, no `ANTHROPIC_API_KEY`.
    returns rc 2 with an actionable message; on a `render_command` that **exits non-zero**
    returns rc 2 with `render_command failed` and no traceback (reuse `fail_adapter`);
    `prompt_file` rendering and all existing branches stay green.
-4. **Regression:** full `evals/tests` suite + repo skill linter, output pasted in the PR.
+4. **Render-failure verdict survives aggregation** (`test_aggregate.py`): a *complete*
+   render-failure verdict file (verbatim `test_case`, `"output": ""`, `"assertion_gate":
+   null`, synthetic score-1 `verdict`) for a one-case dataset flows through `evals.aggregate`
+   with `--dataset` and is **scored, not aborted** (rc 0; the case present in `output.json`
+   with score 1). This locks the §3.2 no-dropped-case contract offline — the only part of
+   the render-failure path testable without live subagents.
+5. **Regression:** full `evals/tests` suite + repo skill linter, output pasted in the PR.
 
 **Acceptance-criteria mapping**
 
 - *Render-capable `command_adapter` runs end-to-end under `in_claude_code`, no key* →
-  `render-artifact` renders it (test 3) and Path A's documented flow feeds `$RENDERED` to
-  the execute-subagent (SKILL.md §Path A); no code path requires a key to render.
+  verified by the render CLI/unit tests (tests 2–3 produce the assembled prompt with **no
+  key**) plus the documented Path A flow that feeds `$RENDERED` to the execute-subagent
+  (SKILL.md §Path A). **No automated offline end-to-end test exists** — the full Path A loop
+  needs live subagent dispatch, the same constraint that already applies to `prompt_file`
+  Path A — so the end-to-end loop is verified by a documented manual walkthrough, not
+  `unittest`. Test 4 locks the one offline-testable failure edge.
 - *`render-artifact` returns the assembled prompt deterministically (no model)* → tests 2–3.
-- *`prompt_file` and Path B unchanged* → §4 boundary + tests 1–3 keep existing branches green.
+- *`prompt_file` and Path B unchanged* → §4 boundary + tests 1–4 keep existing branches green.
 - *Skill/docs describe the `command_adapter` subscription path* → SKILL.md change.
 
 ## 8. Consumer contract note (presales-sqnce)
