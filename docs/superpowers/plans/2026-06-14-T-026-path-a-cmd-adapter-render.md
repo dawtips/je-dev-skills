@@ -92,6 +92,15 @@ class TestRenderCommandField(unittest.TestCase):
             })
             with self.assertRaisesRegex(ValueError, "non-empty list"):
                 load_eval_spec(ej)
+
+    def test_command_must_be_nonempty_list_when_present(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._eval_json(Path(d).resolve(), "agent", {
+                "mode": "command_adapter", "command": [],
+                "render_command": ["echo", "render"],
+            })
+            with self.assertRaisesRegex(ValueError, "target.command must be a non-empty list"):
+                load_eval_spec(ej)
 ```
 
 - [ ] **Step 2: Run the tests, verify they fail**
@@ -147,9 +156,18 @@ def _validate_target(
         raise ValueError(
             "command_adapter mode requires target.command or target.render_command"
         )
+    if command is not None:
+        _validate_argv(command, "target.command")
     if render_command is not None:
         _validate_argv(render_command, "target.render_command")
 ```
+
+> Validating `command` whenever present (not just `render_command`) is required: a target
+> with a valid `render_command` and an invalid `command` such as `[]` otherwise satisfies the
+> `command or render_command` requirement, and the Path B guard's `spec.command is None` check
+> would let an empty `command` reach `run_command_adapter` and degrade into scored-1 results
+> instead of a loud config error. An empty/invalid `command` was already broken at run time;
+> this makes it fail loudly at load time (no valid Path B config changes behavior).
 
 3d. In `load_eval_spec`, read and thread `render_command`:
 
@@ -601,14 +619,21 @@ git commit -m "test(evals): render-failure verdict survives aggregation (T-026, 
    only on success — never dispatch the execute-subagent with an empty/partial prompt:
 
    ```bash
-   if ! RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i"); then
-     # render-artifact printed `error: …` and exited non-zero. Do NOT dispatch a prompt.
-     #  - command_adapter render_command failure (`error: render_command failed …`):
-     #    a runtime adapter failure -> write the COMPLETE synthetic score-1 verdict below
-     #    (verbatim test_case, "output": "", "assertion_gate": null) and CONTINUE to case i+1.
-     #  - prompt_file render failure: a config error (template/cases mismatch). FAIL LOUDLY —
-     #    stop and fix the wiring; do NOT write a score-1 verdict (it would hide the misconfig).
-     continue   # only after writing the synthetic verdict, for a command_adapter render failure
+   # MODE is the eval's target.mode, read once up front, e.g.:
+   #   MODE=$(cd "$PE" && python3 -c "from evals.artifacts import load_eval_spec; print(load_eval_spec('$EVAL').target.mode)")
+   if ! RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i" 2>&1); then
+     # render-artifact printed `error: …` and exited non-zero. NEVER dispatch a prompt.
+     if [ "$MODE" = "command_adapter" ]; then
+       # render_command runtime failure (non-zero exit OR timeout): write the COMPLETE
+       # synthetic score-1 verdict below to "$VERDICTS_DIR/case-$(printf '%02d' "$i").json",
+       # THEN continue to the next case (the run is not aborted).
+       :  # write the verdict file shown below first, then:
+       continue
+     fi
+     # prompt_file render failure = a config error (template/cases mismatch). FAIL LOUDLY —
+     # do NOT write a score-1 verdict (that would hide the misconfig as a low score):
+     echo "render failed for case $i (config error): $RENDERED" >&2
+     exit 1
    fi
    ```
 
