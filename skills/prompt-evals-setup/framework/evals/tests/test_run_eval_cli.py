@@ -167,6 +167,33 @@ class TestRunEvalCli(unittest.TestCase):
             self.assertEqual(rc, 2)
             self.assertIn("render_command failed", out)
 
+    def _render_only_eval_json(self, root: Path):
+        import sys
+        eval_dir = root / "evals" / "agent"
+        (eval_dir / "runs").mkdir(parents=True, exist_ok=True)
+        (eval_dir / "eval.json").write_text(json.dumps({
+            "name": "agent",
+            "target": {"mode": "command_adapter",
+                       "render_command": [sys.executable, "-c", "pass"]},
+        }), encoding="utf-8")
+        return eval_dir / "eval.json"
+
+    def test_evaluate_artifact_render_only_target_clean_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._render_only_eval_json(Path(d).resolve())
+            with patch.object(run_eval.config, "EXECUTION_MODE", "anthropic_api"):
+                rc, out = self._run(["evaluate-artifact", str(ej)])
+            self.assertEqual(rc, 2)
+            self.assertIn("render-only", out)
+
+    def test_evaluate_artifact_variance_render_only_target_clean_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._render_only_eval_json(Path(d).resolve())
+            with patch.object(run_eval.config, "EXECUTION_MODE", "anthropic_api"):
+                rc, out = self._run(["evaluate-artifact-variance", str(ej), "grp", "2"])
+            self.assertEqual(rc, 2)
+            self.assertIn("render-only", out)
+
     def test_evaluate_artifact_requires_eval_json_path(self):
         rc, out = self._run(["evaluate-artifact"])
         self.assertEqual(rc, 2)

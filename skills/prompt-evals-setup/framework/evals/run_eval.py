@@ -118,6 +118,21 @@ def _load_eval_spec_for_cli(eval_json_path: str):
         return None
 
 
+def _render_only_path_b_error(spec) -> str | None:
+    """Return a clean CLI error if ``spec`` is a render-only command_adapter (it has a
+    ``render_command`` but no generate ``command``), which Path B cannot run. Returns
+    ``None`` for any runnable target. Lets the keyed CLI preflight this and exit rc 2
+    instead of letting ``build_run_function``'s ValueError escape as a traceback."""
+    if spec.target.mode == "command_adapter" and spec.command is None:
+        return (
+            "error: this command_adapter target is render-only (target.render_command "
+            "with no generate target.command); Path B (evaluate-artifact) cannot run it. "
+            "Run it on Path A (in_claude_code via prompt-evals-run), or add a generate "
+            "target.command for Path B."
+        )
+    return None
+
+
 # --- 2. Define the prompt under test (KEYED PATH ONLY) -----------------------
 def run_prompt(prompt_inputs: dict) -> str:
     """Render the file-backed prompt with the case inputs, call the model, return text.
@@ -339,6 +354,10 @@ def main(argv: list[str]) -> int:
         spec = _load_eval_spec_for_cli(argv[2])
         if spec is None:
             return 2
+        render_only_error = _render_only_path_b_error(spec)
+        if render_only_error:
+            print(render_only_error)
+            return 2
         run_label = argv[3] if len(argv) > 3 else None
         executor_client = AnthropicClient(config.EXECUTOR_MODEL)
 
@@ -365,6 +384,10 @@ def main(argv: list[str]) -> int:
             return 3
         spec = _load_eval_spec_for_cli(argv[2])
         if spec is None:
+            return 2
+        render_only_error = _render_only_path_b_error(spec)
+        if render_only_error:
+            print(render_only_error)
             return 2
         group_label = argv[3]
         try:
