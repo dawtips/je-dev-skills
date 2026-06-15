@@ -1,0 +1,19 @@
+{
+  "content": "When working a ticket inside a git worktree (.worktrees/<branch>), the storybloq MCP server reads/writes .story/ in the MAIN repo working tree (its launch root), NOT the active worktree. So a ticket/handover/lesson created via storybloq does NOT appear in the feature-branch diff. Codex reviews AGENTS.md compliance against the BRANCH: it P1s a missing .story/tickets/<id>.json, and once a ticket is marked status=complete it P1-requires the matching .story/handovers/ entry on that same branch. Workflow in a worktree: after storybloq writes to the main tree, copy the file(s) into the worktree's .story/ and commit them on the branch, then remove the stray untracked copy from the main tree so a later merge/pull does not refuse to overwrite it; or author the .story JSON/MD directly in the worktree matching the existing schema (tickets need completedDate; lessons are L-NNN.json; handovers are <date>-NN-<ticket>-<slug>.md).",
+  "context": "je-dev-skills PR #12 (T-026, closes #11): storybloq_ticket_create wrote T-026.json to the main tree; Codex P1'd the branch for the missing ticket. After committing it onto the branch and marking it complete, Codex P1'd again for the missing branch handover. Same root friction the #6-#10 handover already flagged for ticket creation, now generalized to all story artifacts during worktree work.",
+  "createdDate": "2026-06-14",
+  "id": "L-010",
+  "lastValidated": "2026-06-14",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "process",
+    "storybloq",
+    "worktree",
+    "review"
+  ],
+  "title": "In a worktree, story artifacts land in the main tree — commit them onto the feature branch (Codex enforces it)",
+  "updatedDate": "2026-06-14"
+}
