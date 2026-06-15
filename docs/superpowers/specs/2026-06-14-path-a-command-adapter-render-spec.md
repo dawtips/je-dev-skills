@@ -75,34 +75,44 @@ reuse one stdin convention):
 ### 3.2 Path A render-failure handling (no silent dropped cases)
 
 Path A renders by *shelling out* to `render-artifact` before any execute/grade verdict is
-written, so — unlike Path B, where `run_evaluation`'s per-case handler turns an adapter
-exception into a scored-1 failure automatically — the skill loop must handle a render
-failure itself. The contract:
+written, so the skill loop must handle a render failure itself (Path B's per-case handler
+runs later and can't). The rules mirror Path B's split between **loud config errors** and
+**per-case runtime failures** — `live_run._CONFIG_ERRORS` (currently `MissingPlaceholderError`)
+is re-raised to fail the run, while any other executor/adapter exception becomes a scored-1
+case via `_execution_error_result`:
 
-- The skill **must check the `render-artifact` exit code** for each case. It captures
-  stdout into `$RENDERED` *only* on rc 0 (e.g. `RENDERED=$(… render-artifact …) || { …
-  handle failure … }`). It must **never** dispatch the execute-subagent with an empty or
-  partial prompt produced by a failed render. This guard is **new**: it replaces the
-  currently unguarded capture in `prompt-evals-run/SKILL.md` (the bare
-  `RENDERED=$(… render-artifact …)` line) and applies to **both** render branches —
-  `prompt_file` and `command_adapter` — because one shared line renders both. (Today a
-  `render-artifact` rc 2 for a misconfigured `prompt_file` is likewise silently swallowed
-  into an empty `$RENDERED`; the guard closes that too.)
-- On a non-zero render exit, the skill writes a **complete** per-case verdict file —
-  identical in shape to a normal / `judge_skipped` case file — and continues to the next
-  case (the run is not aborted; partial results are never lost, as in Path B). Only the
-  `verdict` sub-object differs: a synthetic scored-1 failure
-  `{"strengths":[],"weaknesses":["render_command failed"],"reasoning":"<the CLI's error
-  line>","score":1}`. The file **must** carry the **verbatim dataset case as `test_case`**,
-  `"output": ""`, and `"assertion_gate": null` alongside that `verdict`. This completeness
-  is not optional: Path A's `aggregate.load_results` reads `record["test_case"]` (a
-  `KeyError`/abort if absent), and the always-present `--dataset` (`SKILL.md` step 3)
-  triggers `_validate_results_match_dataset`, which requires exactly one verdict per case
-  with `test_case` equal to the dataset case. A verdict-**only** file would make `aggregate`
-  exit non-zero and **abort the whole report** — the exact opposite of this promise. The
-  render error rides in the verdict's `reasoning`/`weaknesses`, which `aggregate.load_results`
-  preserves verbatim, so the failure is visible in `output.json`/`output.html` and the case
-  is scored, not omitted.
+1. **Always check the `render-artifact` exit code (both render branches).** Capture stdout
+   into `$RENDERED` *only* on rc 0; **never** dispatch the execute-subagent with an empty or
+   partial prompt. This guard is **new** and replaces the currently unguarded
+   `RENDERED=$(… render-artifact …)` capture in `prompt-evals-run/SKILL.md`, which renders
+   both modes through one shared line (today even a `prompt_file` render failure is silently
+   swallowed into an empty `$RENDERED`).
+
+2. **Recover only a `command_adapter` `render_command` *subprocess* failure as a scored
+   case.** A non-zero `render_command` exit (or timeout) is a *runtime* adapter failure —
+   exactly what Path B turns into a scored-1 case. The skill writes a **complete** per-case
+   verdict file (identical shape to a normal / `judge_skipped` case file: verbatim dataset
+   case as `test_case`, `"output": ""`, `"assertion_gate": null`, and only the `verdict`
+   differing — synthetic `{"strengths":[],"weaknesses":["render_command
+   failed"],"reasoning":"<the CLI's error line>","score":1}`) and continues to the next
+   case. Completeness is **mandatory**: Path A's `aggregate.load_results` reads
+   `record["test_case"]` (a `KeyError`/abort if absent), and the always-present `--dataset`
+   (`SKILL.md` step 3) triggers `_validate_results_match_dataset`, which requires exactly one
+   verdict per case with `test_case` equal to the dataset case. A verdict-**only** file would
+   make `aggregate` exit non-zero and **abort the whole report**. The render error rides in
+   the verdict's `reasoning`/`weaknesses`, which `aggregate.load_results` preserves verbatim,
+   so the failure is visible in `output.json`/`output.html` and the case is scored, not
+   omitted.
+
+3. **`prompt_file` render failures stay loud — never scored.** A `prompt_file` render error
+   is a deterministic template/cases contract error (`MissingPlaceholderError`), which Path B
+   classifies as `_CONFIG_ERRORS` and **re-raises** rather than scoring. Path A matches: a
+   failed `prompt_file` render aborts the run loudly with the error surfaced; the skill does
+   **not** write a score-1 verdict for it. Turning broken eval wiring into a normal low-score
+   report would both hide the misconfig and violate the `prompt_file`-unchanged boundary
+   (§4). The `render-artifact` CLI's `prompt_file` branch is therefore left unchanged — a
+   `MissingPlaceholderError` surfaces loudly as today. (The §3 "catch and print rc 2"
+   behavior is scoped to the `command_adapter` `render_command` subprocess only.)
 
 A verdict-level `error` field and a `meta.errors` list are a **Path-B-only** concept:
 Path A's `evals.aggregate.load_results` keeps only
@@ -170,8 +180,8 @@ Path A, generate for Path B) without ambiguity.
 |---|---|
 | `evals/artifacts.py` | `TargetSpec.render_command`; `EvalSpec.render_command`; parse in `load_eval_spec`; `_validate_target` per §5. |
 | `evals/artifact_runner.py` | `render_command_adapter(spec, prompt_inputs)` (§3 contract); `build_run_function` raises a clear error for a render-only target on Path B. |
-| `evals/run_eval.py` | `render-artifact` branches on mode: `prompt_file` → `render_prompt_file`; `command_adapter` + `render_command` → `render_command_adapter`; else actionable error (rc 2). Catches `CalledProcessError`/`TimeoutExpired` from a failing `render_command` and reports `error: render_command failed …` with rc 2 (no traceback). |
-| `skills/prompt-evals-run/SKILL.md` | Path A precondition + note that `render-artifact` renders a render-capable `command_adapter`; the execute-subagent answers `$RENDERED` identically; the **render step checks the exit code** (guard replaces the shared unguarded render line for both modes) and on a non-zero render writes a **complete** synthetic scored-1 failure verdict file (verbatim `test_case`, `"output": ""`, `"assertion_gate": null`) so the case is scored, not dropped (§3.2). |
+| `evals/run_eval.py` | `render-artifact` branches on mode: `prompt_file` → `render_prompt_file` (**branch unchanged**, a `MissingPlaceholderError` surfaces loudly as today); `command_adapter` + `render_command` → `render_command_adapter`, catching `CalledProcessError`/`TimeoutExpired` and reporting `error: render_command failed …` with rc 2 (no traceback); `command_adapter` without `render_command` → actionable error (rc 2). |
+| `skills/prompt-evals-run/SKILL.md` | Path A precondition + note that `render-artifact` renders a render-capable `command_adapter`; the execute-subagent answers `$RENDERED` identically; the **render step checks the exit code** for both modes (guard replaces the shared unguarded render line); on a `command_adapter` `render_command` failure it writes a **complete** synthetic scored-1 verdict file (verbatim `test_case`, `"output": ""`, `"assertion_gate": null`) so the case is scored not dropped, while a `prompt_file` render failure stays **loud** (config error, not scored) — §3.2. |
 | `evals/tests/test_artifacts.py`, `test_artifact_runner.py`, `test_run_eval_cli.py`, `test_aggregate.py` | Tests per §7 (incl. the render-failure-verdict-survives-aggregation test). |
 | `evals/tests/fixtures/adapters/render_adapter.py` | New fixture: reads `{"prompt_inputs": …}` on stdin, prints an assembled *prompt* on stdout. |
 
@@ -194,11 +204,13 @@ no network, no `ANTHROPIC_API_KEY`.
    returns rc 2 with `render_command failed` and no traceback (reuse `fail_adapter`);
    `prompt_file` rendering and all existing branches stay green.
 4. **Render-failure verdict survives aggregation** (`test_aggregate.py`): a *complete*
-   render-failure verdict file (verbatim `test_case`, `"output": ""`, `"assertion_gate":
-   null`, synthetic score-1 `verdict`) for a one-case dataset flows through `evals.aggregate`
-   with `--dataset` and is **scored, not aborted** (rc 0; the case present in `output.json`
-   with score 1). This locks the §3.2 no-dropped-case contract offline — the only part of
-   the render-failure path testable without live subagents.
+   `command_adapter` render-failure verdict file (verbatim `test_case`, `"output": ""`,
+   `"assertion_gate": null`, synthetic score-1 `verdict`) for a one-case dataset flows
+   through `evals.aggregate` with `--dataset` and is **scored, not aborted** (rc 0; the case
+   present in `output.json` with score 1). This locks the §3.2 no-dropped-case contract
+   offline — the only part of the render-failure path testable without live subagents.
+   (`prompt_file` render failures stay loud per §3.2 rule 3, matching Path B `_CONFIG_ERRORS`;
+   no behavior change to test.)
 5. **Regression:** full `evals/tests` suite + repo skill linter, output pasted in the PR.
 
 **Acceptance-criteria mapping**
