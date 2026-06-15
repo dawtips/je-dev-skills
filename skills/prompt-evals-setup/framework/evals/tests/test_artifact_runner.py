@@ -18,6 +18,7 @@ from evals.artifacts import load_eval_spec, scaffold_eval_artifacts
 from evals.artifact_runner import (
     build_run_function,
     evaluate_artifact,
+    render_command_adapter,
     render_prompt_file,
     run_command_adapter,
 )
@@ -272,6 +273,56 @@ class TestRoutesThroughRunEvaluation(unittest.TestCase):
             result = evaluate_artifact(spec, judge_client=FakeJudge(), run_label="a")
             self.assertEqual(result["results"][0]["output"], "adapter saw retention")
             self.assertTrue((root / "evals" / "agent" / "runs" / "a" / "output.json").exists())
+
+
+_RENDER_ADAPTER = Path(__file__).parent / "fixtures" / "adapters" / "render_adapter.py"
+
+
+def _render_only_eval(root: Path, render_command):
+    eval_dir = root / "evals" / "agent"
+    (eval_dir / "runs").mkdir(parents=True, exist_ok=True)
+    (eval_dir / "eval.json").write_text(
+        json.dumps({
+            "name": "agent",
+            "target": {"mode": "command_adapter", "render_command": render_command},
+        }),
+        encoding="utf-8",
+    )
+    return load_eval_spec(eval_dir / "eval.json")
+
+
+class TestRenderCommandAdapter(unittest.TestCase):
+    def test_returns_assembled_prompt_from_stdout(self):
+        with tempfile.TemporaryDirectory() as d:
+            spec = _render_only_eval(Path(d).resolve(), [sys.executable, str(_RENDER_ADAPTER)])
+            self.assertEqual(render_command_adapter(spec, {"goal": "retention"}), "PROMPT for retention")
+
+    def test_raises_on_failure(self):
+        import subprocess
+
+        fail = Path(__file__).parent / "fixtures" / "adapters" / "fail_adapter.py"
+        with tempfile.TemporaryDirectory() as d:
+            spec = _render_only_eval(Path(d).resolve(), [sys.executable, str(fail)])
+            with self.assertRaises(subprocess.CalledProcessError):
+                render_command_adapter(spec, {"goal": "x"})
+
+    def test_times_out(self):
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as d:
+            spec = _render_only_eval(
+                Path(d).resolve(), [sys.executable, "-c", "import time; time.sleep(30)"]
+            )
+            with self.assertRaises(subprocess.TimeoutExpired):
+                render_command_adapter(spec, {"goal": "x"}, timeout=0.5)
+
+
+class TestBuildRunFunctionRenderOnly(unittest.TestCase):
+    def test_render_only_target_raises_on_path_b(self):
+        with tempfile.TemporaryDirectory() as d:
+            spec = _render_only_eval(Path(d).resolve(), [sys.executable, str(_RENDER_ADAPTER)])
+            with self.assertRaisesRegex(ValueError, "render-only|render_command"):
+                build_run_function(spec)
 
 
 if __name__ == "__main__":
