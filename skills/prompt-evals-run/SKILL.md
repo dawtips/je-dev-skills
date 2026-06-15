@@ -32,6 +32,11 @@ variance, and baseline run-delta behave identically. Framework design:
 - `evals/<name>/eval.json` + `cases.json` exist (else run setup / create-dataset).
 - For prompt-file mode, the prompt template named by `eval.json` `target.prompt_file`
   exists; its `{placeholder}` tokens match the dataset's `prompt_inputs` keys.
+- For **command-adapter** mode, Path A requires `target.render_command` — a render-only argv
+  whose **stdout is the assembled prompt** (the model's input, not an answer). It receives
+  `{"prompt_inputs": {…}}` on stdin and must print only the assembled prompt deterministically
+  (no model, no log noise). Without `render_command`, a `command_adapter` target has no Path A
+  — run it on Path B.
 
 Set up shared paths (run framework commands from `$PE` with **absolute** project paths so
 the real `evals` package always resolves):
@@ -69,11 +74,51 @@ derive labels from wall-clock time), then pass each `$RUNS/<group>__kNN/output.j
 
 Read `cases.json`'s `cases` array. For **each** case (index `i`):
 
-1. **Render the prompt deterministically** (no model) with the plugin-resident helper —
-   it reuses `render()` + `check_placeholders`:
+1. **Render the prompt deterministically** (no model) with the plugin-resident helper. It
+   renders both target modes — a `prompt_file` template (reusing `render()` +
+   `check_placeholders`) and a `command_adapter` with `target.render_command` (running the
+   render-only command; its stdout is the prompt). **Check the exit code** and capture
+   stdout only on success — never dispatch the execute-subagent with an empty/partial prompt:
 
    ```bash
-   RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i")
+   # Capture STDOUT only into $RENDERED (the prompt); keep STDERR separate so a success-path
+   # warning (e.g. check_placeholders logs an unused-input warning and still returns the
+   # prompt) never contaminates the prompt sent to the execute-subagent.
+   ERRFILE=$(mktemp)
+   if RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i" 2>"$ERRFILE"); then
+     rm -f "$ERRFILE"   # success: $RENDERED is the prompt (stdout); ignore any stderr warning
+   else
+     ERR=$(cat "$ERRFILE"); rm -f "$ERRFILE"
+     # render-artifact exited non-zero. NEVER dispatch a prompt. The CLI prints its clean
+     # `error: …` to STDOUT (so the message is in $RENDERED; $ERR holds a Python traceback,
+     # e.g. a prompt_file MissingPlaceholderError). Recover ONLY a command_adapter
+     # render_command RUNTIME failure ("render_command failed …" / "render_command timed
+     # out …"); every other rc != 0 — no render_command, missing cases file, bad case index,
+     # or a prompt_file config error — is a config/setup error and must be loud:
+     if printf '%s' "$RENDERED" | grep -Eq 'render_command (failed|timed out)'; then
+       # write the COMPLETE synthetic score-1 verdict (shown below) to
+       # "$VERDICTS_DIR/case-$(printf '%02d' "$i").json", THEN continue (run not aborted).
+       :  # write the verdict file first, then:
+       continue
+     fi
+     echo "render failed for case $i (config/setup error): ${RENDERED}${ERR}" >&2
+     exit 1   # do NOT write a score-1 verdict — that would hide the misconfig as a low score
+   fi
+   ```
+
+   **Synthetic render-failure verdict (command_adapter only).** For a `render_command`
+   runtime failure, write the per-case verdict file with the *same shape* as a normal /
+   `judge_skipped` case (so `aggregate` scores it instead of aborting), differing only in
+   the `verdict`:
+
+   ```json
+   {
+     "test_case": { "...the cases.json case i verbatim...": "..." },
+     "output": "",
+     "assertion_gate": null,
+     "verdict": { "strengths": [], "weaknesses": ["render_command failed"],
+                  "reasoning": "<the render-artifact error line>", "score": 1 }
+   }
    ```
 
 2. **Dispatch an execute-subagent** (Task tool, session auth, no key): give it `$RENDERED`
