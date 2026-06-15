@@ -50,6 +50,7 @@ class TargetSpec:
     mode: str
     prompt_file: str | None = None  # project-root-relative path (prompt_file mode)
     command: list[str] | None = None  # argv for the adapter subprocess (command_adapter mode)
+    render_command: list[str] | None = None  # argv for a render-only adapter invocation (Path A)
     output_schema: dict | None = None  # optional JSON Schema for prompt-under-test output
 
 
@@ -103,14 +104,46 @@ class EvalSpec:
     def command(self) -> list[str] | None:
         return self.target.command
 
+    @property
+    def render_command(self) -> list[str] | None:
+        return self.target.render_command
 
-def _validate_target(mode: str, prompt_file: str | None, command: list[str] | None) -> None:
+
+def _validate_argv(value, field: str) -> None:
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(item, str) for item in value)
+    ):
+        raise ValueError(f"{field} must be a non-empty list of strings")
+
+
+def _validate_target(
+    mode: str,
+    prompt_file: str | None,
+    command: list[str] | None,
+    render_command: list[str] | None = None,
+) -> None:
     if mode not in VALID_MODES:
         raise ValueError(f"target.mode must be one of {VALID_MODES}, got {mode!r}")
-    if mode == "prompt_file" and not prompt_file:
-        raise ValueError("prompt_file mode requires target.prompt_file")
-    if mode == "command_adapter" and not command:
-        raise ValueError("command_adapter mode requires target.command")
+    # Validate any PRESENT argv first, so an explicit empty list ([]) raises the
+    # non-empty-list error rather than tripping the at-least-one presence check below
+    # (which keys on ``is None``, not falsiness).
+    if command is not None:
+        _validate_argv(command, "target.command")
+    if render_command is not None:
+        _validate_argv(render_command, "target.render_command")
+    if mode == "prompt_file":
+        if not prompt_file:
+            raise ValueError("prompt_file mode requires target.prompt_file")
+        if command is not None:
+            raise ValueError("target.command is only valid in command_adapter mode")
+        if render_command is not None:
+            raise ValueError("target.render_command is only valid in command_adapter mode")
+    if mode == "command_adapter" and command is None and render_command is None:
+        raise ValueError(
+            "command_adapter mode requires target.command or target.render_command"
+        )
 
 
 def load_eval_spec(eval_json_path: str | Path) -> EvalSpec:
@@ -122,10 +155,11 @@ def load_eval_spec(eval_json_path: str | Path) -> EvalSpec:
     mode = target_data.get("mode")
     prompt_file = target_data.get("prompt_file")
     command = target_data.get("command")
+    render_command = target_data.get("render_command")
     output_schema = target_data.get("output_schema")
     if output_schema is not None:
         output_schema = validate_output_schema(output_schema)
-    _validate_target(mode, prompt_file, command)
+    _validate_target(mode, prompt_file, command, render_command)
     return EvalSpec(
         name=data.get("name", path.parent.name),
         eval_json=path,
@@ -133,6 +167,7 @@ def load_eval_spec(eval_json_path: str | Path) -> EvalSpec:
             mode=mode,
             prompt_file=prompt_file,
             command=command,
+            render_command=render_command,
             output_schema=output_schema,
         ),
         cases_file_rel=data.get("cases_file", "cases.json"),

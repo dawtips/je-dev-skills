@@ -269,5 +269,84 @@ class TestScaffoldIdempotency(unittest.TestCase):
             self.assertTrue((run_dir / "output.json").exists())
 
 
+class TestRenderCommandField(unittest.TestCase):
+    def _eval_json(self, root: Path, name: str, target: dict) -> Path:
+        eval_dir = root / "evals" / name
+        (eval_dir / "runs").mkdir(parents=True, exist_ok=True)
+        ej = eval_dir / "eval.json"
+        ej.write_text(json.dumps({
+            "name": name, "target": target, "cases_file": "cases.json",
+            "runs_dir": "runs", "assertions": [], "assertion_policy": "gate_mandatory",
+        }), encoding="utf-8")
+        return ej
+
+    def test_render_command_loads_for_command_adapter(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._eval_json(Path(d).resolve(), "agent", {
+                "mode": "command_adapter",
+                "command": ["echo", "x"],
+                "render_command": ["echo", "render"],
+            })
+            spec = load_eval_spec(ej)
+            self.assertEqual(spec.render_command, ["echo", "render"])
+            self.assertEqual(spec.target.render_command, ["echo", "render"])
+
+    def test_render_only_command_adapter_loads(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._eval_json(Path(d).resolve(), "agent", {
+                "mode": "command_adapter", "render_command": ["echo", "render"],
+            })
+            spec = load_eval_spec(ej)
+            self.assertIsNone(spec.command)
+            self.assertEqual(spec.render_command, ["echo", "render"])
+
+    def test_command_adapter_requires_command_or_render_command(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._eval_json(Path(d).resolve(), "agent", {"mode": "command_adapter"})
+            with self.assertRaisesRegex(ValueError, "command.*render_command"):
+                load_eval_spec(ej)
+
+    def test_render_command_rejected_for_prompt_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            (root / "prompts").mkdir(parents=True, exist_ok=True)
+            (root / "prompts" / "p.md").write_text("{g}", encoding="utf-8")
+            ej = self._eval_json(root, "p", {
+                "mode": "prompt_file", "prompt_file": "prompts/p.md",
+                "render_command": ["echo", "x"],
+            })
+            with self.assertRaisesRegex(ValueError, "command_adapter mode"):
+                load_eval_spec(ej)
+
+    def test_command_rejected_for_prompt_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            (root / "prompts").mkdir(parents=True, exist_ok=True)
+            (root / "prompts" / "p.md").write_text("{g}", encoding="utf-8")
+            ej = self._eval_json(root, "p", {
+                "mode": "prompt_file", "prompt_file": "prompts/p.md",
+                "command": ["echo", "x"],
+            })
+            with self.assertRaisesRegex(ValueError, "command_adapter mode"):
+                load_eval_spec(ej)
+
+    def test_render_command_must_be_nonempty_list(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._eval_json(Path(d).resolve(), "agent", {
+                "mode": "command_adapter", "render_command": [],
+            })
+            with self.assertRaisesRegex(ValueError, "non-empty list"):
+                load_eval_spec(ej)
+
+    def test_command_must_be_nonempty_list_when_present(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._eval_json(Path(d).resolve(), "agent", {
+                "mode": "command_adapter", "command": [],
+                "render_command": ["echo", "render"],
+            })
+            with self.assertRaisesRegex(ValueError, "target.command must be a non-empty list"):
+                load_eval_spec(ej)
+
+
 if __name__ == "__main__":
     unittest.main()
