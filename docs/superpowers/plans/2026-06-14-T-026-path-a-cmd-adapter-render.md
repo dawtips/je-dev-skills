@@ -85,6 +85,18 @@ class TestRenderCommandField(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "command_adapter mode"):
                 load_eval_spec(ej)
 
+    def test_command_rejected_for_prompt_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            (root / "prompts").mkdir(parents=True, exist_ok=True)
+            (root / "prompts" / "p.md").write_text("{g}", encoding="utf-8")
+            ej = self._eval_json(root, "p", {
+                "mode": "prompt_file", "prompt_file": "prompts/p.md",
+                "command": ["echo", "x"],
+            })
+            with self.assertRaisesRegex(ValueError, "command_adapter mode"):
+                load_eval_spec(ej)
+
     def test_render_command_must_be_nonempty_list(self):
         with tempfile.TemporaryDirectory() as d:
             ej = self._eval_json(Path(d).resolve(), "agent", {
@@ -147,19 +159,24 @@ def _validate_target(
 ) -> None:
     if mode not in VALID_MODES:
         raise ValueError(f"target.mode must be one of {VALID_MODES}, got {mode!r}")
-    if mode == "prompt_file":
-        if not prompt_file:
-            raise ValueError("prompt_file mode requires target.prompt_file")
-        if render_command is not None:
-            raise ValueError("target.render_command is only valid in command_adapter mode")
-    if mode == "command_adapter" and not (command or render_command):
-        raise ValueError(
-            "command_adapter mode requires target.command or target.render_command"
-        )
+    # Validate any PRESENT argv first, so an explicit empty list ([]) raises the
+    # non-empty-list error rather than tripping the at-least-one presence check below
+    # (which keys on `is None`, not falsiness).
     if command is not None:
         _validate_argv(command, "target.command")
     if render_command is not None:
         _validate_argv(render_command, "target.render_command")
+    if mode == "prompt_file":
+        if not prompt_file:
+            raise ValueError("prompt_file mode requires target.prompt_file")
+        if command is not None:
+            raise ValueError("target.command is only valid in command_adapter mode")
+        if render_command is not None:
+            raise ValueError("target.render_command is only valid in command_adapter mode")
+    if mode == "command_adapter" and command is None and render_command is None:
+        raise ValueError(
+            "command_adapter mode requires target.command or target.render_command"
+        )
 ```
 
 > Validating `command` whenever present (not just `render_command`) is required: a target

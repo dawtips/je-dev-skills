@@ -165,12 +165,17 @@ Path A, generate for Path B) without ambiguity.
 ## 5. Validation rules (`artifacts._validate_target`)
 
 - `command_adapter` requires **at least one** of `command` / `render_command`
-  (was: `command` required). Message names both.
-- `render_command`, if present, is valid **only** in `command_adapter` mode (reject in
-  `prompt_file` mode with a clear message).
-- `render_command`, if present, must be a non-empty list of strings (mirror `command`).
-- `prompt_file` mode is unchanged: `prompt_file` required; `command`/`render_command`
-  rejected.
+  (was: `command` required). The presence check keys on `is None`, not falsiness, so an
+  explicit empty list is caught by the argv rule below, not mislabelled "missing".
+- Any **present** argv (`command` or `render_command`) must be a non-empty list of strings —
+  validated whenever present, **before** the at-least-one presence check. This catches an
+  invalid `command` (e.g. `[]`) sitting beside a valid `render_command`, which would
+  otherwise satisfy the presence check and degrade into a per-case failure on Path B.
+- `render_command` and `command` are each valid **only** in `command_adapter` mode.
+- `prompt_file` mode: `prompt_file` required; **both** `command` and `render_command` are
+  rejected with a clear message (a stale `command`/`render_command` on a `prompt_file` target
+  is a miswire, not silently ignored). This tightens validation for a previously-miswired
+  config; no valid `prompt_file` target carries either field, so no working config changes.
 
 `EvalSpec` gains a `render_command` property returning `self.target.render_command`.
 
