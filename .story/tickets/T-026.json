@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": null,
+  "createdDate": "2026-06-14",
+  "description": "GitHub issue #11. Path A (EXECUTION_MODE=in_claude_code, no API key) can only run prompt_file targets; command_adapter targets fall back to the metered Path B. A render-only command contract should let Path A render a command_adapter target's assembled prompt deterministically (no model), then hand it to the execute-subagent exactly like prompt_file. Consumer: presales-sqnce, which uses command_adapter to grade the REAL CLI prompt assembly (design decision D4) and already has `eval-adapter --render`. Acceptance: render-capable command_adapter runs end-to-end under in_claude_code with no ANTHROPIC_API_KEY; render-artifact returns the assembled prompt deterministically; prompt_file + Path B unchanged; skill/docs describe the subscription path.",
+  "id": "T-026",
+  "order": 40,
+  "phase": "eval-hardening",
+  "status": "open",
+  "title": "Path A (in_claude_code) renders command_adapter targets (GH #11)",
+  "type": "feature"
+}

@@ -62,12 +62,36 @@ Add a new optional field `target.render_command` (an argv list) that names the
 reuse one stdin convention):
 
 - **Invocation:** the `render_command` argv, run with `cwd = project_root`, bounded by
-  `config.ADAPTER_TIMEOUT_SECONDS` (default 120s), `check=True` (non-zero exit ⇒
-  `CalledProcessError` ⇒ recorded as a case failure, never a silent pass).
+  `config.ADAPTER_TIMEOUT_SECONDS` (default 120s), `check=True`. A non-zero exit (or a
+  timeout) raises `CalledProcessError` / `TimeoutExpired`; the `render-artifact` CLI
+  **catches it, prints `error: render_command failed …` with the adapter's stderr, and
+  exits non-zero (rc 2)** — no traceback, never a silent pass. See §3.2 for how Path A
+  reacts to that non-zero exit.
 - **stdin:** the JSON object `{"prompt_inputs": {…}}` for case *i* — the same shape
   `run_command_adapter` already sends. Deterministic; **no model call**.
 - **stdout:** the fully assembled prompt for that case (raw text). The framework treats
   stdout as the **prompt**, and hands it to the execute-subagent verbatim.
+
+### 3.2 Path A render-failure handling (no silent dropped cases)
+
+Path A renders by *shelling out* to `render-artifact` before any execute/grade verdict is
+written, so — unlike Path B, where `run_evaluation`'s per-case handler turns an adapter
+exception into a scored-1 failure automatically — the skill loop must handle a render
+failure itself. The contract:
+
+- The skill **must check the `render-artifact` exit code** for each case. It captures
+  stdout into `$RENDERED` *only* on rc 0 (e.g. `RENDERED=$(… render-artifact …) || { …
+  handle failure … }`). It must **never** dispatch the execute-subagent with an empty or
+  partial prompt produced by a failed render.
+- On a non-zero render exit, the skill records a **synthetic scored-1 failure verdict** for
+  that case — `{"strengths":[],"weaknesses":["render_command failed"],"reasoning":"<the
+  CLI's error line>","score":1}` plus an `error` field — and continues to the next case,
+  mirroring Path B's "a failing case is a scored-1 failure carrying an `error`, the run is
+  not aborted, partial results are never lost" behavior. The aggregate report therefore
+  shows the case as a failure rather than omitting it.
+
+This keeps the floor non-negotiable (render errors are loud and never silently drop a
+case) while matching Path B's resilience semantics.
 
 ### 3.1 Why a new field, not a flag/stdin convention (rejected alternative)
 
@@ -126,8 +150,8 @@ Path A, generate for Path B) without ambiguity.
 |---|---|
 | `evals/artifacts.py` | `TargetSpec.render_command`; `EvalSpec.render_command`; parse in `load_eval_spec`; `_validate_target` per §5. |
 | `evals/artifact_runner.py` | `render_command_adapter(spec, prompt_inputs)` (§3 contract); `build_run_function` raises a clear error for a render-only target on Path B. |
-| `evals/run_eval.py` | `render-artifact` branches on mode: `prompt_file` → `render_prompt_file`; `command_adapter` + `render_command` → `render_command_adapter`; else actionable error (rc 2). |
-| `skills/prompt-evals-run/SKILL.md` | Path A precondition + note that `render-artifact` renders a render-capable `command_adapter`; the execute-subagent answers `$RENDERED` identically. |
+| `evals/run_eval.py` | `render-artifact` branches on mode: `prompt_file` → `render_prompt_file`; `command_adapter` + `render_command` → `render_command_adapter`; else actionable error (rc 2). Catches `CalledProcessError`/`TimeoutExpired` from a failing `render_command` and reports `error: render_command failed …` with rc 2 (no traceback). |
+| `skills/prompt-evals-run/SKILL.md` | Path A precondition + note that `render-artifact` renders a render-capable `command_adapter`; the execute-subagent answers `$RENDERED` identically; **render step checks the exit code and records a synthetic scored-1 failure verdict on a non-zero render (no silent dropped case, §3.2)**. |
 | `evals/tests/test_artifacts.py`, `test_artifact_runner.py`, `test_run_eval_cli.py` | Tests per §7. |
 | `evals/tests/fixtures/adapters/render_adapter.py` | New fixture: reads `{"prompt_inputs": …}` on stdin, prints an assembled *prompt* on stdout. |
 
@@ -146,8 +170,9 @@ no network, no `ANTHROPIC_API_KEY`.
    `build_run_function` raises a clear error for a render-only target (Path B).
 3. **CLI** (`test_run_eval_cli.py`): `render-artifact` on a render-capable `command_adapter`
    prints the assembled prompt (rc 0); on a `command_adapter` **without** `render_command`
-   returns rc 2 with an actionable message; `prompt_file` rendering and all existing branches
-   stay green.
+   returns rc 2 with an actionable message; on a `render_command` that **exits non-zero**
+   returns rc 2 with `render_command failed` and no traceback (reuse `fail_adapter`);
+   `prompt_file` rendering and all existing branches stay green.
 4. **Regression:** full `evals/tests` suite + repo skill linter, output pasted in the PR.
 
 **Acceptance-criteria mapping**
