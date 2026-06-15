@@ -26,6 +26,7 @@ EXTRA_CRITERIA. The prompt TEXT is a file (PROMPT_FILE), not a Python string.
 """
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -260,8 +261,16 @@ def main(argv: list[str]) -> int:
         spec = _load_eval_spec_for_cli(argv[2])
         if spec is None:
             return 2
-        if spec.target.mode != "prompt_file":
-            print("error: render-artifact only applies to prompt_file mode")
+        mode = spec.target.mode
+        if mode == "command_adapter" and not spec.render_command:
+            print(
+                "error: render-artifact needs target.render_command for a command_adapter "
+                "target (Path A renders the assembled prompt with no model). Add "
+                "render_command, or run this target on Path B (evaluate-artifact)."
+            )
+            return 2
+        if mode not in ("prompt_file", "command_adapter"):
+            print(f"error: render-artifact does not support target mode {mode!r}")
             return 2
         try:
             index = int(argv[3])
@@ -278,7 +287,21 @@ def main(argv: list[str]) -> int:
         if index < 0 or index >= len(cases):
             print(f"error: case_index {index} out of range (0..{len(cases) - 1})")
             return 2
-        print(artifact_runner.render_prompt_file(spec, cases[index]["prompt_inputs"]))
+        prompt_inputs = cases[index]["prompt_inputs"]
+        if mode == "prompt_file":
+            print(artifact_runner.render_prompt_file(spec, prompt_inputs))
+            return 0
+        # command_adapter with target.render_command: stdout IS the assembled prompt.
+        try:
+            rendered = artifact_runner.render_command_adapter(spec, prompt_inputs)
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            print(f"error: render_command failed (exit {exc.returncode}): {stderr}")
+            return 2
+        except subprocess.TimeoutExpired:
+            print(f"error: render_command timed out after {config.ADAPTER_TIMEOUT_SECONDS}s")
+            return 2
+        print(rendered, end="")
         return 0
 
     if command == "generate-artifact":
