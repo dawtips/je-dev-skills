@@ -85,13 +85,20 @@ failure itself. The contract:
   partial prompt produced by a failed render.
 - On a non-zero render exit, the skill records a **synthetic scored-1 failure verdict** for
   that case — `{"strengths":[],"weaknesses":["render_command failed"],"reasoning":"<the
-  CLI's error line>","score":1}` plus an `error` field — and continues to the next case,
-  mirroring Path B's "a failing case is a scored-1 failure carrying an `error`, the run is
-  not aborted, partial results are never lost" behavior. The aggregate report therefore
-  shows the case as a failure rather than omitting it.
+  CLI's error line>","score":1}` — and continues to the next case (the run is not aborted;
+  partial results are never lost, as in Path B). The render error rides in the verdict's
+  `reasoning`/`weaknesses`, which `evals.aggregate.load_results` preserves verbatim
+  (`reasoning` and the whole `verdict` are kept), so the failure is visible in
+  `output.json`/`output.html` and the case is scored, not omitted.
 
-This keeps the floor non-negotiable (render errors are loud and never silently drop a
-case) while matching Path B's resilience semantics.
+A verdict-level `error` field and a `meta.errors` list are a **Path-B-only** concept:
+Path A's `evals.aggregate.load_results` keeps only
+`output/trajectory/test_case/score/reasoning/verdict/assertion_gate` (a top-level `error`
+is dropped) and `_build_meta` builds no `errors` list. This spec deliberately leaves
+`aggregate.py` unchanged, so it makes **no** `error`/`meta.errors` promise for Path A — the
+render error is surfaced through the preserved `reasoning`/`weaknesses` instead. This keeps
+the floor non-negotiable (render errors are loud and never silently drop a case) without
+expanding scope into the shared aggregator.
 
 ### 3.1 Why a new field, not a flag/stdin convention (rejected alternative)
 
