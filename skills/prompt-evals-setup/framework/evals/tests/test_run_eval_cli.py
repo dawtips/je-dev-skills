@@ -106,6 +106,94 @@ class TestRunEvalCli(unittest.TestCase):
             self.assertEqual(rc, 2)
             self.assertIn("cases file not found", out)
 
+    # --- T-026 render-artifact for command_adapter ---------------------------
+    _RENDER_ADAPTER = Path(__file__).parent / "fixtures" / "adapters" / "render_adapter.py"
+
+    def _scaffold_render_adapter_project(self, root: Path, render_command):
+        import sys
+        scaffold_eval_artifacts(
+            root, "agent", mode="command_adapter", command=[sys.executable, "-c", "pass"]
+        )
+        ej = root / "evals" / "agent" / "eval.json"
+        data = json.loads(ej.read_text(encoding="utf-8"))
+        data["target"]["render_command"] = render_command
+        ej.write_text(json.dumps(data), encoding="utf-8")
+        (root / "evals" / "agent" / "cases.json").write_text(
+            json.dumps({
+                "provenance": {"task_description": "agent"},
+                "cases": [{"task_description": "agent",
+                           "prompt_inputs": {"goal": "retention"},
+                           "solution_criteria": ["x"]}],
+            }),
+            encoding="utf-8",
+        )
+        return ej
+
+    def test_render_artifact_renders_command_adapter(self):
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._scaffold_render_adapter_project(
+                Path(d).resolve(), [sys.executable, str(self._RENDER_ADAPTER)]
+            )
+            rc, out = self._run(["render-artifact", str(ej), "0"])
+            self.assertEqual(rc, 0)
+            self.assertIn("PROMPT for retention", out)
+
+    def test_render_artifact_command_adapter_without_render_command_errors(self):
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            scaffold_eval_artifacts(
+                root, "agent", mode="command_adapter", command=[sys.executable, "-c", "pass"]
+            )
+            (root / "evals" / "agent" / "cases.json").write_text(
+                json.dumps({"provenance": {}, "cases": [
+                    {"task_description": "a", "prompt_inputs": {"goal": "g"},
+                     "solution_criteria": ["x"]}]}),
+                encoding="utf-8",
+            )
+            rc, out = self._run(["render-artifact", str(root / "evals" / "agent" / "eval.json"), "0"])
+            self.assertEqual(rc, 2)
+            self.assertIn("render_command", out)
+
+    def test_render_artifact_render_command_failure_is_clean_rc2(self):
+        import sys
+        fail = Path(__file__).parent / "fixtures" / "adapters" / "fail_adapter.py"
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._scaffold_render_adapter_project(
+                Path(d).resolve(), [sys.executable, str(fail)]
+            )
+            rc, out = self._run(["render-artifact", str(ej), "0"])
+            self.assertEqual(rc, 2)
+            self.assertIn("render_command failed", out)
+
+    def _render_only_eval_json(self, root: Path):
+        import sys
+        eval_dir = root / "evals" / "agent"
+        (eval_dir / "runs").mkdir(parents=True, exist_ok=True)
+        (eval_dir / "eval.json").write_text(json.dumps({
+            "name": "agent",
+            "target": {"mode": "command_adapter",
+                       "render_command": [sys.executable, "-c", "pass"]},
+        }), encoding="utf-8")
+        return eval_dir / "eval.json"
+
+    def test_evaluate_artifact_render_only_target_clean_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._render_only_eval_json(Path(d).resolve())
+            with patch.object(run_eval.config, "EXECUTION_MODE", "anthropic_api"):
+                rc, out = self._run(["evaluate-artifact", str(ej)])
+            self.assertEqual(rc, 2)
+            self.assertIn("render-only", out)
+
+    def test_evaluate_artifact_variance_render_only_target_clean_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            ej = self._render_only_eval_json(Path(d).resolve())
+            with patch.object(run_eval.config, "EXECUTION_MODE", "anthropic_api"):
+                rc, out = self._run(["evaluate-artifact-variance", str(ej), "grp", "2"])
+            self.assertEqual(rc, 2)
+            self.assertIn("render-only", out)
+
     def test_evaluate_artifact_requires_eval_json_path(self):
         rc, out = self._run(["evaluate-artifact"])
         self.assertEqual(rc, 2)

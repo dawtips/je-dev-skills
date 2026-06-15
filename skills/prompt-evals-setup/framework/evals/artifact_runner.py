@@ -64,6 +64,33 @@ def run_command_adapter(
     return proc.stdout
 
 
+def render_command_adapter(
+    spec: EvalSpec, prompt_inputs: dict, *, timeout: float | None = config.ADAPTER_TIMEOUT_SECONDS
+) -> str:
+    """Run the render-only command: ``{"prompt_inputs": …}`` on stdin, the assembled
+    prompt (model *input*, not an answer) on stdout. Deterministic; no model call.
+
+    ``timeout`` bounds the subprocess; a non-zero exit raises ``CalledProcessError`` and a
+    timeout raises ``TimeoutExpired`` (the ``render-artifact`` CLI turns both into a clean
+    rc-2 error so a render failure is loud, never silent).
+    """
+    if not spec.render_command:
+        raise ValueError(
+            "render_command_adapter requires a command_adapter-mode eval spec with "
+            "target.render_command"
+        )
+    proc = subprocess.run(
+        list(spec.render_command),
+        input=json.dumps({"prompt_inputs": prompt_inputs}),
+        capture_output=True,
+        text=True,
+        cwd=str(spec.project_root),
+        check=True,
+        timeout=timeout,
+    )
+    return proc.stdout
+
+
 def build_run_function(spec: EvalSpec, *, executor: Executor | None = None) -> RunFunction:
     """Return the ``RunFunction`` that ``run_evaluation`` executes per case.
 
@@ -85,6 +112,12 @@ def build_run_function(spec: EvalSpec, *, executor: Executor | None = None) -> R
         return _run_prompt
 
     if mode == "command_adapter":
+        if spec.command is None:
+            raise ValueError(
+                "command_adapter target defines only target.render_command (render-only); "
+                "it has no Path B generate command. Run it on Path A (in_claude_code), or "
+                "add a generate target.command for Path B (evaluate-artifact)."
+            )
 
         def _run_adapter(prompt_inputs: dict) -> str:
             return run_command_adapter(spec, {"prompt_inputs": prompt_inputs})
