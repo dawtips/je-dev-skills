@@ -250,5 +250,49 @@ class TestCli(unittest.TestCase):
             self.assertEqual(rc, 2)
 
 
+class TestRenderFailureVerdictSurvives(unittest.TestCase):
+    """T-026 §3.2: a command_adapter render_command failure is written as a COMPLETE
+    score-1 verdict that aggregation scores, not a verdict-only file that aborts the run."""
+
+    def _run_aggregate(self, root: Path, verdict_record: dict, case: dict):
+        verdicts = root / "verdicts"; verdicts.mkdir()
+        runs = root / "runs"; runs.mkdir()
+        ds = root / "cases.json"
+        _write_dataset(ds, [case])
+        (verdicts / "case-00.json").write_text(json.dumps(verdict_record), encoding="utf-8")
+        rc = aggregate.main([
+            "--run-label", "t", "--verdicts-dir", str(verdicts),
+            "--dataset", str(ds), "--runs-dir", str(runs), "--extra-criteria", "none",
+        ])
+        return rc, runs
+
+    def test_complete_render_failure_verdict_is_scored_not_aborted(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            case = {"task_description": "t", "prompt_inputs": {"goal": "x"},
+                    "solution_criteria": ["c"]}
+            rc, runs = self._run_aggregate(root, {
+                "test_case": case,
+                "output": "",
+                "assertion_gate": None,
+                "verdict": {"strengths": [], "weaknesses": ["render_command failed"],
+                            "reasoning": "render_command failed (exit 1): boom", "score": 1},
+            }, case)
+            self.assertEqual(rc, 0)
+            out = json.loads((runs / "t" / "output.json").read_text(encoding="utf-8"))
+            self.assertEqual(out["results"][0]["score"], 1)
+
+    def test_verdict_only_render_failure_file_aborts(self):
+        """Proves the P1: a verdict-only file (no test_case) aborts the whole run."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            case = {"task_description": "t", "prompt_inputs": {"goal": "x"},
+                    "solution_criteria": ["c"]}
+            rc, _ = self._run_aggregate(root, {
+                "verdict": {"strengths": [], "weaknesses": [], "reasoning": "r", "score": 1},
+            }, case)
+            self.assertEqual(rc, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
