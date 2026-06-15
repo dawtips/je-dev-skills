@@ -619,21 +619,28 @@ git commit -m "test(evals): render-failure verdict survives aggregation (T-026, 
    only on success — never dispatch the execute-subagent with an empty/partial prompt:
 
    ```bash
-   # MODE is the eval's target.mode, read once up front, e.g.:
-   #   MODE=$(cd "$PE" && python3 -c "from evals.artifacts import load_eval_spec; print(load_eval_spec('$EVAL').target.mode)")
-   if ! RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i" 2>&1); then
-     # render-artifact printed `error: …` and exited non-zero. NEVER dispatch a prompt.
-     if [ "$MODE" = "command_adapter" ]; then
-       # render_command runtime failure (non-zero exit OR timeout): write the COMPLETE
-       # synthetic score-1 verdict below to "$VERDICTS_DIR/case-$(printf '%02d' "$i").json",
-       # THEN continue to the next case (the run is not aborted).
+   # Capture STDOUT only into $RENDERED (the prompt); keep STDERR separate so a success-path
+   # warning (e.g. check_placeholders logs an unused-input warning and still returns the
+   # prompt) never contaminates the prompt sent to the execute-subagent.
+   ERRFILE=$(mktemp)
+   if RENDERED=$(cd "$PE" && python3 -m evals.run_eval render-artifact "$EVAL" "$i" 2>"$ERRFILE"); then
+     rm -f "$ERRFILE"   # success: $RENDERED is the prompt (stdout); ignore any stderr warning
+   else
+     ERR=$(cat "$ERRFILE"); rm -f "$ERRFILE"
+     # render-artifact exited non-zero. NEVER dispatch a prompt. The CLI prints its clean
+     # `error: …` to STDOUT, so the message is in $RENDERED ($ERR holds a Python traceback,
+     # e.g. a prompt_file MissingPlaceholderError). Recover ONLY a command_adapter
+     # render_command RUNTIME failure (the CLI prints "render_command failed …" or
+     # "render_command timed out …"). Every other rc != 0 — no render_command, missing cases
+     # file, bad case index, or a prompt_file config error — is loud:
+     if printf '%s' "$RENDERED" | grep -Eq 'render_command (failed|timed out)'; then
+       # write the COMPLETE synthetic score-1 verdict below to
+       # "$VERDICTS_DIR/case-$(printf '%02d' "$i").json", THEN continue (run not aborted).
        :  # write the verdict file shown below first, then:
        continue
      fi
-     # prompt_file render failure = a config error (template/cases mismatch). FAIL LOUDLY —
-     # do NOT write a score-1 verdict (that would hide the misconfig as a low score):
-     echo "render failed for case $i (config error): $RENDERED" >&2
-     exit 1
+     echo "render failed for case $i (config/setup error): ${RENDERED}${ERR}" >&2
+     exit 1   # do NOT write a score-1 verdict — that would hide the misconfig as a low score
    fi
    ```
 
