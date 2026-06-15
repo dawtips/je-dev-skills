@@ -3,8 +3,8 @@
   "context": "je-dev-skills PRs #6/#7/#8 each took 2-3 Codex P2 rounds where every round was a fresh edge case of the same loosened branch (opus prefix -> 4.6 over-reach -> snapshot date; atomic write -> 2nd-rename gap -> fixed .bak name clobber). The fixes were always 'cover the other direction too'.",
   "createdDate": "2026-06-09",
   "id": "L-009",
-  "lastValidated": "2026-06-09",
-  "reinforcements": 0,
+  "lastValidated": "2026-06-14",
+  "reinforcements": 1,
   "source": "review",
   "status": "active",
   "supersedes": null,
@@ -14,5 +14,5 @@
     "prompt-engineering"
   ],
   "title": "Enumerate all edge cases up front on a loosened guard/parser — Codex probes one per round",
-  "updatedDate": "2026-06-09"
+  "updatedDate": "2026-06-14"
 }
