@@ -184,10 +184,13 @@ eval-free, fast. Never touches `./evals`.
   `prompt-engineering-improve`) → a refactored prompt plus a short changelog of techniques applied.
 
 **Technique catalogue** — `references/techniques.md`, an **escalation ladder** (cheapest/
-highest-leverage first): (1) clear & direct; (2) output guidelines + process steps; (3) examples
-(one-/multishot, `<example>` tags, diverse, corner cases); (4) XML structure (separate instructions
-from data); (5) role framing (**in-text** for v1); (6) adaptive thinking / reasoning scaffolding;
-(7) chaining (the boundary of single-shot — flagged); (8) long-context tips (docs first, query last).
+highest-leverage first): (1) clear & direct; (2) output guidelines + process steps; (3) **guardrails:
+name the failure modes** (named failure-mode prohibitions, enforced output-structure labels, named
+pattern lists, and a **guarded** quality self-check — judgment bars only, deterministic checks stay in
+code/evals); (4) examples (one-/multishot, `<example>` tags, diverse, corner cases); (5) XML structure
+(separate instructions from data); (6) role framing (**in-text** for v1); (7) adaptive thinking /
+reasoning scaffolding; (8) chaining (the boundary of single-shot — flagged); (9) long-context tips
+(docs first, query last).
 
 **Shared rewrite procedure (the seam, not just the catalogue).** The application constraints that
 shape a rewrite — "**pick the minimum rungs to fix the diagnosed weakness; do not max out**," obey
@@ -196,7 +199,10 @@ the anti-patterns, prefer adaptive thinking, soften imperatives, emit prompt + c
 `prompt-engineering-improve`'s rewrite step read this file by `${CLAUDE_PLUGIN_ROOT}` path, so the
 procedure (not only the catalogue) has a single home with two readers.
 
-**`references/anti-patterns.md`:** say what to do; no over-prompting (`CRITICAL: YOU MUST…`); keep
+**`references/anti-patterns.md`:** prefer positive instructions, but the test is **specificity, not
+polarity** — a *named* failure-mode prohibition ("do not invent unstated facts") is concrete and
+belongs (Rung 3); only *vague* negatives ("be accurate", "avoid bias") are the anti-pattern. No
+over-prompting (`CRITICAL: YOU MUST…`); keep
 examples consistent with edited instructions; concrete ranges over "be concise"; **don't ask the LLM
 to do what code should** (the plugin's north-star thesis, shared with `workflow-design`); resolve
 conflicting rules; prefer private reasoning over forced *exposed* chain-of-thought. Best-practice-only
@@ -262,15 +268,22 @@ checkpoint).
 | Dominant failure theme | Next rung to escalate to |
 |---|---|
 | Mandatory-criterion failures (score capped ≤ 3) | Fix that gate **first** |
+| Fabricated / unsupported content the model **added** | Guardrails: named prohibitions + enforced source labels (Rung 3) |
 | Missing required content | Process steps; examples showing the requirement |
 | Format / structure drift, inconsistency | XML structure + multishot examples |
 | Shallow / wrong reasoning on hard cases | Adaptive thinking / reasoning scaffolding |
-| Tone / style off | Role framing + output guidelines + examples |
+| Tone / style off (incl. filler / boilerplate) | Role framing + output guidelines; filler → a named prohibition (Rung 3) |
 | Conflicting / ambiguous instructions | Resolve the conflict (anti-pattern), don't add more |
 
+The `fabrication` tally is **precision-tuned**: `improve_step.py` flags only unambiguous added-content
+verbs (fabricate/invent/hallucinate/made-up-`<noun>`); ambiguous "unsupported…" / "not in the input"
+phrasing is left to the model + the criteria-vs-prompt guard, since the same words describe a dataset
+problem (the opposite routing).
+
 **Diagnosis priority + tie-break** (applied by `improve_step.py`): (1) mandatory-criterion failures;
-(2) failures across ≥ 30% of cases; (3) largest score-impacting weakness; (4) format/structure;
-(5) tone/style. Ties → earliest item unless the user overrides.
+(2) fabricated/unsupported added content (usually itself a mandatory fail; erodes trust fastest);
+(3) failures across ≥ 30% of cases; (4) largest score-impacting weakness; (5) format/structure;
+(6) tone/style. Ties → earliest item unless the user overrides.
 
 **Criteria-vs-prompt guard.** Route to `create-dataset` when the judge complains about content not in
 the inputs, the rubric demands an unstated style/format, the rationale conflicts with the rubric, or

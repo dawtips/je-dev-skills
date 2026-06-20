@@ -46,19 +46,16 @@ class TestTally(unittest.TestCase):
         self.assertIn("fabrication", hallu["theme_pct"])
         self.assertNotIn("reasoning", hallu["theme_pct"])
 
-    def test_unsupported_does_not_overmatch_non_fabrication(self):
-        # 'unsupported' is only a fabrication signal when it qualifies a claim/fact/etc -
-        # not for 'unsupported reasoning' (reasoning) or 'unsupported formatting' (structure).
-        cases = [
-            {"score": 5, "verdict": {"weaknesses": ["unsupported reasoning on the hard case"]}},
-            {"score": 5, "verdict": {"weaknesses": ["unsupported formatting choice; sections out of order"]}},
-        ]
-        for c in cases:
-            themes = diagnose_tally([c])["theme_pct"]
-            self.assertNotIn("fabrication", themes, msg=c["verdict"]["weaknesses"])
-        # but a qualified phrase still fires fabrication.
-        themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["unsupported claim about revenue"]}}])["theme_pct"]
-        self.assertIn("fabrication", themes)
+    def test_unsupported_phrasing_is_left_to_judgment_not_auto_tallied(self):
+        # Precision-over-recall: the deterministic flag fires only on added-content verbs.
+        # Ambiguous 'unsupported <noun>' phrasing is NOT auto-tallied (it equally describes a
+        # §1 criteria problem) - it is left to the model's judgment, the documented backstop.
+        for w in ["unsupported reasoning on the hard case",
+                  "unsupported formatting choice; sections out of order",
+                  "unsupported claim about revenue",
+                  "criteria requires unsupported content not in the input"]:
+            themes = diagnose_tally([{"score": 5, "verdict": {"weaknesses": [w]}}])["theme_pct"]
+            self.assertNotIn("fabrication", themes, msg=w)
 
     def test_fabrication_keywords_avoid_common_substring_collisions(self):
         # Composition / creative-writing phrasings must NOT tally as fabrication.

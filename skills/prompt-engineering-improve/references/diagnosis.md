@@ -56,7 +56,11 @@ cheapest technique rung that addresses it. Rungs are defined in
 > `fabrication` means the model **added** content the input doesn't support — the opposite
 > of a §1 criteria problem (the *rubric* demanding content the case can't provide, which
 > routes to dataset repair, not a prompt fix). Apply the §1 gate first; only added-content
-> failures are fabrication.
+> failures are fabrication. The deterministic `fabrication` tally is precision-tuned: it
+> flags only unambiguous added-content verbs (fabricate/invent/hallucinate/made-up-`<noun>`)
+> and intentionally leaves "unsupported…"/"not in the input" phrasing to your judgment here
+> (those words equally describe the §1 dataset problem). A theme the tally misses, you still
+> name from the verdicts — the tally is a hint, not the classifier.
 >
 > A persistent "good-enough" quality drift that no single theme above captures points to
 > a missing **self-check** (Rung 3 guardrail), scoped to judgment bars only.

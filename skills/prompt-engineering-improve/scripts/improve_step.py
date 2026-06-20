@@ -193,8 +193,15 @@ THEME_KEYWORDS = {
 # These patterns catch invent/invents/invented/inventing and "made up a <noun>" WITHOUT
 # firing on "inventory", "made up of", creative-writing critiques, or criteria-problem
 # phrasing ("content not in the input" = a §1 dataset problem, the opposite of fabrication).
-# STRONG signals — an added-content *verb*: the model did it, so it is fabrication
-# regardless of surrounding wording.
+# Fabrication is HIGH-PRIORITY in diagnosis.md, so this deterministic flag is tuned for
+# PRECISION over recall: it fires only on unambiguous added-content *verbs* — the model
+# plainly produced something. It deliberately does NOT try to classify ambiguous phrasing
+# like "unsupported claim" or "details not in the input", because the same words describe a
+# §1 *criteria* problem (the rubric demanding the unprovidable) — the opposite routing. That
+# disambiguation is the model's job (diagnosis.md §1 runs first, then the model names the
+# dominant theme); a hint this tally misses is recovered there. A false high-priority hit is
+# not, so we accept lower recall to avoid misrouting. (The tally is "NOT a classifier" — see
+# the THEME_KEYWORDS note above; this mirrors that contract.)
 FABRICATION_STRONG = [re.compile(p) for p in (
     r"\bfabricat",                                       # fabricate / -d / -ion
     r"\binvent(s|ed|ing)?\b",                            # invent / -s / -ed / -ing (not inventory)
@@ -202,18 +209,10 @@ FABRICATION_STRONG = [re.compile(p) for p in (
     r"\bmade[- ]up\s+(?:a |an |the )?"
     r"(?:claim|fact|statistic|citation|quote|detail|number|source)",   # not "made up of"
 )]
-# WEAK signal — "unsupported <noun>" describes the *content*, not who is at fault. It is
-# fabrication only when the weakness is about the model's output; inside a criteria/rubric
-# framing it is instead a §1 dataset problem (the rubric demanding the unprovidable), which
-# must route to dataset repair, not the Rung 3 guardrail.
-FABRICATION_WEAK = re.compile(r"\bunsupported\s+(?:claim|fact|content|statistic|source|citation)")
-CRITERIA_FRAMING = re.compile(r"\b(criteria|rubric|the judge|judge'?s|dataset|test case)\b")
 
 
 def _is_fabrication(weaknesses: str) -> bool:
-    if any(p.search(weaknesses) for p in FABRICATION_STRONG):
-        return True
-    return bool(FABRICATION_WEAK.search(weaknesses)) and not CRITERIA_FRAMING.search(weaknesses)
+    return any(p.search(weaknesses) for p in FABRICATION_STRONG)
 
 
 def diagnose_tally(results: list[dict]) -> dict:
