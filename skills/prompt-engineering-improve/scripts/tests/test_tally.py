@@ -74,6 +74,21 @@ class TestTally(unittest.TestCase):
         themes = diagnose_tally([{"score": 6, "verdict": {"weaknesses": ["inventory list is wrong"]}}])["theme_pct"]
         self.assertNotIn("fabrication", themes)
 
+    def test_negated_or_guardrail_context_is_not_fabrication(self):
+        # A fabrication stem in a negation / guardrail-discussion context is not an actual
+        # added-content finding and must not tally (it is high-priority, so a false hit
+        # misroutes the loop).
+        for w in ["no evidence of fabrication in the output",
+                  "missing anti-fabrication guardrail",
+                  "does not forbid inventing facts",
+                  "did not fabricate anything",
+                  "no invented statistics"]:
+            themes = diagnose_tally([{"score": 6, "verdict": {"weaknesses": [w]}}])["theme_pct"]
+            self.assertNotIn("fabrication", themes, msg=w)
+        # a real finding in the same sentence as the word 'not' (after the verb) still fires.
+        themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["fabricated a quote, not paraphrased"]}}])["theme_pct"]
+        self.assertIn("fabrication", themes)
+
     def test_criteria_problem_phrasing_is_not_fabrication(self):
         # "not in the input/source" describes an IMPOSSIBLE case (criteria problem, route to
         # dataset repair per diagnosis.md §1), NOT model-added content. Must not tally as

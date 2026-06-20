@@ -211,7 +211,20 @@ FABRICATION_STRONG = [re.compile(p) for p in (
 )]
 
 
+# Suppress when a fabrication stem appears in a NEGATION or guardrail-discussion context
+# ("no evidence of fabrication", "missing anti-fabrication guardrail", "does not forbid
+# inventing") rather than as an actual added-content finding. Substring tallies can't fully
+# model negation (true of every theme here) — this covers the common forms; the rest is the
+# model's call, per the "hint, not classifier" contract.
+FABRICATION_NEGATED = re.compile(
+    r"\b(no|not|n't|without|missing|lacks?|absent|anti)\b[\w\s-]{0,30}?"
+    r"(fabricat|invent|hallucinat)"
+)
+
+
 def _is_fabrication(weaknesses: str) -> bool:
+    if FABRICATION_NEGATED.search(weaknesses):
+        return False
     return any(p.search(weaknesses) for p in FABRICATION_STRONG)
 
 
