@@ -1,6 +1,6 @@
 {
   "name": "je-dev-skills",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Build agent applications inside Claude Code end to end: design the workflow into a validated and reviewed blueprint (workflow-design-*), author prompts (prompt-engineering-author), build and run Claude-Code-native artifacts with no API key on the interactive path (agent-build-*), measure them (prompt-evals-*), and improve them through an eval-driven loop (prompt-engineering-improve).",
   "author": {
     "name": "dawtips",
@@ -8,5 +8,32 @@
   },
   "repository": "https://github.com/dawtips/je-dev-skills",
   "license": "MIT",
-  "keywords": ["agent-development", "evaluation", "evals", "prompt-engineering", "prompt-authoring", "prompt-improvement", "llm-as-judge", "testing", "agents", "workflow", "orchestration", "blueprint", "agent-design", "semantic-review", "scaffold", "subagents", "project-setup", "storybloq", "superpowers", "project-documentation", "project-inventory", "inventory", "workflow-documentation", "mermaid", "diagram", "visualization"]
+  "keywords": [
+    "agent-development",
+    "evaluation",
+    "evals",
+    "prompt-engineering",
+    "prompt-authoring",
+    "prompt-improvement",
+    "llm-as-judge",
+    "testing",
+    "agents",
+    "workflow",
+    "orchestration",
+    "blueprint",
+    "agent-design",
+    "semantic-review",
+    "scaffold",
+    "subagents",
+    "project-setup",
+    "storybloq",
+    "superpowers",
+    "project-documentation",
+    "project-inventory",
+    "inventory",
+    "workflow-documentation",
+    "mermaid",
+    "diagram",
+    "visualization"
+  ]
 }
