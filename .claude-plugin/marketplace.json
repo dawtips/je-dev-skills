@@ -11,7 +11,7 @@
       "name": "je-dev-skills",
       "source": "./",
       "description": "Author prompts, measure them with evals, and improve them in an eval-driven loop inside Claude Code — plus bootstrap a project's storybloq + superpowers dev workflow.",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "category": "development",
       "author": {
         "name": "dawtips",
