@@ -189,9 +189,9 @@ THEME_KEYWORDS = {
     # signals (verbs + qualified "unsupported <noun>"). Deliberately NOT bare "not in the
     # input"/"not in the source": those describe a CRITERIA problem (the rubric demands
     # content the case can't provide) the §1 guard must catch — opposite of fabrication.
-    "fabrication": ["fabricat", "invented", "made up", "made-up", "unsupported claim",
+    "fabrication": ["fabricat", "invented", "hallucinat", "unsupported claim",
                     "unsupported fact", "unsupported content", "unsupported statistic",
-                    "unsupported source", "hallucinat", "fictional"],
+                    "unsupported source"],
 }
 
 

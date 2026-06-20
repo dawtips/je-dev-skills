@@ -60,6 +60,18 @@ class TestTally(unittest.TestCase):
         themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["unsupported claim about revenue"]}}])["theme_pct"]
         self.assertIn("fabrication", themes)
 
+    def test_fabrication_keywords_avoid_common_substring_collisions(self):
+        # Composition / creative-writing phrasings must NOT tally as fabrication.
+        for w in ["made up of too many bullet points",
+                  "the fictional setting is inconsistent across scenes",
+                  "list is made up of redundant items"]:
+            themes = diagnose_tally([{"score": 6, "verdict": {"weaknesses": [w]}}])["theme_pct"]
+            self.assertNotIn("fabrication", themes, msg=w)
+        # genuine added-content phrasings still fire.
+        for w in ["invented a statistic", "fabricated a quote", "hallucinated a citation"]:
+            themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": [w]}}])["theme_pct"]
+            self.assertIn("fabrication", themes, msg=w)
+
     def test_criteria_problem_phrasing_is_not_fabrication(self):
         # "not in the input/source" describes an IMPOSSIBLE case (criteria problem, route to
         # dataset repair per diagnosis.md §1), NOT model-added content. Must not tally as
