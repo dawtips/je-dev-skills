@@ -93,7 +93,9 @@ class TestTally(unittest.TestCase):
         for w in ["does not cite sources and fabricates statistics",
                   "does not follow format and invents facts",
                   "without required structure and fabricated claims",
-                  "missing citations and fabricated details"]:
+                  "missing citations and fabricated details",
+                  "does not cite sources: fabricates statistics",   # colon separator
+                  "weak intro - fabricated a statistic"]:            # dash separator
             themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": [w]}}])["theme_pct"]
             self.assertIn("fabrication", themes, msg=w)
 

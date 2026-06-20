@@ -218,8 +218,14 @@ FABRICATION_STRONG = [re.compile(p) for p in (
 # fabricates statistics") can't cancel a real fabrication in another clause. Substring
 # tallies can't fully model negation (true of every theme) — this covers the common forms;
 # the rest is the model's call, per the "hint, not classifier" contract.
-_CLAUSE_SPLIT = re.compile(r"[,;.]|\band\b|\bbut\b|\bwhile\b|\byet\b")
+# Space-bounded dash only — never split intra-word hyphens ("made-up", "anti-fabrication").
+_CLAUSE_SPLIT = re.compile(r"[,;.:\n]|\s[-—]\s|\band\b|\bbut\b|\bwhile\b|\byet\b")
 FABRICATION_NEGATED = re.compile(r"\b(no|not|n't|without|missing|lacks?|absent|anti)\b")
+# KNOWN LIMITATION: this is keyword/clause negation, not full NLU. Contrastive ("should not
+# invent facts but did") and cross-noun ("no source for invented stats") phrasings can still
+# be mis-scored — true of every theme's substring tally. The tally only SURFACES candidates;
+# diagnosis.md requires the model to confirm the theme against the actual verdict text, where
+# such phrasing is understood. Do not treat the count as ground truth.
 
 
 def _is_fabrication(weaknesses: str) -> bool:
