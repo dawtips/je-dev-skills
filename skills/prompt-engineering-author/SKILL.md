@@ -31,7 +31,9 @@ prompt -> B.
 
 1. **Clarify the task.** Name the deliverable, its scope, the audience, and the success
    condition. Identify the input variables - each becomes a `{placeholder}`. Identify the
-   output shape (sections, length as a concrete range).
+   output shape (sections, length as a concrete range). Name the **likely failure modes**
+   for this task (fabricating unstated facts, filler openers, biased terms, "good-enough"
+   drift) - they drive the Rung 3 guardrails.
 2. **Climb the ladder only as far as needed.** Read
    `${CLAUDE_PLUGIN_ROOT}/skills/prompt-engineering-author/references/techniques.md` and
    start at Rung 1, adding rungs only if the task genuinely needs them.
@@ -62,7 +64,7 @@ prompt -> B.
 
 - **Single-shot prompts only** in v1. If the task needs two jobs (extract->summarize) or
   multiple tools, that is chaining/agentic - flag it and point to `workflow-design-*` /
-  `agent-build-*`, do not cram it into one prompt (techniques.md Rung 7).
+  `agent-build-*`, do not cram it into one prompt (techniques.md Rung 8).
 - This skill does **not** define success criteria or build datasets (that is
   `prompt-evals-create-dataset`) and does **not** run evals (that is
   `prompt-evals-run` / `prompt-engineering-improve`).

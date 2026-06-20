@@ -26,6 +26,26 @@ class TestTally(unittest.TestCase):
         self.assertIn("format_structure", themes)
         self.assertEqual(themes["format_structure"], 25.0)
 
+    def test_fabrication_and_filler_themes_detected(self):
+        results = [
+            {"score": 3, "verdict": {"weaknesses": ["fabricated a pain point not in the input"]}},
+            {"score": 4, "verdict": {"weaknesses": ["invented a statistic the source does not support"]}},
+            {"score": 6, "verdict": {"weaknesses": ["opens with filler boilerplate"]}},
+            {"score": 8, "verdict": {"weaknesses": []}},
+        ]
+        tally = diagnose_tally(results)
+        themes = tally["theme_pct"]
+        # Two cases describe added/unsupported content -> fabrication theme.
+        self.assertIn("fabrication", themes)
+        self.assertEqual(themes["fabrication"], 50.0)
+        # 'filler'/'boilerplate' is tallied under tone_style.
+        self.assertIn("tone_style", themes)
+        self.assertEqual(themes["tone_style"], 25.0)
+        # 'hallucinat*' now counts as fabrication, not reasoning.
+        hallu = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["hallucinated a quote"]}}])
+        self.assertIn("fabrication", hallu["theme_pct"])
+        self.assertNotIn("reasoning", hallu["theme_pct"])
+
     def test_empty_results_is_zeroed(self):
         tally = diagnose_tally([])
         self.assertEqual(tally["mandatory_fail_count"], 0)

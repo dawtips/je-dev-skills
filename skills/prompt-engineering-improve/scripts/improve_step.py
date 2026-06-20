@@ -179,9 +179,15 @@ def _diminishing_rule(rounds, params):
 THEME_KEYWORDS = {
     "missing_content": ["missing", "omitted", "absent", "did not include", "left out"],
     "format_structure": ["format", "structure", "inconsistent", "ordering", "schema"],
-    "reasoning": ["reasoning", "logic", "incorrect", "wrong", "shallow", "hallucin"],
-    "tone_style": ["tone", "style", "voice", "register", "verbose", "terse"],
+    "reasoning": ["reasoning", "logic", "incorrect", "wrong", "shallow"],
+    "tone_style": ["tone", "style", "voice", "register", "verbose", "terse",
+                   "filler", "boilerplate"],
     "conflicting": ["conflict", "ambiguous", "contradict", "unclear instruction"],
+    # Content the model added that the input does not support: the failure a positive
+    # instruction can't prevent (diagnosis.md routes this to the named-prohibition
+    # guardrail, not to more "be accurate" prose).
+    "fabrication": ["fabricat", "invented", "made up", "made-up", "not in the input",
+                    "not in the source", "unsupported", "hallucinat", "fictional"],
 }
 
 

@@ -46,21 +46,27 @@ cheapest technique rung that addresses it. Rungs are defined in
 | Dominant failure theme | Tally key | Next rung to escalate to |
 |---|---|---|
 | Mandatory-criterion failures (score <= 3) | `mandatory_fail_count` | Fix that gate **first** |
+| Fabricated / unsupported content (added, not in the input) | `fabrication` | Guardrails: named prohibitions ("do not invent…") + enforced source labels (techniques.md Rung 3) |
 | Missing required content | `missing_content` | Process steps; examples showing the requirement |
 | Format / structure drift, inconsistency | `format_structure` | XML structure + multishot examples |
 | Shallow / wrong reasoning on hard cases | `reasoning` | Adaptive thinking / reasoning scaffolding |
-| Tone / style off | `tone_style` | Role framing + output guidelines + examples |
+| Tone / style off (incl. filler / boilerplate) | `tone_style` | Role framing + output guidelines; filler → a named prohibition (Rung 3) |
 | Conflicting / ambiguous instructions | `conflicting` | Resolve the conflict (anti-pattern) - do not add more |
+
+> A persistent "good-enough" quality drift that no single theme above captures points to
+> a missing **self-check** (Rung 3 guardrail), scoped to judgment bars only.
 
 ## 4. Priority + tie-break (applied by the model using improve_step.py's tally)
 
 When several themes are present, address them in this priority order:
 
 1. Mandatory-criterion failures.
-2. Failures across **>= 30%** of cases (`theme_pct >= 30`).
-3. Largest score-impacting weakness.
-4. Format / structure.
-5. Tone / style.
+2. Fabricated / unsupported content (`fabrication`) - it usually *is* a mandatory fail and
+   erodes trust fastest; guard it before polishing anything else.
+3. Failures across **>= 30%** of cases (`theme_pct >= 30`).
+4. Largest score-impacting weakness.
+5. Format / structure.
+6. Tone / style.
 
 **Ties -> earliest item** in this list, unless the user overrides. Pick the **minimum**
 rung that fixes the diagnosed weakness - do not max out the ladder (see
