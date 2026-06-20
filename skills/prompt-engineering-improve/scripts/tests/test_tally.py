@@ -60,6 +60,16 @@ class TestTally(unittest.TestCase):
         themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["unsupported claim about revenue"]}}])["theme_pct"]
         self.assertIn("fabrication", themes)
 
+    def test_criteria_problem_phrasing_is_not_fabrication(self):
+        # "not in the input/source" describes an IMPOSSIBLE case (criteria problem, route to
+        # dataset repair per diagnosis.md §1), NOT model-added content. Must not tally as
+        # fabrication, which is high-priority and would misroute the loop to Rung 3.
+        for w in ["criteria expects market-size details not in the input",
+                  "requires sources not in the source documents",
+                  "judge wants data not in the input case"]:
+            themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": [w]}}])["theme_pct"]
+            self.assertNotIn("fabrication", themes, msg=w)
+
     def test_empty_results_is_zeroed(self):
         tally = diagnose_tally([])
         self.assertEqual(tally["mandatory_fail_count"], 0)

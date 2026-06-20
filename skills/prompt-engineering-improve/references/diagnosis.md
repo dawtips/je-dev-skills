@@ -46,13 +46,18 @@ cheapest technique rung that addresses it. Rungs are defined in
 | Dominant failure theme | Tally key | Next rung to escalate to |
 |---|---|---|
 | Mandatory-criterion failures (score <= 3) | `mandatory_fail_count` | Fix that gate **first** |
-| Fabricated / unsupported content (added, not in the input) | `fabrication` | Guardrails: named prohibitions ("do not invent…") + enforced source labels (techniques.md Rung 3) |
+| Fabricated / unsupported content the model **added** | `fabrication` | Guardrails: named prohibitions ("do not invent…") + enforced source labels (techniques.md Rung 3) |
 | Missing required content | `missing_content` | Process steps; examples showing the requirement |
 | Format / structure drift, inconsistency | `format_structure` | XML structure + multishot examples |
 | Shallow / wrong reasoning on hard cases | `reasoning` | Adaptive thinking / reasoning scaffolding |
 | Tone / style off (incl. filler / boilerplate) | `tone_style` | Role framing + output guidelines; filler → a named prohibition (Rung 3) |
 | Conflicting / ambiguous instructions | `conflicting` | Resolve the conflict (anti-pattern) - do not add more |
 
+> `fabrication` means the model **added** content the input doesn't support — the opposite
+> of a §1 criteria problem (the *rubric* demanding content the case can't provide, which
+> routes to dataset repair, not a prompt fix). Apply the §1 gate first; only added-content
+> failures are fabrication.
+>
 > A persistent "good-enough" quality drift that no single theme above captures points to
 > a missing **self-check** (Rung 3 guardrail), scoped to judgment bars only.
 

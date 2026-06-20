@@ -183,13 +183,15 @@ THEME_KEYWORDS = {
     "tone_style": ["tone", "style", "voice", "register", "verbose", "terse",
                    "filler", "boilerplate"],
     "conflicting": ["conflict", "ambiguous", "contradict", "unclear instruction"],
-    # Content the model added that the input does not support: the failure a positive
+    # Content the model ADDED that the input does not support: the failure a positive
     # instruction can't prevent (diagnosis.md routes this to the named-prohibition
-    # guardrail, not to more "be accurate" prose).
-    "fabrication": ["fabricat", "invented", "made up", "made-up", "not in the input",
-                    "not in the source", "unsupported claim", "unsupported fact",
-                    "unsupported content", "unsupported statistic", "unsupported source",
-                    "hallucinat", "fictional"],
+    # guardrail, not to more "be accurate" prose). Match only unambiguous added-content
+    # signals (verbs + qualified "unsupported <noun>"). Deliberately NOT bare "not in the
+    # input"/"not in the source": those describe a CRITERIA problem (the rubric demands
+    # content the case can't provide) the §1 guard must catch — opposite of fabrication.
+    "fabrication": ["fabricat", "invented", "made up", "made-up", "unsupported claim",
+                    "unsupported fact", "unsupported content", "unsupported statistic",
+                    "unsupported source", "hallucinat", "fictional"],
 }
 
 
