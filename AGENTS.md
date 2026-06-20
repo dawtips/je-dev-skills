@@ -115,16 +115,6 @@ version that includes the just-merged work.
 python3 tools/skill_lint.py --root .
 python3 -m unittest discover -s tools/tests -t tools
 (cd skills/prompt-evals-setup/framework && python3 -m unittest discover -s evals/tests -t .)
-python3 -m unittest discover -s skills/workflow-design-validate/scripts/tests -t skills/workflow-design-validate/scripts
-python3 -m unittest discover -s skills/workflow-design-review/scripts/tests -t skills/workflow-design-review/scripts
-python3 -m unittest discover -s skills/workflow-design-advise/scripts/tests -t skills/workflow-design-advise/scripts
-python3 -m unittest discover -s skills/workflow-document-project/scripts/tests -t skills/workflow-document-project/scripts
-python3 -m unittest discover -s skills/workflow-design-visualize/scripts/tests -t skills/workflow-design-visualize/scripts
 python3 -m unittest discover -s skills/dev-workflow-init/scripts/tests -t skills/dev-workflow-init/scripts
-python3 -m unittest discover -s skills/agent-build-scaffold/scripts/tests -t skills/agent-build-scaffold/scripts
 python3 -m unittest discover -s skills/prompt-engineering-improve/scripts/tests -t skills/prompt-engineering-improve/scripts
 ```
-
-> The `agent-build-scaffold` suite executes the generated bash hook/script artifacts
-> through an explicit `bash`, so it runs cross-platform (incl. Windows-native Python with
-> Git Bash on PATH). The script-executing tests skip when no `bash` is found.

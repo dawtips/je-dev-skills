@@ -1,7 +1,7 @@
 # Anti-patterns - what NOT to do
 
 Read alongside `techniques.md`. Every rung you climb risks one of these. The north-star
-thesis (shared with `workflow-design-*`): **don't ask the LLM to do what code should.**
+thesis: **don't ask the LLM to do what code should.**
 
 ## Prefer a positive instruction — but a *named* prohibition beats a vague one
 

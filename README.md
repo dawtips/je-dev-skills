@@ -1,7 +1,8 @@
 # je-dev-skills
 
-A Claude Code **plugin** that helps build agent applications end to end, with
-deterministic code over non-deterministic model work wherever possible.
+A Claude Code **plugin** for authoring, measuring, and improving prompts — plus
+bootstrapping a project's development workflow — with deterministic code over
+non-deterministic model work wherever possible.
 
 ## Install
 
@@ -35,11 +36,11 @@ implement + verify → handover → **delete plan**. This is how *this* repo is 
 
 ## Lifecycle
 
-**Design -> author -> build & run -> measure -> improve**, one journey:
+**Author -> measure -> improve**, one journey:
 
 ```text
-workflow-document-project / workflow-design-* -> prompt-engineering-author -> agent-build-* -> prompt-evals-* -> prompt-engineering-improve
-        (project-first design) / (idea-first design)      (author prompts)    (build/run)      (measure)          (improve loop)
+prompt-engineering-author -> prompt-evals-* -> prompt-engineering-improve
+     (author prompts)          (measure)          (improve loop)
 ```
 
 The interactive path runs inside Claude Code on session auth and does not need an
@@ -48,10 +49,8 @@ API key. Headless or CI execution uses the keyed fallback (`ANTHROPIC_API_KEY`).
 | Skill group | Invoke | What it does |
 |-------------|--------|--------------|
 | `dev-workflow-init` | `/je-dev-skills:dev-workflow-init` | Bootstrap the storybloq + superpowers dev workflow into a project: `.story/` memory, `docs/superpowers/{specs,plans}`, and an `AGENTS.md`/`CLAUDE.md` working agreement. |
-| `workflow-document-project` + `workflow-design-*` | `/je-dev-skills:workflow-document-project`, `/je-dev-skills:workflow-design-{interview,validate,advise,review,visualize}` | Start from an existing project inventory or from an idea, produce a draft `./workflows/<name>.blueprint.md`, validate structure, get model/effort advice, run advisory semantic review, and render a Mermaid diagram (`workflow-design-visualize`). |
 | `prompt-engineering-author` | `/je-dev-skills:prompt-engineering-author` | Author or refactor a strong single-shot prompt from a task description, eval-free. |
-| `agent-build-*` | `/je-dev-skills:agent-build-{scaffold,run}` | Render a validated blueprint plus authored prompts into `.claude/` subagents, hooks, scripts, and an entry-point command, then drive them in-session one level deep. |
-| `prompt-evals-*` | `/je-dev-skills:prompt-evals-{setup,create-dataset,run}` | Scaffold plugin-resident eval artifacts around a prompt, freeze a dataset, run the prompt or agent under test, and grade outputs into a scored report. |
+| `prompt-evals-*` | `/je-dev-skills:prompt-evals-{setup,create-dataset,run}` | Scaffold plugin-resident eval artifacts around a prompt, freeze a dataset, run the prompt under test, and grade outputs into a scored report. |
 | `prompt-engineering-improve` | `/je-dev-skills:prompt-engineering-improve` | Drive an eval-measured improve loop with deterministic stopping rules and model-authored rewrites. |
 
 Cost note: the interactive subagent-dispatch path uses the Claude Code session.
@@ -59,13 +58,8 @@ Headless/CI runs draw on keyed API usage. A full eval round is roughly two model
 turns per case: execute plus grade.
 
 See the design specs:
-[WORKFLOW_DESIGN_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_SPEC.md),
-[workflow-document-project-spec.md](docs/superpowers/specs/2026-05-30-workflow-document-project-spec.md),
-[WORKFLOW_DESIGN_REVIEW_SPEC.md](docs/superpowers/specs/WORKFLOW_DESIGN_REVIEW_SPEC.md),
-[workflow-design-advanced-tooling-spec.md](docs/superpowers/specs/2026-05-30-workflow-design-advanced-tooling-spec.md)
-(the model/effort advisor),
-[agent-build-and-execution-spec.md](docs/superpowers/specs/2026-05-29-agent-build-and-execution-spec.md),
-and [prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md).
+[prompt-engineering-skills-design.md](docs/superpowers/specs/2026-05-29-prompt-engineering-skills-design.md)
+and [PROMPT_EVAL_FRAMEWORK_SPEC.md](docs/superpowers/specs/PROMPT_EVAL_FRAMEWORK_SPEC.md).
 
 ## Design & framework
 

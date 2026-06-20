@@ -1,7 +1,7 @@
 {
   "name": "je-dev-skills",
   "version": "0.5.0",
-  "description": "Build agent applications inside Claude Code end to end: design the workflow into a validated and reviewed blueprint (workflow-design-*), author prompts (prompt-engineering-author), build and run Claude-Code-native artifacts with no API key on the interactive path (agent-build-*), measure them (prompt-evals-*), and improve them through an eval-driven loop (prompt-engineering-improve).",
+  "description": "Author, measure, and improve prompts inside Claude Code: author a strong prompt (prompt-engineering-author), measure it with evals (prompt-evals-*), and improve it through an eval-driven loop (prompt-engineering-improve) — plus bootstrap a project's storybloq + superpowers dev workflow (dev-workflow-init).",
   "author": {
     "name": "dawtips",
     "email": "dawtips@gmail.com"
@@ -18,22 +18,8 @@
     "llm-as-judge",
     "testing",
     "agents",
-    "workflow",
-    "orchestration",
-    "blueprint",
-    "agent-design",
-    "semantic-review",
-    "scaffold",
-    "subagents",
     "project-setup",
     "storybloq",
-    "superpowers",
-    "project-documentation",
-    "project-inventory",
-    "inventory",
-    "workflow-documentation",
-    "mermaid",
-    "diagram",
-    "visualization"
+    "superpowers"
   ]
 }

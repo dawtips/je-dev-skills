@@ -63,8 +63,8 @@ prompt -> B.
 ## Boundaries
 
 - **Single-shot prompts only** in v1. If the task needs two jobs (extract->summarize) or
-  multiple tools, that is chaining/agentic - flag it and point to `workflow-design-*` /
-  `agent-build-*`, do not cram it into one prompt (techniques.md Rung 8).
+  multiple tools, that is chaining/agentic - flag it and recommend splitting into an
+  orchestrated multi-step workflow rather than cramming it into one prompt (techniques.md Rung 8).
 - This skill does **not** define success criteria or build datasets (that is
   `prompt-evals-create-dataset`) and does **not** run evals (that is
   `prompt-evals-run` / `prompt-engineering-improve`).

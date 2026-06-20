@@ -1,4 +1,0 @@
-PyYAML>=6.0
-# anthropic is only needed for Path B (the keyed headless/CI synthesis transport);
-# Path A (the default) and the deterministic core never import it.
-anthropic>=0.40.0

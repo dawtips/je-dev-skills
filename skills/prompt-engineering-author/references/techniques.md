@@ -84,8 +84,8 @@ shallow or wrong reasoning on the hard cases, arithmetic/logic slips.
 
 When one prompt is doing two jobs (e.g. extract then summarize), splitting into a chain
 helps - but a chain is **beyond single-shot** (v1 scope). **Flag it**: recommend the
-user consider `workflow-design-*` / `agent-build-*` rather than cramming two jobs into
-one prompt.
+user consider splitting into an orchestrated multi-step workflow rather than cramming two
+jobs into one prompt.
 
 ## Rung 9 - Long-context tips
 
