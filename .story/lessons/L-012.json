@@ -1,0 +1,19 @@
+{
+  "content": "Before acting on a feature/PR branch, verify its base is current and its ticket/issue IDs don't collide with the default branch (git merge-base distance; compare the ticket files). A stale branch can carry ticket IDs that main has since reassigned to different, completed work — editing them is wasted and would clobber on merge. Rebase + renumber to the next free IDs before continuing.",
+  "context": "This session: PR #4 ('Spec the interactive viewer') was 21 commits behind main; its T-025/T-026 collided with main's completed Path-A T-026 and a different T-025. I edited T-026.json acceptance criteria for several turns before the user flagged 'why are you writing T-026 which is a completed ticket'. Root cause: never compared the branch to current main. Fix applied: rebased onto main and renumbered the branch's tickets to T-028/T-029; later prompt-engineering work used T-030 to stay clear of the unmerged branch.",
+  "createdDate": "2026-06-20",
+  "id": "L-012",
+  "lastValidated": "2026-06-20",
+  "reinforcements": 0,
+  "source": "correction",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "git",
+    "storybloq",
+    "tickets",
+    "workflow"
+  ],
+  "title": "Check a branch's ticket IDs against the default branch before working it — stale branches collide",
+  "updatedDate": "2026-06-20"
+}

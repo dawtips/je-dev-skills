@@ -11,9 +11,9 @@
     "relatedTickets": [
         "T-030"
     ],
-    "resolution": null,
-    "resolvedDate": null,
+    "resolution": "Folded patterns into prompt-engineering-author (Rung 3 Guardrails + anti-pattern reconciliation) and prompt-engineering-improve (fabrication/filler diagnosis); durable spec updated. T-030.",
+    "resolvedDate": "2026-06-20",
     "severity": "medium",
-    "status": "open",
+    "status": "resolved",
     "title": "Adopt agent-prompt design patterns (negative lists, source-quality labels, named-pattern checks, quality self-check, narrow scope)"
 }
