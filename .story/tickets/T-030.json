@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-06-20",
+  "createdDate": "2026-06-20",
+  "description": "## Context\n\nISS-001: a field report on 52 production agents surfaced concrete agent-prompt design patterns our prompt-engineering skills should teach/enforce — explicit \"what you do NOT do\" lists, source-quality/output-structure labels, named pattern lists (with the why), a quality self-check, specific inputs, and one-agent-one-job scope.\n\nAudit found patterns 5 (specific inputs) and 6 (narrow scope) already covered (Rung 1; Rung 8 single-shot boundary). The substance is patterns 1/2/3/4, two of which are in tension with existing principles: named prohibitions vs. anti-patterns.md \"say what to do\", and an in-prompt self-check vs. the \"don't ask the LLM to do what code should\" north star.\n\n## Desired behavior\n\nFold the patterns in without bulldozing the tensions: reconcile prohibition guidance (vague negatives bad; specific named failure-mode prohibitions good), add a Guardrails technique rung (named prohibitions, enforced output-structure labels, named pattern lists, a guarded self-check), and teach the eval-driven improve loop to detect fabrication/filler so it routes to the new rung.\n\n## Acceptance criteria\n\n- prompt-engineering-author: anti-patterns.md reconciles positive-instruction vs named prohibition by *specificity*; techniques.md gains Rung 3 \"Guardrails: name the failure modes\" (renumbered ladder, cross-refs fixed); rewrite-procedure.md + SKILL.md thread it through.\n- The self-check guidance is scoped to genuine-judgment bars; deterministic checks stay in code/evals (north star preserved).\n- prompt-engineering-improve: improve_step.py THEME_KEYWORDS gains a `fabrication` theme (+ filler under tone_style) with offline tests; diagnosis.md maps fabrication/filler/self-check-drift to the Guardrails rung and bumps fabrication in the priority order.\n- `skill_lint.py` clean; prompt-engineering-improve offline suite green.\n- ISS-001 linked (relatedTickets) and given a phase.\n\n## Provenance\n\nISS-001 (discovered 2026-06-20). Source: Reddit field report on awesome-copilot-chat-agents.",
+  "id": "T-030",
+  "order": 50,
+  "phase": "prompt-engineering",
+  "status": "complete",
+  "title": "Fold ISS-001 agent-prompt patterns into prompt-engineering skills",
+  "type": "feature"
+}

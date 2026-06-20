@@ -3,10 +3,20 @@
 Read alongside `techniques.md`. Every rung you climb risks one of these. The north-star
 thesis (shared with `workflow-design-*`): **don't ask the LLM to do what code should.**
 
-## Say what to do, not what to avoid
+## Prefer a positive instruction — but a *named* prohibition beats a vague one
 
-"Write 3-5 bullets" beats "don't be too long." Positive, concrete instructions are
-followed more reliably than prohibitions.
+For anything you can state positively, do: "Write 3-5 bullets" beats "don't be too long."
+A *vague* negative ("don't be verbose", "avoid bias", "be accurate") is the anti-pattern —
+it names no concrete behavior, so the model can't tell when it has complied.
+
+The exception that is **not** an anti-pattern: a **specific, named prohibition of a known
+failure mode** — exactly when the failure is the model *adding* something no positive
+instruction can forbid. "Do not invent pain points the input doesn't state", "do not open
+with 'I hope this finds you well' or any filler", "do not use coded terms (rockstar,
+cultural fit)" each name one concrete behavior and the reason it's wrong. These are
+**concrete**, so they belong; see the "Guardrails" rung in `techniques.md`. The test is
+specificity, not polarity: "3-5 bullets" and "don't fabricate unstated facts" are both
+concrete; "be concise" and "be accurate" are both not.
 
 ## No over-prompting
 

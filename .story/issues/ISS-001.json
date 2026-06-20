@@ -1,0 +1,19 @@
+{
+    "components": [
+        "prompt-engineering-author",
+        "prompt-engineering-improve"
+    ],
+    "discoveredDate": "2026-06-20",
+    "id": "ISS-001",
+    "impact": "A field report on building 52 production agents surfaces concrete, transferable prompt-design patterns our prompt-engineering skills should teach/enforce. Each maps to a way vague prompt guidance underperforms at scale (a single bad response in a one-off prompt becomes a recurring pattern when an agent is reused by many people):\n\n1. Explicit \"WHAT YOU DO NOT DO\" lists beat aspirational accuracy instructions. Named prohibitions (\"do not fabricate pain points/priorities not in the input\"; \"do not open with 'I hope this email finds you well' or any filler warm-up\") stop the model filling gaps with plausible content. Generic \"be accurate\" does not.\n\n2. Source-quality labels beat \"cite your sources\". A mandatory output structure (e.g. tagging each item [News] / [PR] / [Analysis] and flagging when [PR] dominates) is a constraint the structure enforces; \"cite your sources\" is just a hope.\n\n3. Named pattern lists beat generic checks. Instead of \"avoid biased language\", enumerate the patterns and the reason for each (\"rockstar/ninja/guru\" = masculine-coded; \"native English speaker\" = national-origin risk; \"cultural fit\" without defined criteria = can mask bias). The named version catches what the generic one misses and explains the why.\n\n4. Every agent should end with a QUALITY SELF-CHECK it runs against its own output before delivering. Without one, the model decides what \"good enough\" means and it is always \"good enough\".\n\n5. Conversation starters / input prompts must be specific (\"Paste an objection and I'll classify it, find the real concern, and build a structured response\"), not vague (\"Help me with my email\"). Specific input -> specific output.\n\n6. One agent, one job. Overloaded instruction blocks that handle 5 document types do none well. Narrow scope on purpose; also respect platform char limits (the source capped each block at 8,000 chars for Copilot Studio).\n\nAction: audit prompt-engineering-author (does it prompt authors to add negative/prohibition lists, output-structure constraints, named-pattern checks, a self-check section, and to narrow scope?) and prompt-engineering-improve (does its review rubric flag missing prohibitions, vague checks, and overloaded scope?). Fold the strongest patterns into the skill guidance/checklists.\n\nSource: Reddit field report on awesome-copilot-chat-agents (https://github.com/kesslernity/awesome-copilot-chat-agents) — same design principles as the NerdyChefs prompts (specific input, explicit guardrails, named failure modes), deployed as 52 agents across 10 domains.",
+    "location": [],
+    "phase": "prompt-engineering",
+    "relatedTickets": [
+        "T-030"
+    ],
+    "resolution": "Folded patterns into prompt-engineering-author (Rung 3 Guardrails + anti-pattern reconciliation) and prompt-engineering-improve (fabrication/filler diagnosis); durable spec updated. T-030.",
+    "resolvedDate": "2026-06-20",
+    "severity": "medium",
+    "status": "resolved",
+    "title": "Adopt agent-prompt design patterns (negative lists, source-quality labels, named-pattern checks, quality self-check, narrow scope)"
+}

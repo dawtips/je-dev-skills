@@ -1,0 +1,20 @@
+{
+  "content": "When a deterministic keyword/substring signal feeds a decision, keep it precision-first and treat it as a candidate-surfacing HINT, not a classifier. Don't chase semantic edge cases (negation, contrast, directionality like added-vs-demanded content) with ever-more-baroque regex — those need NLU; defer them to the model and document the limitation in code + the skill doc.",
+  "context": "T-030 / ISS-001: added a `fabrication` theme to prompt-engineering-improve's THEME_KEYWORDS. A Codex adversarial-review loop found ~8 successive phrasing edge cases (broad 'unsupported' → criteria-problem collision → 'inventory'/'made up of' substring collisions → criteria-vs-fabrication directionality → negation 'no fabrication' → compound-clause over-suppression → contrastive 'should not invent but did'). Each fix surfaced a narrower case; the oscillation (too broad ↔ too narrow ↔ 'use regex') was the tell that the substring mechanism — whose own docstring says 'NOT a classifier' — had hit its inherent limit. Converged by tuning for precision (word-boundary verbs + clause/position negation) and documenting that the model confirms the theme against the verdict text.",
+  "createdDate": "2026-06-20",
+  "id": "L-011",
+  "lastValidated": "2026-06-20",
+  "reinforcements": 0,
+  "source": "review",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "prompt-engineering",
+    "determinism",
+    "code-review",
+    "regex",
+    "t-030"
+  ],
+  "title": "A keyword/substring tally can't classify negation or directionality — stop tuning, let the model confirm",
+  "updatedDate": "2026-06-20"
+}

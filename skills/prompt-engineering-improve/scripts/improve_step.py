@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from dataclasses import asdict, dataclass
 
@@ -179,10 +180,64 @@ def _diminishing_rule(rounds, params):
 THEME_KEYWORDS = {
     "missing_content": ["missing", "omitted", "absent", "did not include", "left out"],
     "format_structure": ["format", "structure", "inconsistent", "ordering", "schema"],
-    "reasoning": ["reasoning", "logic", "incorrect", "wrong", "shallow", "hallucin"],
-    "tone_style": ["tone", "style", "voice", "register", "verbose", "terse"],
+    "reasoning": ["reasoning", "logic", "incorrect", "wrong", "shallow"],
+    "tone_style": ["tone", "style", "voice", "register", "verbose", "terse",
+                   "filler", "boilerplate"],
     "conflicting": ["conflict", "ambiguous", "contradict", "unclear instruction"],
 }
+
+# Fabrication = content the model ADDED that the input does not support — the failure a
+# positive instruction can't prevent (diagnosis.md routes it to the Rung 3 named-prohibition
+# guardrail, not to more "be accurate" prose). It is high-priority, so precision matters and
+# it needs morphology-aware, word-boundary matching that plain substrings cannot express.
+# These patterns catch invent/invents/invented/inventing and "made up a <noun>" WITHOUT
+# firing on "inventory", "made up of", creative-writing critiques, or criteria-problem
+# phrasing ("content not in the input" = a §1 dataset problem, the opposite of fabrication).
+# Fabrication is HIGH-PRIORITY in diagnosis.md, so this deterministic flag is tuned for
+# PRECISION over recall: it fires only on unambiguous added-content *verbs* — the model
+# plainly produced something. It deliberately does NOT try to classify ambiguous phrasing
+# like "unsupported claim" or "details not in the input", because the same words describe a
+# §1 *criteria* problem (the rubric demanding the unprovidable) — the opposite routing. That
+# disambiguation is the model's job (diagnosis.md §1 runs first, then the model names the
+# dominant theme); a hint this tally misses is recovered there. A false high-priority hit is
+# not, so we accept lower recall to avoid misrouting. (The tally is "NOT a classifier" — see
+# the THEME_KEYWORDS note above; this mirrors that contract.)
+FABRICATION_STRONG = [re.compile(p) for p in (
+    r"\bfabricat",                                       # fabricate / -d / -ion
+    r"\binvent(s|ed|ing)?\b",                            # invent / -s / -ed / -ing (not inventory)
+    r"\bhallucinat",                                     # hallucinate / -d / -ion
+    r"\bmade[- ]up\s+(?:a |an |the )?"
+    r"(?:claim|fact|statistic|citation|quote|detail|number|source)",   # not "made up of"
+)]
+
+
+# A fabrication stem can appear in a NEGATION / guardrail-discussion context ("no evidence
+# of fabrication", "missing anti-fabrication guardrail", "does not forbid inventing") rather
+# than as a real added-content finding. Scope that check to the *clause*: split the weakness
+# on punctuation / conjunctions so a negation about one issue ("does NOT cite sources, and
+# fabricates statistics") can't cancel a real fabrication in another clause. Substring
+# tallies can't fully model negation (true of every theme) — this covers the common forms;
+# the rest is the model's call, per the "hint, not classifier" contract.
+# Space-bounded dash only — never split intra-word hyphens ("made-up", "anti-fabrication").
+_CLAUSE_SPLIT = re.compile(r"[,;.:\n]|\s[-—]\s|\band\b|\bbut\b|\bwhile\b|\byet\b")
+FABRICATION_NEGATED = re.compile(r"\b(no|not|n't|without|missing|lacks?|absent|anti)\b")
+# KNOWN LIMITATION: this is keyword/clause negation, not full NLU. Contrastive ("should not
+# invent facts but did") and cross-noun ("no source for invented stats") phrasings can still
+# be mis-scored — true of every theme's substring tally. The tally only SURFACES candidates;
+# diagnosis.md requires the model to confirm the theme against the actual verdict text, where
+# such phrasing is understood. Do not treat the count as ground truth.
+
+
+def _is_fabrication(weaknesses: str) -> bool:
+    # In each clause, a strong stem counts unless a negation precedes it *in that clause*.
+    # "Before the stem" matters: "fabricated X not in the input" is real fabrication (the
+    # 'not' describes the object), whereas "did not fabricate" is negated.
+    for clause in _CLAUSE_SPLIT.split(weaknesses):
+        for pattern in FABRICATION_STRONG:
+            m = pattern.search(clause)
+            if m and not FABRICATION_NEGATED.search(clause, 0, m.start()):
+                return True
+    return False
 
 
 def diagnose_tally(results: list[dict]) -> dict:
@@ -197,11 +252,14 @@ def diagnose_tally(results: list[dict]) -> dict:
                 "mandatory_fail_pct": 0.0, "theme_pct": {}}
     mandatory = sum(1 for r in results if int(r.get("score", 0)) <= MANDATORY_FAIL_MAX)
     theme_hits = {theme: 0 for theme in THEME_KEYWORDS}
+    theme_hits["fabrication"] = 0
     for r in results:
         weaknesses = " ".join(r.get("verdict", {}).get("weaknesses", [])).lower()
         for theme, keywords in THEME_KEYWORDS.items():
             if any(kw in weaknesses for kw in keywords):
                 theme_hits[theme] += 1
+        if _is_fabrication(weaknesses):
+            theme_hits["fabrication"] += 1
     theme_pct = {
         theme: round(100.0 * hits / total, 1)
         for theme, hits in theme_hits.items() if hits > 0

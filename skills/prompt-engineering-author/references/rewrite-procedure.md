@@ -22,9 +22,12 @@ It is part of the group contract - moving/renaming it breaks `prompt-engineering
 2. **Pick the MINIMUM rungs that fix it.** Use the diagnosis->rung map. Do **not** max
    out the ladder; every added rung costs tokens and risks over-prompting. Prefer the
    lowest rung that plausibly resolves the diagnosed theme.
-3. **Apply the rung(s)** to the prompt text, obeying every anti-pattern: say what to do,
-   keep examples consistent with edited instructions, concrete ranges, no over-prompting,
-   resolve conflicts, prefer adaptive thinking over forced exposed chain-of-thought.
+3. **Apply the rung(s)** to the prompt text, obeying every anti-pattern: prefer positive
+   instructions but use *named* prohibitions for add-content failure modes (Rung 3
+   guardrails), keep examples consistent with edited instructions, concrete ranges, no
+   over-prompting, resolve conflicts, prefer adaptive thinking over forced exposed
+   chain-of-thought. A self-check the prompt runs on its own output is for genuine-judgment
+   bars only - deterministic checks stay in code, never in the prompt.
 4. **Preserve the placeholders.** The set of `{placeholder}` variables must stay exactly
    the closed key set the dataset uses - do not add, drop, or rename a placeholder during
    a rewrite (that breaks the frozen dataset's contract; if the input set must change,
