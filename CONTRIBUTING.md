@@ -33,9 +33,8 @@ framework rather than routing users between two tools for the same task.
 
 - **Deterministic over non-deterministic where possible.** Closed-form logic (stopping math, coverage
   checks, deltas, tallies) is **code with offline `unittest` fixtures**, not prose — mirror
-  `workflow-design-validate/scripts/validate_blueprint.py`. Reserve the LLM for genuine judgment.
-- **Group-verb skill naming:** `workflow-design-*`, `prompt-engineering-*`, `agent-build-*`,
-  `prompt-evals-*`.
+  `prompt-engineering-improve/scripts/improve_step.py`. Reserve the LLM for genuine judgment.
+- **Group-verb skill naming:** `prompt-engineering-*`, `prompt-evals-*`.
 - **Skill descriptions** are third-person with concrete trigger phrases; **bodies** are
   imperative/infinitive (no second person). Use **progressive disclosure** — lean `SKILL.md`,
   detail in `references/` — where there is enough detail to defer; don't split short linear procedures
@@ -54,10 +53,10 @@ python3 -m unittest discover -s evals/tests -t .
 python3 -m evals.examples.smoke_test
 ```
 
-The workflow-blueprint validator's tests:
+The prompt-engineering improve-loop helper's tests:
 
 ```bash
-python3 -m unittest discover -s skills/workflow-design-validate/scripts/tests -t skills/workflow-design-validate/scripts
+python3 -m unittest discover -s skills/prompt-engineering-improve/scripts/tests -t skills/prompt-engineering-improve/scripts
 ```
 
 The skill linter (and its own tests) — run from the repo root:

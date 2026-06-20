@@ -13,7 +13,7 @@ CLI:
         [--held-out-output-json <path>] [--check-freeze]
 
 Exit codes: 0 = continue; 1 = stop (a stopping rule fired); 2 = bad input /
-freeze violation. Mirrors workflow-design-validate/scripts/validate_blueprint.py.
+freeze violation.
 """
 import argparse
 import hashlib

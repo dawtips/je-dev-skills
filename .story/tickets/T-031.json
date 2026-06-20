@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-06-20",
+  "createdDate": "2026-06-20",
+  "description": "User directive: get rid of the blueprint and viewer pieces completely (scope = entire blueprint ecosystem). Delete the 8 skills that read/write the v0.1 workflow-design blueprint: workflow-design-{interview,validate,review,advise,visualize}, workflow-document-project, agent-build-{scaffold,run}. Also delete their specs (WORKFLOW_DESIGN_SPEC, WORKFLOW_DESIGN_REVIEW_SPEC, advanced-tooling, document-project, agent-build-and-execution) and tools/tests skill tests, and scrub dangling references in README, AGENTS.md (test block), CONTRIBUTING.md, plugin.json/marketplace.json descriptions+keywords, and the prompt-engineering spec. Keep durable .story history (handovers/lessons/completed tickets) as-is. Verify: skill_lint + remaining offline test suites green; two review rounds. Then merge, cleanup, version bump 0.5.0 -> 0.6.0.",
+  "id": "T-031",
+  "order": 100,
+  "phase": "backlog",
+  "status": "complete",
+  "title": "Remove blueprint ecosystem (8 skills + specs + tests + refs)",
+  "type": "chore"
+}

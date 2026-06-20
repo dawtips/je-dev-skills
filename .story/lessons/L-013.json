@@ -1,0 +1,20 @@
+{
+  "content": "When removing a feature built around a shared artifact (e.g. the workflow-design \"blueprint\"), first map the full blast radius — skills, specs, tests, plugin manifests (description + keywords), AND prose cross-references inside surviving skills — because the artifact name leaks far beyond its own directory. Scrub all *living* docs/code to stay coherent and keep lint+tests green; but for *dated, approved* specs and `.story/` history, preserve them as historical record (a \"⚠️ Superseded\" banner + neutralised dead links), since they are durable contracts, not live docs.",
+  "context": "T-031 (2026-06-20): user asked to \"get rid of the blueprint and viewer pieces completely.\" Scope was ambiguous (blueprint = the v0.1 schema threaded through 8 skills, not one piece) so it was clarified before acting → user chose the entire ecosystem. Deleted 8 skills + 5 specs + 2 tool tests (~11k lines); dangling refs surfaced in README, AGENTS.md, CONTRIBUTING.md, both plugin manifests' descriptions+keywords, and prose in 4 surviving skills (incl. \"Mirrors workflow-design-validate\" code comments). Two review rounds (cross-file tracer + skill-reviewer) confirmed zero surviving functional dependency.",
+  "createdDate": "2026-06-20",
+  "id": "L-013",
+  "lastValidated": "2026-06-20",
+  "reinforcements": 0,
+  "source": "manual",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "refactor",
+    "deletion",
+    "blast-radius",
+    "specs",
+    "process"
+  ],
+  "title": "Removing a pervasive shared artifact: scrub living docs, banner the dated ones",
+  "updatedDate": "2026-06-20"
+}

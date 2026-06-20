@@ -7,15 +7,23 @@ caught an execution-model error (in-process Python cannot dispatch subagents). R
 implementation planning.
 **Plugin:** `je-dev-skills`
 
+> **⚠️ Superseded context (T-031, 2026-06-20).** The `workflow-design-*` and `agent-build-*`
+> groups this spec positions around prompt-engineering — and the blueprint artifact they
+> produced/consumed — were **removed from the plugin**. References to them below are
+> **historical** and describe the lifecycle as it stood when this design was approved. The
+> `prompt-engineering-author` and `prompt-engineering-improve` skills described here remain;
+> read every `workflow-design-*` / `agent-build-*` / blueprint mention as out-of-plugin
+> context, not a live dependency.
+
 > **Revision note.** Three locked decisions drive this revision: (1) the two skills are renamed to
 > the group-verb convention `prompt-engineering-author` / `prompt-engineering-improve`; (2) execution
 > is **in-Claude-Code, no direct API calls on the interactive path** — the prompt-under-test runs by
 > **subagent dispatch driven by the skill**, with a keyed client retained only as a headless/CI
 > fallback; (3) the runtime/orchestration gap (turning a design + prompts into a *running* agent) is
 > owned by the new **`agent-build-*`** group. The execution substrate, the framework paths, and the
-> composition invariant are defined in the companion **architecture spec**
-> ([`2026-05-29-agent-build-and-execution-spec.md`](./2026-05-29-agent-build-and-execution-spec.md));
-> this spec **consumes** it and does not redefine it.
+> composition invariant were defined in the companion architecture spec
+> (`2026-05-29-agent-build-and-execution-spec.md`, **removed in T-031** with the
+> `agent-build-*` group); this spec **consumed** it and did not redefine it.
 
 ## 1. Purpose
 

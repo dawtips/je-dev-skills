@@ -92,8 +92,7 @@ workflow`). From here, all further work goes through the loop in `AGENTS.md`.
 ## Boundaries
 
 - This skill **bootstraps** the workflow; it does not run it. The ongoing loop is owned by
-  the generated `AGENTS.md` (and, for agent apps, the `workflow-design-*` / `agent-build-*`
-  skills).
+  the generated `AGENTS.md`.
 - It does **not** install storybloq or superpowers as tools. The generated files are
   tool-neutral: they describe the working agreement and the durable artifacts, and they
   work whether or not the storybloq CLI is installed. Per `CONTRIBUTING.md`, depend on the

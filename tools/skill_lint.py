@@ -3,8 +3,7 @@
 Dogfoods the skill conventions the repo expects (see CONTRIBUTING.md) and guards
 against regressions a human review would miss — most valuably, a broken
 ``${CLAUDE_PLUGIN_ROOT}`` reference (the cross-skill coupling risk flagged in the
-prompt-engineering spec §7). Mirrors workflow-design-validate's structure: small,
-one-concern-per-function, unit-tested.
+prompt-engineering spec §7). Structured small: one-concern-per-function, unit-tested.
 
 Checks per skill (ERROR fails the lint; WARN is advisory):
 - ERROR: no SKILL.md / unparseable frontmatter / missing ``name`` or ``description``.
