@@ -193,14 +193,27 @@ THEME_KEYWORDS = {
 # These patterns catch invent/invents/invented/inventing and "made up a <noun>" WITHOUT
 # firing on "inventory", "made up of", creative-writing critiques, or criteria-problem
 # phrasing ("content not in the input" = a §1 dataset problem, the opposite of fabrication).
-FABRICATION_PATTERNS = [re.compile(p) for p in (
+# STRONG signals — an added-content *verb*: the model did it, so it is fabrication
+# regardless of surrounding wording.
+FABRICATION_STRONG = [re.compile(p) for p in (
     r"\bfabricat",                                       # fabricate / -d / -ion
     r"\binvent(s|ed|ing)?\b",                            # invent / -s / -ed / -ing (not inventory)
     r"\bhallucinat",                                     # hallucinate / -d / -ion
     r"\bmade[- ]up\s+(?:a |an |the )?"
     r"(?:claim|fact|statistic|citation|quote|detail|number|source)",   # not "made up of"
-    r"\bunsupported\s+(?:claim|fact|content|statistic|source|citation)",
 )]
+# WEAK signal — "unsupported <noun>" describes the *content*, not who is at fault. It is
+# fabrication only when the weakness is about the model's output; inside a criteria/rubric
+# framing it is instead a §1 dataset problem (the rubric demanding the unprovidable), which
+# must route to dataset repair, not the Rung 3 guardrail.
+FABRICATION_WEAK = re.compile(r"\bunsupported\s+(?:claim|fact|content|statistic|source|citation)")
+CRITERIA_FRAMING = re.compile(r"\b(criteria|rubric|the judge|judge'?s|dataset|test case)\b")
+
+
+def _is_fabrication(weaknesses: str) -> bool:
+    if any(p.search(weaknesses) for p in FABRICATION_STRONG):
+        return True
+    return bool(FABRICATION_WEAK.search(weaknesses)) and not CRITERIA_FRAMING.search(weaknesses)
 
 
 def diagnose_tally(results: list[dict]) -> dict:
@@ -221,7 +234,7 @@ def diagnose_tally(results: list[dict]) -> dict:
         for theme, keywords in THEME_KEYWORDS.items():
             if any(kw in weaknesses for kw in keywords):
                 theme_hits[theme] += 1
-        if any(p.search(weaknesses) for p in FABRICATION_PATTERNS):
+        if _is_fabrication(weaknesses):
             theme_hits["fabrication"] += 1
     theme_pct = {
         theme: round(100.0 * hits / total, 1)

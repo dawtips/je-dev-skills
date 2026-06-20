@@ -83,9 +83,16 @@ class TestTally(unittest.TestCase):
         # fabrication, which is high-priority and would misroute the loop to Rung 3.
         for w in ["criteria expects market-size details not in the input",
                   "requires sources not in the source documents",
-                  "judge wants data not in the input case"]:
+                  "judge wants data not in the input case",
+                  # 'unsupported <noun>' inside a criteria/rubric framing = §1 dataset problem.
+                  "criteria requires unsupported content not in the input",
+                  "rubric demands unsupported sources the case lacks",
+                  "the judge expects an unsupported citation"]:
             themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": [w]}}])["theme_pct"]
             self.assertNotIn("fabrication", themes, msg=w)
+        # but a STRONG added-content verb is fabrication even in a criteria sentence.
+        themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["the judge says the model fabricated a quote"]}}])["theme_pct"]
+        self.assertIn("fabrication", themes)
 
     def test_empty_results_is_zeroed(self):
         tally = diagnose_tally([])
