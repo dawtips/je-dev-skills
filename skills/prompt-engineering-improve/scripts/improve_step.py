@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from dataclasses import asdict, dataclass
 
@@ -183,16 +184,23 @@ THEME_KEYWORDS = {
     "tone_style": ["tone", "style", "voice", "register", "verbose", "terse",
                    "filler", "boilerplate"],
     "conflicting": ["conflict", "ambiguous", "contradict", "unclear instruction"],
-    # Content the model ADDED that the input does not support: the failure a positive
-    # instruction can't prevent (diagnosis.md routes this to the named-prohibition
-    # guardrail, not to more "be accurate" prose). Match only unambiguous added-content
-    # signals (verbs + qualified "unsupported <noun>"). Deliberately NOT bare "not in the
-    # input"/"not in the source": those describe a CRITERIA problem (the rubric demands
-    # content the case can't provide) the §1 guard must catch — opposite of fabrication.
-    "fabrication": ["fabricat", "invented", "hallucinat", "unsupported claim",
-                    "unsupported fact", "unsupported content", "unsupported statistic",
-                    "unsupported source"],
 }
+
+# Fabrication = content the model ADDED that the input does not support — the failure a
+# positive instruction can't prevent (diagnosis.md routes it to the Rung 3 named-prohibition
+# guardrail, not to more "be accurate" prose). It is high-priority, so precision matters and
+# it needs morphology-aware, word-boundary matching that plain substrings cannot express.
+# These patterns catch invent/invents/invented/inventing and "made up a <noun>" WITHOUT
+# firing on "inventory", "made up of", creative-writing critiques, or criteria-problem
+# phrasing ("content not in the input" = a §1 dataset problem, the opposite of fabrication).
+FABRICATION_PATTERNS = [re.compile(p) for p in (
+    r"\bfabricat",                                       # fabricate / -d / -ion
+    r"\binvent(s|ed|ing)?\b",                            # invent / -s / -ed / -ing (not inventory)
+    r"\bhallucinat",                                     # hallucinate / -d / -ion
+    r"\bmade[- ]up\s+(?:a |an |the )?"
+    r"(?:claim|fact|statistic|citation|quote|detail|number|source)",   # not "made up of"
+    r"\bunsupported\s+(?:claim|fact|content|statistic|source|citation)",
+)]
 
 
 def diagnose_tally(results: list[dict]) -> dict:
@@ -207,11 +215,14 @@ def diagnose_tally(results: list[dict]) -> dict:
                 "mandatory_fail_pct": 0.0, "theme_pct": {}}
     mandatory = sum(1 for r in results if int(r.get("score", 0)) <= MANDATORY_FAIL_MAX)
     theme_hits = {theme: 0 for theme in THEME_KEYWORDS}
+    theme_hits["fabrication"] = 0
     for r in results:
         weaknesses = " ".join(r.get("verdict", {}).get("weaknesses", [])).lower()
         for theme, keywords in THEME_KEYWORDS.items():
             if any(kw in weaknesses for kw in keywords):
                 theme_hits[theme] += 1
+        if any(p.search(weaknesses) for p in FABRICATION_PATTERNS):
+            theme_hits["fabrication"] += 1
     theme_pct = {
         theme: round(100.0 * hits / total, 1)
         for theme, hits in theme_hits.items() if hits > 0

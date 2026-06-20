@@ -67,10 +67,15 @@ class TestTally(unittest.TestCase):
                   "list is made up of redundant items"]:
             themes = diagnose_tally([{"score": 6, "verdict": {"weaknesses": [w]}}])["theme_pct"]
             self.assertNotIn("fabrication", themes, msg=w)
-        # genuine added-content phrasings still fire.
-        for w in ["invented a statistic", "fabricated a quote", "hallucinated a citation"]:
+        # genuine added-content phrasings still fire, across invent* morphology + made-up <noun>.
+        for w in ["invented a statistic", "fabricated a quote", "hallucinated a citation",
+                  "inventing a statistic", "invents facts", "invent a citation",
+                  "made up a quote", "made-up number"]:
             themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": [w]}}])["theme_pct"]
             self.assertIn("fabrication", themes, msg=w)
+        # 'inventory' shares the 'invent' stem but is not fabrication (word boundary).
+        themes = diagnose_tally([{"score": 6, "verdict": {"weaknesses": ["inventory list is wrong"]}}])["theme_pct"]
+        self.assertNotIn("fabrication", themes)
 
     def test_criteria_problem_phrasing_is_not_fabrication(self):
         # "not in the input/source" describes an IMPOSSIBLE case (criteria problem, route to
