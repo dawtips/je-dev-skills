@@ -187,7 +187,9 @@ THEME_KEYWORDS = {
     # instruction can't prevent (diagnosis.md routes this to the named-prohibition
     # guardrail, not to more "be accurate" prose).
     "fabrication": ["fabricat", "invented", "made up", "made-up", "not in the input",
-                    "not in the source", "unsupported", "hallucinat", "fictional"],
+                    "not in the source", "unsupported claim", "unsupported fact",
+                    "unsupported content", "unsupported statistic", "unsupported source",
+                    "hallucinat", "fictional"],
 }
 
 

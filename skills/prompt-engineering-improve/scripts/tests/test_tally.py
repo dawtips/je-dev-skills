@@ -46,6 +46,20 @@ class TestTally(unittest.TestCase):
         self.assertIn("fabrication", hallu["theme_pct"])
         self.assertNotIn("reasoning", hallu["theme_pct"])
 
+    def test_unsupported_does_not_overmatch_non_fabrication(self):
+        # 'unsupported' is only a fabrication signal when it qualifies a claim/fact/etc -
+        # not for 'unsupported reasoning' (reasoning) or 'unsupported formatting' (structure).
+        cases = [
+            {"score": 5, "verdict": {"weaknesses": ["unsupported reasoning on the hard case"]}},
+            {"score": 5, "verdict": {"weaknesses": ["unsupported formatting choice; sections out of order"]}},
+        ]
+        for c in cases:
+            themes = diagnose_tally([c])["theme_pct"]
+            self.assertNotIn("fabrication", themes, msg=c["verdict"]["weaknesses"])
+        # but a qualified phrase still fires fabrication.
+        themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["unsupported claim about revenue"]}}])["theme_pct"]
+        self.assertIn("fabrication", themes)
+
     def test_empty_results_is_zeroed(self):
         tally = diagnose_tally([])
         self.assertEqual(tally["mandatory_fail_count"], 0)
