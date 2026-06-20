@@ -211,21 +211,27 @@ FABRICATION_STRONG = [re.compile(p) for p in (
 )]
 
 
-# Suppress when a fabrication stem appears in a NEGATION or guardrail-discussion context
-# ("no evidence of fabrication", "missing anti-fabrication guardrail", "does not forbid
-# inventing") rather than as an actual added-content finding. Substring tallies can't fully
-# model negation (true of every theme here) — this covers the common forms; the rest is the
-# model's call, per the "hint, not classifier" contract.
-FABRICATION_NEGATED = re.compile(
-    r"\b(no|not|n't|without|missing|lacks?|absent|anti)\b[\w\s-]{0,30}?"
-    r"(fabricat|invent|hallucinat)"
-)
+# A fabrication stem can appear in a NEGATION / guardrail-discussion context ("no evidence
+# of fabrication", "missing anti-fabrication guardrail", "does not forbid inventing") rather
+# than as a real added-content finding. Scope that check to the *clause*: split the weakness
+# on punctuation / conjunctions so a negation about one issue ("does NOT cite sources, and
+# fabricates statistics") can't cancel a real fabrication in another clause. Substring
+# tallies can't fully model negation (true of every theme) — this covers the common forms;
+# the rest is the model's call, per the "hint, not classifier" contract.
+_CLAUSE_SPLIT = re.compile(r"[,;.]|\band\b|\bbut\b|\bwhile\b|\byet\b")
+FABRICATION_NEGATED = re.compile(r"\b(no|not|n't|without|missing|lacks?|absent|anti)\b")
 
 
 def _is_fabrication(weaknesses: str) -> bool:
-    if FABRICATION_NEGATED.search(weaknesses):
-        return False
-    return any(p.search(weaknesses) for p in FABRICATION_STRONG)
+    # In each clause, a strong stem counts unless a negation precedes it *in that clause*.
+    # "Before the stem" matters: "fabricated X not in the input" is real fabrication (the
+    # 'not' describes the object), whereas "did not fabricate" is negated.
+    for clause in _CLAUSE_SPLIT.split(weaknesses):
+        for pattern in FABRICATION_STRONG:
+            m = pattern.search(clause)
+            if m and not FABRICATION_NEGATED.search(clause, 0, m.start()):
+                return True
+    return False
 
 
 def diagnose_tally(results: list[dict]) -> dict:

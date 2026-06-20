@@ -88,6 +88,14 @@ class TestTally(unittest.TestCase):
         # a real finding in the same sentence as the word 'not' (after the verb) still fires.
         themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": ["fabricated a quote, not paraphrased"]}}])["theme_pct"]
         self.assertIn("fabrication", themes)
+        # negation is CLAUSE-scoped: a negated issue in one clause must not cancel a real
+        # fabrication in another clause of the same weakness.
+        for w in ["does not cite sources and fabricates statistics",
+                  "does not follow format and invents facts",
+                  "without required structure and fabricated claims",
+                  "missing citations and fabricated details"]:
+            themes = diagnose_tally([{"score": 3, "verdict": {"weaknesses": [w]}}])["theme_pct"]
+            self.assertIn("fabrication", themes, msg=w)
 
     def test_criteria_problem_phrasing_is_not_fabrication(self):
         # "not in the input/source" describes an IMPOSSIBLE case (criteria problem, route to
