@@ -1,0 +1,19 @@
+{
+  "content": "When a change spans two repos but the working environment can only push to one (e.g. a Codespace token scoped to a single repo returns 403 on the sibling repo), don't silently drop the cross-repo half. Record the exact change as a durable, self-contained handoff in a place the other repo's maintainer will see: the full patch (git-am-able), the precise insertion anchors (file + the lines it sits between), the base commit, and a copy-pasteable manual fallback. A PR comment on the merged work is a good carrier. The receiving repo then applies it as a normal ticket, cross-linking the source issue.",
+  "context": "T-032 (2026-06-22): presales-sqnce #115 had a cross-repo half — a generation-time input-contract audit step for je-dev-skills' create-dataset skill. It was committed in the presales Codespace (branch 115-input-contract-audit, e4f6270) but the token was scoped to presales-sqnce, so push to dawtips/je-dev-skills 403'd. The author left a PR-116 comment with both an apply-the-patch path and a paste-manually path, exact anchors, and base commit d55339f. Applying it here was mechanical and verbatim; lint + all offline suites stayed green.",
+  "createdDate": "2026-06-22",
+  "id": "L-014",
+  "lastValidated": "2026-06-22",
+  "reinforcements": 0,
+  "source": "manual",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "cross-repo",
+    "handoff",
+    "process",
+    "permissions"
+  ],
+  "title": "Cross-repo change you can't push: leave a self-contained, apply-able handoff",
+  "updatedDate": "2026-06-22"
+}

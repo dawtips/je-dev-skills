@@ -1,0 +1,13 @@
+{
+  "blockedBy": [],
+  "completedDate": "2026-06-22",
+  "createdDate": "2026-06-22",
+  "description": "## Context\n\nCross-repo half of presales-sqnce #115. The deterministic implementation (PR #116, merged) makes silently-dropped inventory inputs fail loud at the eval-adapter via a new `invalidPromptInputs` input-validity preflight. The complementary, generation-time guard belongs in this repo's `create-dataset` skill so violating cases are never frozen in the first place. The change was committed locally in the presales Codespace (branch `115-input-contract-audit`, `e4f6270`) but could not be pushed (token scoped to presales-sqnce); the exact patch + apply instructions were recorded as a comment on presales-sqnce PR #116.\n\n## Desired behavior\n\nTeach the create-dataset procedure to run the project's input-contract check before freezing and refuse to freeze a violating case (regenerate valid-by-construction, do not hand-trim). Document presales-sqnce's `eval-fixtures` drift guard as the concrete instance; projects with no input validators skip the audit.\n\n## Acceptance criteria\n\n- `skills/prompt-evals-create-dataset/SKILL.md` §5 gains an \"Input-contract audit\" sub-step between the `exit 1/2` hand-off line and the `cases.json` spot-check paragraph (verbatim from the PR #116 comment).\n- `skill_lint.py` clean; offline test suites green.\n- Plugin version bumped 0.6.0 -> 0.6.1 (docs change).\n\n## Provenance\n\npresales-sqnce #115 / PR #116 (merged 2026-06-23). Source patch: presales `115-input-contract-audit` @ e4f6270.",
+  "id": "T-032",
+  "order": 52,
+  "phase": "eval-hardening",
+  "relatedTickets": [],
+  "status": "complete",
+  "title": "Generation-time input-contract audit step in create-dataset (presales #115)",
+  "type": "feature"
+}

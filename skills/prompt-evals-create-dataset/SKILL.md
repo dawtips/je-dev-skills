@@ -226,6 +226,25 @@ Interpret the exit code before continuing:
 
 Do not hand off to `prompt-evals-run` while the audit exits `1` or `2`.
 
+#### Input-contract audit (root-cause prevention for silent input drops)
+
+When the dataset's `prompt_inputs` stand in for **upstream outputs that declare validators**,
+run the project's input-contract check over the frozen cases **before freezing** and refuse to
+freeze any violating case. A `prompt_input` key resolves to a step (`keyOf`); its source step's
+first output may declare `validate: <name>` — if so, the input value must pass `VALIDATORS[<name>]`.
+Inputs whose source output declares no validator (e.g. `intake_facts`) pass through unvalidated.
+
+A violating case must be **regenerated so it is valid-by-construction**, not hand-trimmed.
+
+For `presales-sqnce` the check is the `eval-fixtures` drift guard, which runs every case's
+`prompt_inputs` through `invalidPromptInputs` (each input validated by its source output's named
+validator):
+
+    CI=true node --test tests/eval-fixtures.test.js
+
+A clean run means every input satisfies its source output's validator. Projects with no input
+validators skip this audit.
+
 After the command is clean, open `cases.json` and spot-check each case's
 `solution_criteria`. Bad criteria silently corrupt every downstream score. Apply the §7
 standard:
