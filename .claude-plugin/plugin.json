@@ -1,6 +1,6 @@
 {
   "name": "je-dev-skills",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Author, measure, and improve prompts inside Claude Code: author a strong prompt (prompt-engineering-author), measure it with evals (prompt-evals-*), and improve it through an eval-driven loop (prompt-engineering-improve) — plus bootstrap a project's storybloq + superpowers dev workflow (dev-workflow-init).",
   "author": {
     "name": "dawtips",
