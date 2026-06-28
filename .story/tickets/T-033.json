@@ -1,0 +1,12 @@
+{
+  "blockedBy": [],
+  "createdDate": "2026-06-28",
+  "description": "## Context\n\nSurfaced by the presales-sqnce Path-A graded re-baseline. The framework's render-artifact step (`render_command_adapter`) and the Path-B command step (`run_command_adapter`) both feed the adapter its JSON payload via `subprocess.run(..., input=...)`, which hands the child a PIPE on fd 0. A project adapter that reads fd 0 synchronously (e.g. Node `readFileSync(0)`) gets `EAGAIN: resource temporarily unavailable` on a large pipe payload in the WSL/Node sandbox — persistently, not transiently (design-brief case 2, ~81 KB, failed 4/4 retries; the Codex reviewers hit the same).\n\nThe proven workaround was to render via a shell redirect (`eval-adapter --render < case-inputs.json`), which makes fd 0 a REGULAR FILE — always read-ready, so it never EAGAINs. This ticket generalizes that workaround into the framework so large payloads render reliably for every consumer, with no adapter change.\n\nThe 500-char clarifying-question overflow that also blocked case 4 is a presales-sqnce dataset issue (their q-3 truncation handles it), not a framework bug, and is out of scope here.\n\n## Desired behavior\n\nFeed both command adapters their payload on a regular-file stdin instead of a pipe. Same bytes on fd 0, same `(JSON on stdin -> text on stdout)` contract, same timeout/non-zero-exit error behavior — only the fd *type* changes (pipe -> regular file).\n\n## Acceptance criteria\n\n- `render_command_adapter` and `run_command_adapter` in `artifact_runner.py` feed the child a regular-file stdin (not `input=`/pipe).\n- New regression tests assert fd 0 is a regular file (not a FIFO) for both functions; existing stdout/timeout/non-zero-exit tests stay green.\n- `skill_lint.py` clean; all offline test suites green.\n- Plugin version bumped 0.6.1 -> 0.6.2 (patch/fix).\n\n## Provenance\n\npresales-sqnce Path-A graded re-baseline (2026-06-28). Render path added in T-026.",
+  "id": "T-033",
+  "order": 53,
+  "phase": "eval-hardening",
+  "relatedTickets": ["T-026"],
+  "status": "in_progress",
+  "title": "Render/command adapters EAGAIN on large payloads: feed via regular-file stdin, not a pipe",
+  "type": "bug"
+}

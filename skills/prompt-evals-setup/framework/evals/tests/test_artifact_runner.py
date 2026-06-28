@@ -25,6 +25,7 @@ from evals.artifact_runner import (
 from evals.promptprep import MissingPlaceholderError
 
 _ADAPTER = Path(__file__).parent / "fixtures" / "adapters" / "echo_adapter.py"
+_STDIN_KIND_ADAPTER = Path(__file__).parent / "fixtures" / "adapters" / "stdin_kind_adapter.py"
 
 
 def _prompt_eval(root: Path):
@@ -113,6 +114,24 @@ class TestCommandAdapterMode(unittest.TestCase):
             spec = _adapter_eval(Path(d).resolve())
             out = run_command_adapter(spec, {"prompt_inputs": {"goal": "retention"}})
             self.assertEqual(out, "adapter saw retention")
+
+    def test_adapter_receives_regular_file_stdin_not_pipe(self):
+        """Path-B payload reaches the adapter on a regular-file stdin, not a pipe.
+
+        A pipe stdin EAGAINs under a synchronous fd-0 read (e.g. Node readFileSync(0))
+        on large payloads in some sandboxes (observed in WSL); a regular file never
+        does. Regression guard for the large-payload EAGAIN (T-033).
+        """
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            scaffold_eval_artifacts(
+                root, "agent", mode="command_adapter",
+                command=[sys.executable, str(_STDIN_KIND_ADAPTER)],
+            )
+            spec = load_eval_spec(root / "evals" / "agent" / "eval.json")
+            self.assertEqual(
+                run_command_adapter(spec, {"prompt_inputs": {"goal": "x"}}), "regular"
+            )
 
     def test_adapter_raises_on_subprocess_failure(self):
         import subprocess
@@ -296,6 +315,18 @@ class TestRenderCommandAdapter(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             spec = _render_only_eval(Path(d).resolve(), [sys.executable, str(_RENDER_ADAPTER)])
             self.assertEqual(render_command_adapter(spec, {"goal": "retention"}), "PROMPT for retention")
+
+    def test_feeds_adapter_regular_file_stdin_not_pipe(self):
+        """Render payload reaches the adapter on a regular-file stdin, not a pipe.
+
+        A pipe stdin EAGAINs under a synchronous fd-0 read (e.g. Node readFileSync(0))
+        on large payloads in some sandboxes (observed persistently in WSL for ~80 KB
+        renders); a regular file never does. Regression guard for the render-artifact
+        EAGAIN (T-033).
+        """
+        with tempfile.TemporaryDirectory() as d:
+            spec = _render_only_eval(Path(d).resolve(), [sys.executable, str(_STDIN_KIND_ADAPTER)])
+            self.assertEqual(render_command_adapter(spec, {"goal": "x"}), "regular")
 
     def test_raises_on_failure(self):
         import subprocess
