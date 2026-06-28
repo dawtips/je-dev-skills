@@ -60,7 +60,7 @@ def _run_adapter_with_file_stdin(
         stdin_file.write(payload.encode("utf-8"))
         stdin_file.seek(0)
         proc = subprocess.run(
-            list(argv),
+            argv,
             stdin=stdin_file,
             capture_output=True,
             text=True,

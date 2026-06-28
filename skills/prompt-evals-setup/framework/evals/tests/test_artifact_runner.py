@@ -118,9 +118,8 @@ class TestCommandAdapterMode(unittest.TestCase):
     def test_adapter_receives_regular_file_stdin_not_pipe(self):
         """Path-B payload reaches the adapter on a regular-file stdin, not a pipe.
 
-        A pipe stdin EAGAINs under a synchronous fd-0 read (e.g. Node readFileSync(0))
-        on large payloads in some sandboxes (observed in WSL); a regular file never
-        does. Regression guard for the large-payload EAGAIN (T-033).
+        Regression guard for the large-payload EAGAIN; see _run_adapter_with_file_stdin
+        for the rationale (T-033).
         """
         with tempfile.TemporaryDirectory() as d:
             root = Path(d).resolve()
@@ -319,10 +318,8 @@ class TestRenderCommandAdapter(unittest.TestCase):
     def test_feeds_adapter_regular_file_stdin_not_pipe(self):
         """Render payload reaches the adapter on a regular-file stdin, not a pipe.
 
-        A pipe stdin EAGAINs under a synchronous fd-0 read (e.g. Node readFileSync(0))
-        on large payloads in some sandboxes (observed persistently in WSL for ~80 KB
-        renders); a regular file never does. Regression guard for the render-artifact
-        EAGAIN (T-033).
+        Regression guard for the render-artifact EAGAIN; see _run_adapter_with_file_stdin
+        for the rationale (T-033).
         """
         with tempfile.TemporaryDirectory() as d:
             spec = _render_only_eval(Path(d).resolve(), [sys.executable, str(_STDIN_KIND_ADAPTER)])
