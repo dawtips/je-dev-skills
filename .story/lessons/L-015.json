@@ -1,0 +1,21 @@
+{
+  "content": "When a parent process feeds a child subprocess a large payload, do not use a pipe on the child's stdin if the child may read fd 0 synchronously. In Python that means avoid subprocess.run(input=...) for large inputs; in shells avoid `cmd | child`. A synchronous read of a *pipe* fd (e.g. Node readFileSync(0), or any blocking read on a non-blocking fd) can fail with `EAGAIN: resource temporarily unavailable` on large payloads in some sandboxes (observed persistently under WSL for ~80 KB) — it is not transient and retries do not help. A *regular-file* fd is always read-ready and never EAGAINs, so write the payload to a temp file and pass it as the child's stdin (`subprocess.run(stdin=open_tempfile)`, or a shell `< file` redirect). Same bytes on fd 0, same contract; only the fd type changes. Per-call temp files are thread-safe, and a `with` block cleans up the fd even on timeout/non-zero-exit paths.",
+  "context": "T-033 (2026-06-28): the prompt-evals framework's render/command adapters fed `{prompt_inputs}` via subprocess.run(input=...) (a pipe). A presales-sqnce Path-A re-baseline hit EAGAIN on a ~81 KB render because the project's Node adapter reads fd 0 with readFileSync(0); 4/4 retries failed, and the manual `< case-inputs.json` redirect rendered first-try. Fix: a `_run_adapter_with_file_stdin` helper that writes the payload to a tempfile and passes it as stdin=. RED test asserted fd 0 was a FIFO before, a regular file after.",
+  "createdDate": "2026-06-28",
+  "id": "L-015",
+  "lastValidated": "2026-06-28",
+  "reinforcements": 0,
+  "source": "manual",
+  "status": "active",
+  "supersedes": null,
+  "tags": [
+    "subprocess",
+    "stdin",
+    "pipe",
+    "eagain",
+    "wsl",
+    "robustness"
+  ],
+  "title": "Large payload to a subprocess: feed a regular-file stdin, not a pipe (avoids EAGAIN)",
+  "updatedDate": "2026-06-28"
+}
