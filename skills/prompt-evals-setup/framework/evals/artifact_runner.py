@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import inspect
 import subprocess
+import tempfile
 from typing import Callable
 
 from evals import config
@@ -41,6 +42,35 @@ def render_prompt_file(spec: EvalSpec, prompt_inputs: dict) -> str:
     return render(template, **prompt_inputs)
 
 
+def _run_adapter_with_file_stdin(
+    argv: list[str], payload: str, *, cwd: str, timeout: float | None
+) -> str:
+    """Run ``argv`` feeding ``payload`` on a regular-file stdin, returning captured stdout.
+
+    Why a temp file rather than ``subprocess.run(input=…)``: ``input=`` hands the child a
+    *pipe* on fd 0. An adapter that reads fd 0 synchronously (e.g. Node's
+    ``readFileSync(0)``) gets ``EAGAIN: resource temporarily unavailable`` on a large pipe
+    payload in some sandboxes (observed persistently under WSL for ~80 KB renders). A
+    regular-file fd is always read-ready, so the same bytes on fd 0 are delivered
+    reliably. The adapter contract (JSON on stdin, text on stdout) is unchanged; only the
+    fd *type* differs. ``capture_output``/``check``/``timeout`` semantics match ``input=``:
+    a non-zero exit raises ``CalledProcessError`` and a timeout raises ``TimeoutExpired``.
+    """
+    with tempfile.TemporaryFile() as stdin_file:
+        stdin_file.write(payload.encode("utf-8"))
+        stdin_file.seek(0)
+        proc = subprocess.run(
+            argv,
+            stdin=stdin_file,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            check=True,
+            timeout=timeout,
+        )
+    return proc.stdout
+
+
 def run_command_adapter(
     spec: EvalSpec, case: dict, *, timeout: float | None = config.ADAPTER_TIMEOUT_SECONDS
 ) -> str:
@@ -49,19 +79,15 @@ def run_command_adapter(
     ``timeout`` (seconds) bounds the subprocess so a hung adapter cannot block its
     worker thread forever; on expiry ``subprocess.run`` raises ``TimeoutExpired``,
     which the per-case run handler records as a case failure.
+
+    The case JSON is fed on a regular-file stdin (not a pipe) so adapters that read fd 0
+    synchronously do not EAGAIN on large payloads; see ``_run_adapter_with_file_stdin``.
     """
     if not spec.command:
         raise ValueError("run_command_adapter requires a command_adapter-mode eval spec")
-    proc = subprocess.run(
-        list(spec.command),
-        input=json.dumps(case),
-        capture_output=True,
-        text=True,
-        cwd=str(spec.project_root),
-        check=True,
-        timeout=timeout,
+    return _run_adapter_with_file_stdin(
+        list(spec.command), json.dumps(case), cwd=str(spec.project_root), timeout=timeout
     )
-    return proc.stdout
 
 
 def render_command_adapter(
@@ -79,16 +105,12 @@ def render_command_adapter(
             "render_command_adapter requires a command_adapter-mode eval spec with "
             "target.render_command"
         )
-    proc = subprocess.run(
+    return _run_adapter_with_file_stdin(
         list(spec.render_command),
-        input=json.dumps({"prompt_inputs": prompt_inputs}),
-        capture_output=True,
-        text=True,
+        json.dumps({"prompt_inputs": prompt_inputs}),
         cwd=str(spec.project_root),
-        check=True,
         timeout=timeout,
     )
-    return proc.stdout
 
 
 def build_run_function(spec: EvalSpec, *, executor: Executor | None = None) -> RunFunction:
